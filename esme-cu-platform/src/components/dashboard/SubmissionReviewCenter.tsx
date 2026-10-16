@@ -15,6 +15,7 @@ import {
   X
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
+import { useStickyNonNull, ModalShell } from '../../motion';
 import type { TaskSubmission } from '../../types';
 
 export const SubmissionReviewCenter: React.FC = () => {
@@ -60,6 +61,9 @@ export const SubmissionReviewCenter: React.FC = () => {
     setReviewAction(null);
     setFeedback('');
   };
+
+  const viewSub = useStickyNonNull(activeSubmission);
+  const viewAction = useStickyNonNull(reviewAction);
 
   return (
     <div className="space-y-6">
@@ -212,15 +216,15 @@ export const SubmissionReviewCenter: React.FC = () => {
       </div>
 
       {/* Review Action Modal */}
-      {activeSubmission && reviewAction && (
-        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 max-w-lg w-full shadow-2xl animate-in zoom-in-95">
+      <ModalShell open={!!activeSubmission && !!reviewAction} onClose={() => { setActiveSubmission(null); setReviewAction(null); }} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 max-w-lg w-full shadow-2xl">
+          {viewSub && viewAction && (
+          <>
             <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800 mb-4">
               <div>
                 <h2 className="text-base font-bold text-slate-900 dark:text-white capitalize">
-                  {reviewAction.replace('_', ' ')} Submission
+                  {viewAction.replace('_', ' ')} Submission
                 </h2>
-                <p className="text-[11px] text-slate-400 mt-0.5">{activeSubmission.taskTitle}</p>
+                <p className="text-[11px] text-slate-400 mt-0.5">{viewSub.taskTitle}</p>
               </div>
               <button onClick={() => { setActiveSubmission(null); setReviewAction(null); }} className="text-slate-400 hover:text-slate-600">
                 <X className="w-5 h-5" />
@@ -228,7 +232,7 @@ export const SubmissionReviewCenter: React.FC = () => {
             </div>
 
             <form onSubmit={handleConfirmReview} className="space-y-4 text-xs">
-              {reviewAction === 'approved' && (
+              {viewAction === 'approved' && (
                 <div>
                   <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">Points to Award</label>
                   <input
@@ -246,14 +250,14 @@ export const SubmissionReviewCenter: React.FC = () => {
 
               <div>
                 <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
-                  {reviewAction === 'revision_requested' ? 'Revision Instructions (Required)' : 'Review Feedback & Notes'}
+                  {viewAction === 'revision_requested' ? 'Revision Instructions (Required)' : 'Review Feedback & Notes'}
                 </label>
                 <textarea
-                  required={reviewAction === 'revision_requested'}
+                  required={viewAction === 'revision_requested'}
                   rows={3}
                   value={feedback}
                   onChange={(e) => setFeedback(e.target.value)}
-                  placeholder={reviewAction === 'revision_requested' ? 'Specify missing citations, formatting flaws, or required fixes...' : 'Feedback for the student...'}
+                  placeholder={viewAction === 'revision_requested' ? 'Specify missing citations, formatting flaws, or required fixes...' : 'Feedback for the student...'}
                   className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 outline-none"
                 />
               </div>
@@ -269,18 +273,18 @@ export const SubmissionReviewCenter: React.FC = () => {
                 <button
                   type="submit"
                   className={`px-5 py-2 font-bold rounded-xl text-white ${
-                    reviewAction === 'approved' ? 'bg-emerald-600 hover:bg-emerald-700' :
-                    reviewAction === 'revision_requested' ? 'bg-amber-600 hover:bg-amber-700' :
+                    viewAction === 'approved' ? 'bg-emerald-600 hover:bg-emerald-700' :
+                    viewAction === 'revision_requested' ? 'bg-amber-600 hover:bg-amber-700' :
                     'bg-red-600 hover:bg-red-700'
                   }`}
                 >
-                  Confirm {reviewAction.replace('_', ' ')}
+                  Confirm {viewAction.replace('_', ' ')}
                 </button>
               </div>
             </form>
-          </div>
-        </div>
-      )}
+          </>
+          )}
+      </ModalShell>
 
     </div>
   );

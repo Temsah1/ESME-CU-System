@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { motion } from 'motion/react';
 import { 
   CheckSquare, 
   Plus, 
@@ -15,6 +16,7 @@ import {
   X
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
+import { useStickyNonNull, ModalShell, useToast } from '../../motion';
 import type { Task, TaskStatus } from '../../types';
 
 export const TaskCommandCenter: React.FC = () => {
@@ -26,6 +28,7 @@ export const TaskCommandCenter: React.FC = () => {
   const [priorityFilter, setPriorityFilter] = useState('all');
   
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const { toast } = useToast();
   const [selectedTaskForSubmission, setSelectedTaskForSubmission] = useState<Task | null>(null);
 
   // New task form state
@@ -95,6 +98,7 @@ export const TaskCommandCenter: React.FC = () => {
       category: newTask.category
     });
 
+    toast(`Task "${newTask.title}" created`);
     setIsCreateModalOpen(false);
     setNewTask({
       title: '',
@@ -127,10 +131,13 @@ export const TaskCommandCenter: React.FC = () => {
       proposedPoints: selectedTaskForSubmission.points
     });
 
+    toast('Deliverable submitted for review');
     setSelectedTaskForSubmission(null);
     setSubmissionDesc('');
     setSubmissionLinks('');
   };
+
+  const viewTask = useStickyNonNull(selectedTaskForSubmission);
 
   return (
     <div className="space-y-6">
@@ -149,22 +156,24 @@ export const TaskCommandCenter: React.FC = () => {
         <div className="flex items-center gap-2 self-start sm:self-auto">
           {/* View toggle */}
           <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-1 flex">
-            <button
-              onClick={() => setViewMode('board')}
-              className={`px-3 py-1 rounded-lg text-xs font-bold transition ${
-                viewMode === 'board' ? 'bg-[#123B60] text-white' : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
-              }`}
-            >
-              Kanban
-            </button>
-            <button
-              onClick={() => setViewMode('table')}
-              className={`px-3 py-1 rounded-lg text-xs font-bold transition ${
-                viewMode === 'table' ? 'bg-[#123B60] text-white' : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
-              }`}
-            >
-              Table
-            </button>
+            {(['board', 'table'] as const).map((mode) => (
+              <button
+                key={mode}
+                onClick={() => setViewMode(mode)}
+                className={`relative px-3 py-1 rounded-lg text-xs font-bold ${
+                  viewMode === mode ? 'text-white' : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
+                }`}
+              >
+                {viewMode === mode && (
+                  <motion.span
+                    layoutId="task-view-pill"
+                    className="absolute inset-0 bg-[#123B60] rounded-lg"
+                    transition={{ type: 'spring', stiffness: 420, damping: 32 }}
+                  />
+                )}
+                <span className="relative z-10">{mode === 'board' ? 'Kanban' : 'Table'}</span>
+              </button>
+            ))}
           </div>
 
           {canCreateTask && (
@@ -220,7 +229,13 @@ export const TaskCommandCenter: React.FC = () => {
 
       {/* Kanban Board View */}
       {viewMode === 'board' ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 overflow-x-auto pb-4">
+        <motion.div
+          key="board"
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
+          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 overflow-x-auto pb-4"
+        >
           {columns.map((col) => {
             const colTasks = filteredTasks.filter(t => t.status === col.status);
             return (
@@ -241,7 +256,7 @@ export const TaskCommandCenter: React.FC = () => {
                   {colTasks.map((t) => (
                     <div
                       key={t.id}
-                      className="bg-white dark:bg-slate-900 rounded-xl p-3.5 border border-slate-200 dark:border-slate-800 shadow-xs hover:shadow-md transition space-y-2.5"
+                      className="bg-white dark:bg-slate-900 rounded-xl p-3.5 border border-slate-200 dark:border-slate-800 shadow-xs hover:shadow-md hover:-translate-y-0.5 hover:border-[#123B60]/30 transition-all duration-200 space-y-2.5"
                     >
                       <div className="flex items-center justify-between">
                         <span className="text-[10px] px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 font-bold text-[#123B60] dark:text-[#F59A16]">
@@ -296,10 +311,16 @@ export const TaskCommandCenter: React.FC = () => {
               </div>
             );
           })}
-        </div>
+        </motion.div>
       ) : (
         /* Table View */
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-sm">
+        <motion.div
+          key="table"
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
+          className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-sm"
+        >
           <table className="w-full text-left text-xs">
             <thead className="bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800 text-slate-500 font-semibold uppercase text-[10px]">
               <tr>
@@ -314,7 +335,7 @@ export const TaskCommandCenter: React.FC = () => {
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
               {filteredTasks.map((t) => (
-                <tr key={t.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/40">
+                <tr key={t.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors duration-150">
                   <td className="py-3 px-4">
                     <div className="font-bold text-slate-800 dark:text-slate-100">{t.title}</div>
                     <div className="text-[11px] text-slate-400 line-clamp-1">{t.description}</div>
@@ -344,13 +365,11 @@ export const TaskCommandCenter: React.FC = () => {
               ))}
             </tbody>
           </table>
-        </div>
+        </motion.div>
       )}
 
       {/* Create Task Modal */}
-      {isCreateModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 max-w-lg w-full shadow-2xl animate-in zoom-in-95">
+      <ModalShell open={isCreateModalOpen} onClose={() => setIsCreateModalOpen(false)} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 max-w-lg w-full shadow-2xl">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800 mb-4">
               <h2 className="text-base font-bold text-slate-900 dark:text-white">Create New Organization Task</h2>
               <button onClick={() => setIsCreateModalOpen(false)} className="text-slate-400 hover:text-slate-600">
@@ -486,18 +505,16 @@ export const TaskCommandCenter: React.FC = () => {
                 </button>
               </div>
             </form>
-          </div>
-        </div>
-      )}
+      </ModalShell>
 
       {/* Submit Work Modal */}
-      {selectedTaskForSubmission && (
-        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 max-w-lg w-full shadow-2xl animate-in zoom-in-95">
+      <ModalShell open={!!selectedTaskForSubmission} onClose={() => setSelectedTaskForSubmission(null)} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 max-w-lg w-full shadow-2xl">
+          {viewTask && (
+          <>
             <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800 mb-4">
               <div>
                 <h2 className="text-base font-bold text-slate-900 dark:text-white">Submit Task Deliverables</h2>
-                <p className="text-[11px] text-slate-400 mt-0.5">{selectedTaskForSubmission.title}</p>
+                <p className="text-[11px] text-slate-400 mt-0.5">{viewTask.title}</p>
               </div>
               <button onClick={() => setSelectedTaskForSubmission(null)} className="text-slate-400 hover:text-slate-600">
                 <X className="w-5 h-5" />
@@ -508,7 +525,7 @@ export const TaskCommandCenter: React.FC = () => {
               <div className="p-3 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800/40 rounded-xl text-amber-800 dark:text-amber-200">
                 <div className="font-bold flex items-center gap-1.5 mb-1">
                   <Award className="w-3.5 h-3.5 text-[#F59A16]" />
-                  Potential Reward: {selectedTaskForSubmission.points} Points
+                  Potential Reward: {viewTask.points} Points
                 </div>
                 <div className="text-[11px]">Points are awarded into the chapter ledger upon director review and approval.</div>
               </div>
@@ -553,9 +570,9 @@ export const TaskCommandCenter: React.FC = () => {
                 </button>
               </div>
             </form>
-          </div>
-        </div>
-      )}
+          </>
+          )}
+      </ModalShell>
 
     </div>
   );

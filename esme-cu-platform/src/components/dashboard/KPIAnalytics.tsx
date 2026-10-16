@@ -1,4 +1,5 @@
 import React from 'react';
+import { motion } from 'motion/react';
 import { 
   BarChart, 
   Bar, 
@@ -15,6 +16,19 @@ import {
   LineChart as LineChartIcon
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
+import { AnimatedNumber, Reveal, StaggerGroup, StaggerItem, groupItemScale } from '../../motion';
+
+const ChartCard: React.FC<{ children: React.ReactNode }> = ({ children }) => (
+  <motion.div
+    initial={{ opacity: 0, y: 20 }}
+    whileInView={{ opacity: 1, y: 0 }}
+    viewport={{ once: true, amount: 0.2 }}
+    transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+    className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-sm hover:shadow-md transition-shadow"
+  >
+    {children}
+  </motion.div>
+);
 
 export const KPIAnalytics: React.FC = () => {
   const { users, committees, tasks, submissions, seasonEvents, scoreLedger } = useApp();
@@ -64,53 +78,65 @@ export const KPIAnalytics: React.FC = () => {
     <div className="space-y-8">
       
       {/* Header */}
-      <div>
-        <h1 className="text-xl font-black text-slate-900 dark:text-white">Organization KPI & Analytics Intelligence</h1>
-        <p className="text-xs text-slate-500">
-          Real-time organizational health, task throughput, committee point distributions, and member performance metrics.
-        </p>
-      </div>
+      <Reveal y={14}>
+        <div>
+          <h1 className="text-xl font-black text-slate-900 dark:text-white">Organization KPI & Analytics Intelligence</h1>
+          <p className="text-xs text-slate-500">
+            Real-time organizational health, task throughput, committee point distributions, and member performance metrics.
+          </p>
+        </div>
+      </Reveal>
 
       {/* Top 4 Performance Badges */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm">
-          <div className="text-slate-400 text-xs font-semibold">Total Roster Strength</div>
-          <div className="text-2xl font-black text-[#123B60] dark:text-white mt-2">{users.length} Students</div>
-          <div className="text-[11px] text-emerald-600 font-semibold mt-1">100% Cairo University affiliated</div>
-        </div>
-
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm">
-          <div className="text-slate-400 text-xs font-semibold">Deliverable Approval Rate</div>
-          <div className="text-2xl font-black text-emerald-600 mt-2">
-            {submissions.length > 0 
-              ? `${Math.round((submissions.filter(s => s.status === 'approved').length / submissions.length) * 100)}%` 
-              : 'N/A'}
+      <StaggerGroup className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4" step={0.07} amount={0.15}>
+        <StaggerItem variants={groupItemScale}>
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm hover:shadow-md hover:border-[#123B60]/30 transition-all duration-200">
+            <div className="text-slate-400 text-xs font-semibold">Total Roster Strength</div>
+            <div className="text-2xl font-black text-[#123B60] dark:text-white mt-2">
+              <AnimatedNumber value={users.length} startOnView /> Students
+            </div>
+            <div className="text-[11px] text-emerald-600 font-semibold mt-1">100% Cairo University affiliated</div>
           </div>
-          <div className="text-[11px] text-slate-400 mt-1">{submissions.filter(s => s.status === 'approved').length} approved submissions</div>
-        </div>
+        </StaggerItem>
 
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm">
-          <div className="text-slate-400 text-xs font-semibold">Approved Points Circulated</div>
-          <div className="text-2xl font-black text-[#F59A16] mt-2">
-            {scoreLedger.reduce((a, b) => a + b.points, 0).toLocaleString()} pts
+        <StaggerItem variants={groupItemScale}>
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm hover:shadow-md hover:border-emerald-500/40 transition-all duration-200">
+            <div className="text-slate-400 text-xs font-semibold">Deliverable Approval Rate</div>
+            <div className="text-2xl font-black text-emerald-600 mt-2">
+              {submissions.length > 0
+                ? <><AnimatedNumber value={Math.round((submissions.filter(s => s.status === 'approved').length / submissions.length) * 100)} format={(n) => `${Math.round(n)}%`} startOnView /></>
+                : 'N/A'}
+            </div>
+            <div className="text-[11px] text-slate-400 mt-1">{submissions.filter(s => s.status === 'approved').length} approved submissions</div>
           </div>
-          <div className="text-[11px] text-slate-400 mt-1">Directly tied to verified deliverables</div>
-        </div>
+        </StaggerItem>
 
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm">
-          <div className="text-slate-400 text-xs font-semibold">Season Milestone Track</div>
-          <div className="text-2xl font-black text-purple-600 mt-2">
-            {seasonEvents.length} Targets
+        <StaggerItem variants={groupItemScale}>
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm hover:shadow-md hover:border-[#F59A16]/40 transition-all duration-200">
+            <div className="text-slate-400 text-xs font-semibold">Approved Points Circulated</div>
+            <div className="text-2xl font-black text-[#F59A16] mt-2">
+              <AnimatedNumber value={scoreLedger.reduce((a, b) => a + b.points, 0)} startOnView /> pts
+            </div>
+            <div className="text-[11px] text-slate-400 mt-1">Directly tied to verified deliverables</div>
           </div>
-          <div className="text-[11px] text-slate-400 mt-1">4 Summits, 10 Workshops, 3 Issues</div>
-        </div>
-      </div>
+        </StaggerItem>
+
+        <StaggerItem variants={groupItemScale}>
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm hover:shadow-md hover:border-purple-500/40 transition-all duration-200">
+            <div className="text-slate-400 text-xs font-semibold">Season Milestone Track</div>
+            <div className="text-2xl font-black text-purple-600 mt-2">
+              <AnimatedNumber value={seasonEvents.length} startOnView /> Targets
+            </div>
+            <div className="text-[11px] text-slate-400 mt-1">4 Summits, 10 Workshops, 3 Issues</div>
+          </div>
+        </StaggerItem>
+      </StaggerGroup>
 
       {/* Main Charts Row */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         
         {/* Committee Member Size */}
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-sm">
+        <ChartCard>
           <h2 className="text-sm font-bold text-slate-900 dark:text-white mb-1">Roster Size by Committee</h2>
           <p className="text-[11px] text-slate-400 mb-6">Distribution of active members across technical and creative branches</p>
           <div className="h-64">
@@ -122,14 +148,14 @@ export const KPIAnalytics: React.FC = () => {
                 <Tooltip 
                   contentStyle={{ backgroundColor: '#0F172A', borderRadius: '12px', border: 'none', color: '#fff', fontSize: '11px' }}
                 />
-                <Bar dataKey="members" fill="#123B60" radius={[8, 8, 0, 0]} />
+                <Bar dataKey="members" fill="#123B60" radius={[8, 8, 0, 0]} animationDuration={800} animationEasing="ease-out" />
               </BarChart>
             </ResponsiveContainer>
           </div>
-        </div>
+        </ChartCard>
 
         {/* Points by Committee */}
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-sm">
+        <ChartCard>
           <h2 className="text-sm font-bold text-slate-900 dark:text-white mb-1">Total Points Earned by Committee</h2>
           <p className="text-[11px] text-slate-400 mb-6">Cumulative merit output verified via approved task ledger</p>
           <div className="h-64">
@@ -141,14 +167,14 @@ export const KPIAnalytics: React.FC = () => {
                 <Tooltip 
                   contentStyle={{ backgroundColor: '#0F172A', borderRadius: '12px', border: 'none', color: '#fff', fontSize: '11px' }}
                 />
-                <Bar dataKey="points" fill="#F59A16" radius={[8, 8, 0, 0]} />
+                <Bar dataKey="points" fill="#F59A16" radius={[8, 8, 0, 0]} animationDuration={800} animationEasing="ease-out" />
               </BarChart>
             </ResponsiveContainer>
           </div>
-        </div>
+        </ChartCard>
 
         {/* Task Pipeline Status Breakdown */}
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-sm">
+        <ChartCard>
           <h2 className="text-sm font-bold text-slate-900 dark:text-white mb-1">Tasks by Workflow Pipeline Status</h2>
           <p className="text-[11px] text-slate-400 mb-4">Pipeline health from assigned through review and approval</p>
           <div className="h-64 flex items-center justify-center">
@@ -162,6 +188,7 @@ export const KPIAnalytics: React.FC = () => {
                   fill="#8884d8"
                   label={(entry: any) => `${entry.name || ''} ${entry.percent ? (entry.percent * 100).toFixed(0) + '%' : ''}`}
                   fontSize={10}
+                  animationDuration={800}
                 >
                   {taskStatusData.map((_entry, index) => (
                     <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
@@ -171,10 +198,10 @@ export const KPIAnalytics: React.FC = () => {
               </PieChart>
             </ResponsiveContainer>
           </div>
-        </div>
+        </ChartCard>
 
         {/* Role Distribution */}
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-sm">
+        <ChartCard>
           <h2 className="text-sm font-bold text-slate-900 dark:text-white mb-1">Organization Hierarchy Structure</h2>
           <p className="text-[11px] text-slate-400 mb-4">Ratio of Super Admin, Directors, Heads, Members, and Moderators</p>
           <div className="h-64 flex items-center justify-center">
@@ -190,6 +217,7 @@ export const KPIAnalytics: React.FC = () => {
                   dataKey="count"
                   label={(entry: any) => `${entry.name || ''} (${entry.value ?? entry.count ?? ''})`}
                   fontSize={10}
+                  animationDuration={800}
                 >
                   {roleData.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
@@ -199,7 +227,7 @@ export const KPIAnalytics: React.FC = () => {
               </PieChart>
             </ResponsiveContainer>
           </div>
-        </div>
+        </ChartCard>
 
       </div>
 

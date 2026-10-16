@@ -14,6 +14,7 @@ import {
   Target
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
+import { useStickyNonNull, ModalShell, useToast } from '../../motion';
 import type { Committee } from '../../types';
 
 export const CommitteeManagement: React.FC = () => {
@@ -21,6 +22,7 @@ export const CommitteeManagement: React.FC = () => {
   
   const [searchTerm, setSearchTerm] = useState('');
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const { toast } = useToast();
   const [editingComm, setEditingComm] = useState<Committee | null>(null);
 
   const [newComm, setNewComm] = useState({
@@ -61,6 +63,7 @@ export const CommitteeManagement: React.FC = () => {
       category: newComm.category
     });
 
+    toast(`Committee "${newComm.name}" created`);
     setIsCreateModalOpen(false);
     setNewComm({
       name: '',
@@ -94,7 +97,10 @@ export const CommitteeManagement: React.FC = () => {
       status: editingComm.status
     });
     setEditingComm(null);
+    toast('Committee updated');
   };
+
+  const viewComm = useStickyNonNull(editingComm);
 
   return (
     <div className="space-y-6">
@@ -222,9 +228,7 @@ export const CommitteeManagement: React.FC = () => {
       </div>
 
       {/* Create Committee Modal */}
-      {isCreateModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 max-w-lg w-full shadow-2xl animate-in zoom-in-95">
+      <ModalShell open={isCreateModalOpen} onClose={() => setIsCreateModalOpen(false)} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 max-w-lg w-full shadow-2xl">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800 mb-4">
               <h2 className="text-base font-bold text-slate-900 dark:text-white">Create New Committee</h2>
               <button onClick={() => setIsCreateModalOpen(false)} className="text-slate-400 hover:text-slate-600">
@@ -337,16 +341,14 @@ export const CommitteeManagement: React.FC = () => {
                 </button>
               </div>
             </form>
-          </div>
-        </div>
-      )}
+      </ModalShell>
 
       {/* Edit Committee Modal */}
-      {editingComm && (
-        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 max-w-lg w-full shadow-2xl animate-in zoom-in-95">
+      <ModalShell open={!!editingComm} onClose={() => setEditingComm(null)} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 max-w-lg w-full shadow-2xl">
+          {viewComm && (
+          <>
             <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800 mb-4">
-              <h2 className="text-base font-bold text-slate-900 dark:text-white">Edit Committee: {editingComm.name}</h2>
+              <h2 className="text-base font-bold text-slate-900 dark:text-white">Edit Committee: {viewComm.name}</h2>
               <button onClick={() => setEditingComm(null)} className="text-slate-400 hover:text-slate-600">
                 <X className="w-5 h-5" />
               </button>
@@ -358,8 +360,8 @@ export const CommitteeManagement: React.FC = () => {
                 <input
                   type="text"
                   required
-                  value={editingComm.name}
-                  onChange={(e) => setEditingComm({ ...editingComm, name: e.target.value })}
+                  value={viewComm.name}
+                  onChange={(e) => setEditingComm({ ...viewComm, name: e.target.value })}
                   className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 outline-none"
                 />
               </div>
@@ -368,8 +370,8 @@ export const CommitteeManagement: React.FC = () => {
                 <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">Description</label>
                 <textarea
                   rows={3}
-                  value={editingComm.description}
-                  onChange={(e) => setEditingComm({ ...editingComm, description: e.target.value })}
+                  value={viewComm.description}
+                  onChange={(e) => setEditingComm({ ...viewComm, description: e.target.value })}
                   className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 outline-none"
                 />
               </div>
@@ -378,8 +380,8 @@ export const CommitteeManagement: React.FC = () => {
                 <div>
                   <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">Director</label>
                   <select
-                    value={editingComm.directorId || ''}
-                    onChange={(e) => setEditingComm({ ...editingComm, directorId: e.target.value })}
+                    value={viewComm.directorId || ''}
+                    onChange={(e) => setEditingComm({ ...viewComm, directorId: e.target.value })}
                     className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 outline-none"
                   >
                     <option value="">Unassigned</option>
@@ -391,8 +393,8 @@ export const CommitteeManagement: React.FC = () => {
                 <div>
                   <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">Head</label>
                   <select
-                    value={editingComm.headId || ''}
-                    onChange={(e) => setEditingComm({ ...editingComm, headId: e.target.value })}
+                    value={viewComm.headId || ''}
+                    onChange={(e) => setEditingComm({ ...viewComm, headId: e.target.value })}
                     className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 outline-none"
                   >
                     <option value="">Unassigned</option>
@@ -419,9 +421,9 @@ export const CommitteeManagement: React.FC = () => {
                 </button>
               </div>
             </form>
-          </div>
-        </div>
-      )}
+          </>
+          )}
+      </ModalShell>
 
     </div>
   );

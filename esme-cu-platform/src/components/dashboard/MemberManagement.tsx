@@ -15,6 +15,7 @@ import {
   ArrowRightLeft
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
+import { useStickyNonNull, ModalShell, useToast } from '../../motion';
 import type { User } from '../../types';
 
 export const MemberManagement: React.FC = () => {
@@ -24,6 +25,7 @@ export const MemberManagement: React.FC = () => {
   const [selectedCommitteeFilter, setSelectedCommitteeFilter] = useState('all');
   const [selectedRoleFilter, setSelectedRoleFilter] = useState('all');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const { toast } = useToast();
   const [editingUser, setEditingUser] = useState<User | null>(null);
 
   // New user form state
@@ -63,6 +65,7 @@ export const MemberManagement: React.FC = () => {
       phone: newUser.phone,
       status: newUser.status
     });
+    toast(`Member "${newUser.name}" added to the roster`);
     setIsAddModalOpen(false);
     setNewUser({
       name: '',
@@ -92,6 +95,8 @@ export const MemberManagement: React.FC = () => {
     });
     setEditingUser(null);
   };
+
+  const viewUser = useStickyNonNull(editingUser);
 
   return (
     <div className="space-y-6">
@@ -260,9 +265,7 @@ export const MemberManagement: React.FC = () => {
       </div>
 
       {/* Add Member Modal */}
-      {isAddModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 max-w-lg w-full shadow-2xl animate-in zoom-in-95">
+      <ModalShell open={isAddModalOpen} onClose={() => setIsAddModalOpen(false)} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 max-w-lg w-full shadow-2xl">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800 mb-4">
               <h2 className="text-base font-bold text-slate-900 dark:text-white">Add New Chapter Member</h2>
               <button onClick={() => setIsAddModalOpen(false)} className="text-slate-400 hover:text-slate-600">
@@ -352,16 +355,14 @@ export const MemberManagement: React.FC = () => {
                 </button>
               </div>
             </form>
-          </div>
-        </div>
-      )}
+      </ModalShell>
 
       {/* Edit Member Modal */}
-      {editingUser && (
-        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 max-w-lg w-full shadow-2xl animate-in zoom-in-95">
+      <ModalShell open={!!editingUser} onClose={() => setEditingUser(null)} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 max-w-lg w-full shadow-2xl">
+          {viewUser && (
+          <>
             <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800 mb-4">
-              <h2 className="text-base font-bold text-slate-900 dark:text-white">Edit Member: {editingUser.name}</h2>
+              <h2 className="text-base font-bold text-slate-900 dark:text-white">Edit Member: {viewUser.name}</h2>
               <button onClick={() => setEditingUser(null)} className="text-slate-400 hover:text-slate-600">
                 <X className="w-5 h-5" />
               </button>
@@ -373,8 +374,8 @@ export const MemberManagement: React.FC = () => {
                 <input
                   type="text"
                   required
-                  value={editingUser.name}
-                  onChange={(e) => setEditingUser({ ...editingUser, name: e.target.value })}
+                  value={viewUser.name}
+                  onChange={(e) => setEditingUser({ ...viewUser, name: e.target.value })}
                   className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 outline-none"
                 />
               </div>
@@ -383,8 +384,8 @@ export const MemberManagement: React.FC = () => {
                 <div>
                   <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">Role</label>
                   <select
-                    value={editingUser.role}
-                    onChange={(e) => setEditingUser({ ...editingUser, role: e.target.value as any })}
+                    value={viewUser.role}
+                    onChange={(e) => setEditingUser({ ...viewUser, role: e.target.value as any })}
                     className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 outline-none"
                   >
                     <option value="member">Member</option>
@@ -397,8 +398,8 @@ export const MemberManagement: React.FC = () => {
                 <div>
                   <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">Status</label>
                   <select
-                    value={editingUser.status}
-                    onChange={(e) => setEditingUser({ ...editingUser, status: e.target.value as any })}
+                    value={viewUser.status}
+                    onChange={(e) => setEditingUser({ ...viewUser, status: e.target.value as any })}
                     className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 outline-none"
                   >
                     <option value="active">Active</option>
@@ -411,8 +412,8 @@ export const MemberManagement: React.FC = () => {
                 <div>
                   <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">Committee</label>
                   <select
-                    value={editingUser.committeeId || ''}
-                    onChange={(e) => setEditingUser({ ...editingUser, committeeId: e.target.value })}
+                    value={viewUser.committeeId || ''}
+                    onChange={(e) => setEditingUser({ ...viewUser, committeeId: e.target.value })}
                     className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 outline-none"
                   >
                     {committees.map((c) => (
@@ -424,8 +425,8 @@ export const MemberManagement: React.FC = () => {
                   <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">Sub-team</label>
                   <input
                     type="text"
-                    value={editingUser.subTeam || ''}
-                    onChange={(e) => setEditingUser({ ...editingUser, subTeam: e.target.value })}
+                    value={viewUser.subTeam || ''}
+                    onChange={(e) => setEditingUser({ ...viewUser, subTeam: e.target.value })}
                     className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 outline-none"
                   />
                 </div>
@@ -447,9 +448,9 @@ export const MemberManagement: React.FC = () => {
                 </button>
               </div>
             </form>
-          </div>
-        </div>
-      )}
+          </>
+          )}
+      </ModalShell>
 
     </div>
   );

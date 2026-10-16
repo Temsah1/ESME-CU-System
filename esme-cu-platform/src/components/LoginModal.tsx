@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { motion } from 'motion/react';
 import { 
   ShieldCheck, 
   ArrowLeft, 
@@ -55,16 +56,25 @@ export const LoginModal: React.FC<LoginModalProps> = ({
       <div className="max-w-md w-full">
         
         {/* Back Link */}
-        <button 
+        <motion.button 
           onClick={onBackToHome}
-          className="inline-flex items-center gap-1.5 text-xs font-bold text-[#123B60] hover:text-[#F59A16] transition mb-6"
+          initial={{ opacity: 0, x: -12 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
+          whileHover={{ x: -3 }}
+          className="inline-flex items-center gap-1.5 text-xs font-bold text-[#123B60] hover:text-[#F59A16] transition-colors mb-6"
         >
           <ArrowLeft className="w-4 h-4" />
           Back to Public Website
-        </button>
+        </motion.button>
 
         {/* Card */}
-        <div className="bg-white rounded-3xl border border-slate-200 shadow-xl p-8 relative overflow-hidden">
+        <motion.div
+          initial={{ opacity: 0, y: 24, scale: 0.97 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1], delay: 0.08 }}
+          className="bg-white rounded-3xl border border-slate-200 shadow-xl p-8 relative overflow-hidden"
+        >
           
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center gap-3">
@@ -115,7 +125,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({
 
             <button
               type="submit"
-              className="w-full py-3 bg-[#123B60] hover:bg-[#0A2239] text-white font-bold rounded-xl text-xs shadow-md transition flex items-center justify-center gap-2 mt-2"
+              className="w-full py-3 bg-[#123B60] hover:bg-[#0A2239] text-white font-bold rounded-xl text-xs shadow-md hover:-translate-y-0.5 hover:shadow-lg active:translate-y-0 transition-all duration-200 flex items-center justify-center gap-2 mt-2"
             >
               <LogIn className="w-4 h-4" />
               Sign Into Dashboard
@@ -129,11 +139,15 @@ export const LoginModal: React.FC<LoginModalProps> = ({
               Quick Persona Switch (1-Click)
             </div>
             <div className="space-y-2">
-              {samplePersonas.map(({ label, user }) => (
-                <button
+              {samplePersonas.map(({ label, user }, i) => (
+                <motion.button
                   key={user.id}
                   onClick={() => handleQuickPersonaSelect(user)}
-                  className={`w-full p-2.5 rounded-xl border text-left flex items-center justify-between text-xs transition ${
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.25 + i * 0.05, duration: 0.3 }}
+                  whileHover={{ x: 3 }}
+                  className={`w-full p-2.5 rounded-xl border text-left flex items-center justify-between text-xs transition-colors ${
                     currentUser.id === user.id 
                       ? 'border-[#F59A16] bg-[#F59A16]/5 font-bold text-[#123B60]' 
                       : 'border-slate-200 hover:border-slate-300 bg-slate-50 text-slate-700'
@@ -149,7 +163,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({
                     </div>
                   </div>
                   <ChevronRight className="w-4 h-4 text-slate-400" />
-                </button>
+                </motion.button>
               ))}
             </div>
           </div>
@@ -158,7 +172,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({
             Frontend demonstration prototype with simulated local authorization.
           </div>
 
-        </div>
+        </motion.div>
 
       </div>
     </div>

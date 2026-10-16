@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { motion } from 'motion/react';
 import { 
   CheckCircle2, 
   ArrowLeft, 
@@ -8,6 +9,7 @@ import {
   HelpCircle
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
+import { useToast } from '../motion';
 
 interface RegistrationPortalProps {
   onBackToHome: () => void;
@@ -19,6 +21,7 @@ export const RegistrationPortal: React.FC<RegistrationPortalProps> = ({
   onNavigateToLogin
 }) => {
   const { committees, formFields, submitApplication } = useApp();
+  const { toast } = useToast();
   
   const [submitted, setSubmitted] = useState(false);
   const [formData, setFormData] = useState<Record<string, any>>({
@@ -65,12 +68,18 @@ export const RegistrationPortal: React.FC<RegistrationPortalProps> = ({
     });
 
     setSubmitted(true);
+    toast('Application submitted for review');
   };
 
   if (submitted) {
     return (
       <div className="min-h-screen bg-[#FDFBF7] flex flex-col justify-center items-center px-4 py-12">
-        <div className="max-w-md w-full bg-white rounded-3xl border border-slate-200 shadow-xl p-8 text-center animate-in zoom-in-95">
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95, y: 16 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
+          className="max-w-md w-full bg-white rounded-3xl border border-slate-200 shadow-xl p-8 text-center"
+        >
           <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
             <CheckCircle2 className="w-10 h-10" />
           </div>
@@ -97,14 +106,19 @@ export const RegistrationPortal: React.FC<RegistrationPortalProps> = ({
               Sign into Member Portal
             </button>
           </div>
-        </div>
+        </motion.div>
       </div>
     );
   }
 
   return (
     <div className="min-h-screen bg-[#FDFBF7] py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-3xl mx-auto">
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
+        className="max-w-3xl mx-auto"
+      >
         
         {/* Navigation Bar */}
         <div className="flex items-center justify-between mb-8">
@@ -266,7 +280,7 @@ export const RegistrationPortal: React.FC<RegistrationPortalProps> = ({
 
         </form>
 
-      </div>
+      </motion.div>
     </div>
   );
 };

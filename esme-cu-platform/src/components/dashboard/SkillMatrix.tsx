@@ -11,6 +11,7 @@ import {
   X
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
+import { ModalShell } from '../../motion';
 import type { SkillMatrixEntry } from '../../types';
 
 export const SkillMatrix: React.FC = () => {
@@ -206,9 +207,7 @@ export const SkillMatrix: React.FC = () => {
       </div>
 
       {/* Add Assessment Modal */}
-      {isAddModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 max-w-lg w-full shadow-2xl animate-in zoom-in-95">
+      <ModalShell open={isAddModalOpen} onClose={() => setIsAddModalOpen(false)} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 max-w-lg w-full shadow-2xl">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800 mb-4">
               <h2 className="text-base font-bold text-slate-900 dark:text-white">Record Member Skill Assessment</h2>
               <button onClick={() => setIsAddModalOpen(false)} className="text-slate-400 hover:text-slate-600">
@@ -302,9 +301,7 @@ export const SkillMatrix: React.FC = () => {
                 </button>
               </div>
             </form>
-          </div>
-        </div>
-      )}
+      </ModalShell>
 
     </div>
   );

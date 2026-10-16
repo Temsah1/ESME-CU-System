@@ -12,6 +12,7 @@ import {
   X
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
+import { ModalShell, useToast } from '../../motion';
 
 export const PointsAndLeaderboard: React.FC = () => {
   const { users, scoreLedger, addManualPointAdjustment, currentUser } = useApp();
@@ -22,6 +23,7 @@ export const PointsAndLeaderboard: React.FC = () => {
   
   // Manual point adjustment modal state
   const [isAdjustModalOpen, setIsAdjustModalOpen] = useState(false);
+  const { toast } = useToast();
   const [selectedMemberId, setSelectedMemberId] = useState(users[0]?.id || '');
   const [pointsChange, setPointsChange] = useState<number>(50);
   const [adjustmentReason, setAdjustmentReason] = useState('');
@@ -43,6 +45,7 @@ export const PointsAndLeaderboard: React.FC = () => {
       return;
     }
     addManualPointAdjustment(selectedMemberId, Number(pointsChange), adjustmentReason);
+    toast(`${Number(pointsChange) > 0 ? '+' : ''}${Number(pointsChange)} pts adjustment recorded`);
     setIsAdjustModalOpen(false);
     setAdjustmentReason('');
   };
@@ -150,7 +153,7 @@ export const PointsAndLeaderboard: React.FC = () => {
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                 {filteredUsers.map((u, idx) => (
-                  <tr key={u.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/40">
+                  <tr key={u.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors duration-150">
                     <td className="py-3 px-4 font-bold text-slate-500">#{idx + 1}</td>
                     <td className="py-3 px-4">
                       <div className="font-bold text-slate-800 dark:text-slate-100">{u.name}</div>
@@ -192,7 +195,7 @@ export const PointsAndLeaderboard: React.FC = () => {
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
               {scoreLedger.map((entry) => (
-                <tr key={entry.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/40">
+                <tr key={entry.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors duration-150">
                   <td className="py-3 px-4 text-slate-400 text-[11px] whitespace-nowrap">{entry.timestamp}</td>
                   <td className="py-3 px-4 font-bold text-slate-800 dark:text-slate-100">{entry.memberName}</td>
                   <td className="py-3 px-4 font-bold text-emerald-600">
@@ -215,9 +218,7 @@ export const PointsAndLeaderboard: React.FC = () => {
       )}
 
       {/* Manual Point Adjustment Modal */}
-      {isAdjustModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 max-w-lg w-full shadow-2xl animate-in zoom-in-95">
+      <ModalShell open={isAdjustModalOpen} onClose={() => setIsAdjustModalOpen(false)} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 max-w-lg w-full shadow-2xl">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800 mb-4">
               <h2 className="text-base font-bold text-slate-900 dark:text-white">Manual Point Adjustment</h2>
               <button onClick={() => setIsAdjustModalOpen(false)} className="text-slate-400 hover:text-slate-600">
@@ -279,9 +280,7 @@ export const PointsAndLeaderboard: React.FC = () => {
                 </button>
               </div>
             </form>
-          </div>
-        </div>
-      )}
+      </ModalShell>
 
     </div>
   );

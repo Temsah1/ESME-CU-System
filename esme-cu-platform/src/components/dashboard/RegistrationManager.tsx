@@ -16,6 +16,7 @@ import {
   X
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
+import { useStickyNonNull, ModalShell, useToast } from '../../motion';
 import type { RegistrationApplication, RegistrationFieldConfig } from '../../types';
 
 export const RegistrationManager: React.FC = () => {
@@ -31,6 +32,7 @@ export const RegistrationManager: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'applications' | 'form_builder'>('applications');
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+  const { toast } = useToast();
   const [selectedApp, setSelectedApp] = useState<RegistrationApplication | null>(null);
 
   // Field editor state for form builder
@@ -50,6 +52,7 @@ export const RegistrationManager: React.FC = () => {
     commId?: string
   ) => {
     updateApplicationStatus(id, newStatus, notes, commId);
+    toast(newStatus === 'accepted' ? 'Applicant accepted' : newStatus === 'rejected' ? 'Applicant rejected' : 'Application updated', newStatus === 'rejected' ? 'error' : 'success');
     if (selectedApp && selectedApp.id === id) {
       setSelectedApp(prev => prev ? { ...prev, status: newStatus } : null);
     }
@@ -59,6 +62,8 @@ export const RegistrationManager: React.FC = () => {
     updateFormFields(localFields);
     alert('Registration form builder configuration saved successfully!');
   };
+
+  const viewApp = useStickyNonNull(selectedApp);
 
   return (
     <div className="space-y-6">
@@ -257,13 +262,13 @@ export const RegistrationManager: React.FC = () => {
       )}
 
       {/* Application Detail View Modal */}
-      {selectedApp && (
-        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 max-w-lg w-full shadow-2xl animate-in zoom-in-95 space-y-4">
+      <ModalShell open={!!selectedApp} onClose={() => setSelectedApp(null)} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 max-w-lg w-full shadow-2xl space-y-4">
+          {viewApp && (
+          <>
             <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
               <div>
-                <h2 className="text-base font-bold text-slate-900 dark:text-white">{selectedApp.fullName}</h2>
-                <p className="text-xs text-slate-500">{selectedApp.universityEmail} • {selectedApp.phone}</p>
+                <h2 className="text-base font-bold text-slate-900 dark:text-white">{viewApp.fullName}</h2>
+                <p className="text-xs text-slate-500">{viewApp.universityEmail} • {viewApp.phone}</p>
               </div>
               <button onClick={() => setSelectedApp(null)} className="text-slate-400 hover:text-slate-600">
                 <X className="w-5 h-5" />
@@ -273,42 +278,42 @@ export const RegistrationManager: React.FC = () => {
             <div className="text-xs space-y-3 max-h-96 overflow-y-auto">
               <div>
                 <span className="font-bold text-slate-700 dark:text-slate-300 block mb-1">Academic Profile:</span>
-                <p className="text-slate-600 dark:text-slate-400">{selectedApp.academicYear} • {selectedApp.department}</p>
+                <p className="text-slate-600 dark:text-slate-400">{viewApp.academicYear} • {viewApp.department}</p>
               </div>
 
               <div>
                 <span className="font-bold text-slate-700 dark:text-slate-300 block mb-1">Technical Skills:</span>
-                <p className="text-slate-600 dark:text-slate-400 bg-slate-50 dark:bg-slate-800 p-2.5 rounded-xl border border-slate-100 dark:border-slate-800">{selectedApp.technicalSkills}</p>
+                <p className="text-slate-600 dark:text-slate-400 bg-slate-50 dark:bg-slate-800 p-2.5 rounded-xl border border-slate-100 dark:border-slate-800">{viewApp.technicalSkills}</p>
               </div>
 
               <div>
                 <span className="font-bold text-slate-700 dark:text-slate-300 block mb-1">Previous Experience:</span>
-                <p className="text-slate-600 dark:text-slate-400 bg-slate-50 dark:bg-slate-800 p-2.5 rounded-xl border border-slate-100 dark:border-slate-800">{selectedApp.previousExperience || 'None stated'}</p>
+                <p className="text-slate-600 dark:text-slate-400 bg-slate-50 dark:bg-slate-800 p-2.5 rounded-xl border border-slate-100 dark:border-slate-800">{viewApp.previousExperience || 'None stated'}</p>
               </div>
 
               <div>
                 <span className="font-bold text-slate-700 dark:text-slate-300 block mb-1">Motivation:</span>
-                <p className="text-slate-600 dark:text-slate-400 bg-slate-50 dark:bg-slate-800 p-2.5 rounded-xl border border-slate-100 dark:border-slate-800">{selectedApp.motivation}</p>
+                <p className="text-slate-600 dark:text-slate-400 bg-slate-50 dark:bg-slate-800 p-2.5 rounded-xl border border-slate-100 dark:border-slate-800">{viewApp.motivation}</p>
               </div>
             </div>
 
             <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-end gap-2">
               <button
-                onClick={() => handleStatusChange(selectedApp.id, 'waitlisted')}
+                onClick={() => handleStatusChange(viewApp.id, 'waitlisted')}
                 className="px-3.5 py-1.5 rounded-xl border border-amber-300 text-amber-700 text-xs font-bold"
               >
                 Waitlist
               </button>
               <button
-                onClick={() => handleStatusChange(selectedApp.id, 'accepted')}
+                onClick={() => handleStatusChange(viewApp.id, 'accepted')}
                 className="px-4 py-1.5 bg-emerald-600 text-white rounded-xl text-xs font-bold"
               >
                 Accept Candidate
               </button>
             </div>
-          </div>
-        </div>
-      )}
+          </>
+          )}
+      </ModalShell>
 
     </div>
   );
