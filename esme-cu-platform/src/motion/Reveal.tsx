@@ -1,7 +1,7 @@
 import React from 'react';
 import { motion, type HTMLMotionProps } from 'motion/react';
 import { viewport } from './tokens';
-import { fadeUp, groupItem, staggerGroup } from './variants';
+import { groupItem, staggerGroup } from './variants';
 
 type RevealProps = HTMLMotionProps<'div'> & {
   y?: number;

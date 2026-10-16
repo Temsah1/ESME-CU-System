@@ -13,13 +13,18 @@ import {
 import { useApp } from '../../context/AppContext';
 
 export const SettingsAndBackups: React.FC = () => {
-  const { 
-    theme, 
-    toggleTheme, 
-    resetToDefaultData, 
-    exportDataJSON, 
-    importDataJSON
+  const {
+    theme,
+    setTheme,
+    resolvedTheme,
+    can,
+    resetLocalCache,
+    exportDataJSON,
+    importDataJSON,
+    storageVersion
   } = useApp();
+
+  const mayManageBackups = can('backups.manage');
 
   const [importText, setImportText] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
@@ -62,11 +67,11 @@ export const SettingsAndBackups: React.FC = () => {
 
   const handleReset = () => {
     const confirmed = window.confirm(
-      'Are you sure you want to reset all chapter data to default factory records? All unsaved local tasks and points will be reset.'
+      'This clears the data this browser cached for the chapter workspace and reloads the official reference content. Records stored by the provider are untouched. Continue?'
     );
     if (confirmed) {
-      resetToDefaultData();
-      setSuccessMsg('All records reset to default 2026-2027 season baseline.');
+      resetLocalCache();
+      setSuccessMsg('Local cache cleared. Reference content reloaded.');
       setTimeout(() => setSuccessMsg(''), 4000);
     }
   };
@@ -106,25 +111,38 @@ export const SettingsAndBackups: React.FC = () => {
         <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-sm space-y-4">
           <div className="flex items-center gap-2.5">
             <div className="p-2 rounded-xl bg-amber-50 dark:bg-amber-950/30 text-[#F59A16]">
-              {theme === 'dark' ? <Moon className="w-5 h-5" /> : <Sun className="w-5 h-5" />}
+              {resolvedTheme === 'dark' ? <Moon className="w-5 h-5" /> : <Sun className="w-5 h-5" />}
             </div>
             <div>
               <h2 className="text-sm font-bold text-slate-900 dark:text-white">Appearance & Theme</h2>
-              <p className="text-[11px] text-slate-400">Toggle light or dark interface theme</p>
+              <p className="text-[11px] text-slate-400">Light, dark, or follow the device — saved in this browser</p>
             </div>
           </div>
 
-          <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50 flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">
-              Current Theme: <strong className="capitalize">{theme}</strong>
-            </span>
-            <button
-              onClick={toggleTheme}
-              className="px-4 py-2 bg-[#123B60] hover:bg-[#0A2239] text-white rounded-xl text-xs font-bold transition flex items-center gap-2 shadow-sm"
-            >
-              {theme === 'dark' ? <Sun className="w-4 h-4 text-[#F59A16]" /> : <Moon className="w-4 h-4 text-slate-600" />}
-              Switch to {theme === 'dark' ? 'Light' : 'Dark'}
-            </button>
+          <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50 space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                Preference: <strong className="capitalize">{theme}</strong>
+              </span>
+              <span className="text-[11px] text-slate-400">Rendering: {resolvedTheme}</span>
+            </div>
+            <div className="grid grid-cols-3 gap-2" role="group" aria-label="Theme preference">
+              {(['light', 'dark', 'system'] as const).map((option) => (
+                <button
+                  key={option}
+                  type="button"
+                  onClick={() => setTheme(option)}
+                  aria-pressed={theme === option}
+                  className={`py-2 rounded-xl text-xs font-bold capitalize transition ${
+                    theme === option
+                      ? 'bg-[#123B60] text-white shadow-sm'
+                      : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:border-[#F59A16]'
+                  }`}
+                >
+                  {option}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
 
@@ -141,16 +159,23 @@ export const SettingsAndBackups: React.FC = () => {
           </div>
 
           <p className="text-xs text-slate-500 leading-relaxed">
-            Exports all active state from LocalStorage into an offline JSON snapshot file compatible with restore.
+            Exports what this browser holds for the workspace — including member names and contact details — as an
+            offline JSON snapshot. Snapshots are a cache, not a backup of the provider database.
           </p>
 
-          <button
-            onClick={handleExport}
-            className="w-full py-2.5 bg-[#F59A16] hover:bg-[#D47F0A] text-white rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 shadow-sm"
-          >
-            <Download className="w-4 h-4" />
-            Download Full State JSON
-          </button>
+          {mayManageBackups ? (
+            <button
+              onClick={handleExport}
+              className="w-full py-2.5 bg-[#F59A16] hover:bg-[#D47F0A] text-white rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 shadow-sm"
+            >
+              <Download className="w-4 h-4" />
+              Download State JSON
+            </button>
+          ) : (
+            <p className="text-[11px] text-slate-400">
+              Export and restore require the backup capability, which your role does not hold.
+            </p>
+          )}
         </div>
 
         {/* Restore State from JSON */}
@@ -165,47 +190,61 @@ export const SettingsAndBackups: React.FC = () => {
             </div>
           </div>
 
-          <textarea
-            rows={4}
-            placeholder="Paste backup JSON string here..."
-            value={importText}
-            onChange={(e) => setImportText(e.target.value)}
-            className="w-full p-3 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-mono outline-none focus:ring-2 focus:ring-[#123B60]"
-          />
+          {mayManageBackups ? (
+            <>
+              <textarea
+                rows={4}
+                placeholder="Paste backup JSON string here..."
+                value={importText}
+                onChange={(e) => setImportText(e.target.value)}
+                className="w-full p-3 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-mono outline-none focus:ring-2 focus:ring-[#123B60]"
+              />
 
-          <div className="flex justify-end">
-            <button
-              onClick={handleImport}
-              className="px-5 py-2.5 bg-[#123B60] hover:bg-[#0A2239] text-white rounded-xl text-xs font-bold transition flex items-center gap-2 shadow-sm"
-            >
-              <Upload className="w-4 h-4" />
-              Restore Snapshot
-            </button>
-          </div>
+              <div className="flex justify-end">
+                <button
+                  onClick={handleImport}
+                  className="px-5 py-2.5 bg-[#123B60] hover:bg-[#0A2239] text-white rounded-xl text-xs font-bold transition flex items-center gap-2 shadow-sm"
+                >
+                  <Upload className="w-4 h-4" />
+                  Restore Snapshot
+                </button>
+              </div>
+            </>
+          ) : (
+            <p className="text-[11px] text-slate-400">
+              Restoring a snapshot overwrites this browser's copy of the workspace, so it is limited to accounts with
+              the backup capability.
+            </p>
+          )}
         </div>
 
-        {/* Factory Reset Danger Zone */}
+        {/* Local cache reset */}
         <div className="bg-white dark:bg-slate-900 border border-rose-200 dark:border-rose-900/40 rounded-3xl p-6 shadow-sm space-y-4 md:col-span-2">
           <div className="flex items-center gap-2.5">
             <div className="p-2 rounded-xl bg-rose-50 dark:bg-rose-950/30 text-rose-600">
               <ShieldAlert className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-sm font-bold text-rose-600 dark:text-rose-400">Danger Zone: Factory Reset Demo State</h2>
-              <p className="text-[11px] text-slate-400">Clear all local storage modifications and restore initial dataset</p>
+              <h2 className="text-sm font-bold text-rose-600 dark:text-rose-400">Danger Zone: Clear This Browser's Cache</h2>
+              <p className="text-[11px] text-slate-400">Removes locally cached edits and reloads the official reference content</p>
             </div>
           </div>
 
           <p className="text-xs text-slate-500 leading-relaxed">
-            Resetting clears customized tasks, modified applications, new members, and ledger history, restoring the 100% verified ESME Cairo University initial state.
+            Cached edits to committees, form fields, the season plan and website content are replaced with the
+            reference set, and the operational tables empty until the provider returns them.
+            Nothing here deletes or rewrites data held by the authentication provider or the database —
+            an account, once created there, stays there and must be handled from that side.
           </p>
+
+          <div className="text-[11px] text-slate-400">Storage schema: {storageVersion}</div>
 
           <button
             onClick={handleReset}
             className="px-5 py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold transition flex items-center gap-2 shadow-sm"
           >
             <RotateCcw className="w-4 h-4" />
-            Reset State to Factory Defaults
+            Clear Local Cache
           </button>
         </div>
 

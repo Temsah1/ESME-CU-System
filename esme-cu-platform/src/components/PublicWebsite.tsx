@@ -514,7 +514,7 @@ export const PublicWebsite: React.FC<PublicWebsiteProps> = ({
       <section id="about" className="py-20 bg-white border-b border-slate-200 relative">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <SectionIntro
-            eyebrow="Authoritative Profile"
+            eyebrow="Chapter Profile"
             title={websiteContent.about.title}
           />
 
@@ -665,7 +665,7 @@ export const PublicWebsite: React.FC<PublicWebsiteProps> = ({
 
           <SectionIntro
             eyebrow="Visual Timeline"
-            title="Verified Chapter History (2015–2023)"
+            title="Documented Chapter History (2015–2023)"
             subtitle="Documented milestones from foundation through safety training, field trips, and EISC conferences."
           />
 
@@ -820,7 +820,7 @@ export const PublicWebsite: React.FC<PublicWebsiteProps> = ({
                   <div className="mt-5 pt-3 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-500">
                     <span className="flex items-center gap-1 text-emerald-600 font-semibold">
                       <CheckCircle2 className="w-3.5 h-3.5" />
-                      Verified Alumni
+                      Named in the appreciation record
                     </span>
                     <span className="italic text-slate-400">Source: PDF p.3</span>
                   </div>
@@ -883,7 +883,7 @@ export const PublicWebsite: React.FC<PublicWebsiteProps> = ({
                         {comm.shortCode}
                       </span>
                       <span className="text-xs font-bold text-[#F59A16] uppercase tracking-wider">
-                        {comm.memberCount} Active Members
+                        {comm.status === 'active' ? 'Active committee' : 'Archived'}
                       </span>
                     </div>
 
@@ -933,7 +933,7 @@ export const PublicWebsite: React.FC<PublicWebsiteProps> = ({
           <SectionIntro
             eyebrow="Season Roadmap"
             title="Master Calendar & Events (2026–2027)"
-            subtitle="4 major summits, 10 specialized workshops, and 32 professional sessions planned."
+            subtitle="Targets transcribed from the official 2026–2027 vision document: 4 major summits, 10 specialized workshops, and 32 professional sessions."
           />
 
           <StaggerGroup className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6" step={0.09}>
@@ -1066,13 +1066,14 @@ export const PublicWebsite: React.FC<PublicWebsiteProps> = ({
             <Reveal>
               <span className="px-3 py-1 rounded-full bg-[#F59A16]/20 border border-[#F59A16] text-[#F59A16] text-xs font-bold inline-flex items-center gap-1.5">
                 <BarChart3 className="w-3 h-3" />
-                Archived Snapshot • {HISTORICAL_SOCIAL_INSIGHTS.reportDate}
+                Recorded report • {HISTORICAL_SOCIAL_INSIGHTS.reportDate}
               </span>
               <h2 className="text-3xl sm:text-4xl font-extrabold text-white mt-3">
-                Official Social Media Insights
+                Social Media Report
               </h2>
               <p className="text-xs text-slate-300 mt-2">
-                Performance analysis showing how ESME-Cairo University content drives reach among engineering students.
+                Four posts, read by hand from platform screenshots. This site has no analytics integration, so these
+                figures are a record of what was observed then — not live measurement.
               </p>
               <motion.div className="w-16 h-1 bg-[#F59A16] mx-auto mt-4 rounded-full origin-center" variants={growX} />
             </Reveal>
@@ -1095,7 +1096,7 @@ export const PublicWebsite: React.FC<PublicWebsiteProps> = ({
                   <AnimatedNumber value={HISTORICAL_SOCIAL_INSIGHTS.avgViewsPerPost} startOnView />
                 </div>
                 <div className="text-xs text-slate-300 mt-1 font-semibold">Avg. Views / Post</div>
-                <div className="text-[10px] text-slate-400 mt-0.5">Strong organic baseline</div>
+                <div className="text-[10px] text-slate-400 mt-0.5">Mean of the four recorded posts</div>
               </div>
             </StaggerItem>
             <StaggerItem variants={groupItemScale}>
@@ -1261,7 +1262,10 @@ export const PublicWebsite: React.FC<PublicWebsiteProps> = ({
 
               <div className="text-center md:text-right text-slate-400 space-y-1">
                 <div>© 2026 ESME CU Chapter. All Rights Reserved.</div>
-                <div className="text-[11px] text-[#F59A16]">Primary Administrator: Kareem Tamer (Super Admin)</div>
+                <div className="text-[11px] text-slate-500">
+                  Chapter operations are managed from privileged accounts. If you believe an account needs attention,
+                  contact {websiteContent.contact.email}.
+                </div>
               </div>
             </div>
           </div>

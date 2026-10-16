@@ -1,15 +1,12 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { motion } from 'motion/react';
-import { 
-  CheckCircle2, 
-  ArrowLeft, 
-  Send, 
-  Sparkles, 
-  ShieldAlert,
-  HelpCircle
-} from 'lucide-react';
+import { CheckCircle2, ArrowLeft, Send, Loader2, ShieldCheck } from 'lucide-react';
 import { useApp } from '../context/AppContext';
+import { useAuth } from '../auth/AuthProvider';
 import { useToast } from '../motion';
+import { PasswordChecklist } from './LoginScreen';
+import { ThemeToggle } from './ThemeToggle';
+import { passwordChecks, validateRegistration, type RegistrationInput } from '../domain/registration';
 
 interface RegistrationPortalProps {
   onBackToHome: () => void;
@@ -21,9 +18,14 @@ export const RegistrationPortal: React.FC<RegistrationPortalProps> = ({
   onNavigateToLogin
 }) => {
   const { committees, formFields, submitApplication } = useApp();
+  const { register } = useAuth();
   const { toast } = useToast();
-  
+
   const [submitted, setSubmitted] = useState(false);
+  const [receipt, setReceipt] = useState<{ reference: string; requiresEmailVerification: boolean } | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
+  const [account, setAccount] = useState({ username: '', password: '', confirmPassword: '' });
   const [formData, setFormData] = useState<Record<string, any>>({
     fullName: '',
     universityEmail: '',
@@ -40,17 +42,53 @@ export const RegistrationPortal: React.FC<RegistrationPortalProps> = ({
     agreedToPolicies: false
   });
 
+  const passwordChecksView = useMemo(() => passwordChecks(account.password), [account.password]);
+
   const handleChange = (name: string, value: any) => {
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.agreedToPolicies) {
-      alert('You must agree to chapter policies and code of conduct.');
+    setFormError(null);
+
+    const identity: RegistrationInput = {
+      fullName: formData.fullName,
+      email: formData.universityEmail,
+      username: account.username,
+      password: account.password,
+      confirmPassword: account.confirmPassword,
+      committeeId: formData.preferredCommitteeId,
+      acceptedPolicies: !!formData.agreedToPolicies,
+      studentId: formData.studentId,
+      academicYear: formData.academicYear,
+      department: formData.department,
+      phone: formData.phone,
+      secondCommitteePreferenceId: formData.secondCommitteePreferenceId,
+      technicalSkills: formData.technicalSkills,
+      previousExperience: formData.previousExperience || '',
+      motivation: formData.motivation,
+      availabilityHours: formData.availabilityHours,
+    };
+
+    const errors = validateRegistration(identity);
+    const firstError = Object.values(errors)[0];
+    if (firstError) {
+      setFormError(firstError);
       return;
     }
 
+    setBusy(true);
+    const outcome = await register(identity);
+    setBusy(false);
+
+    if (!outcome.ok) {
+      setFormError(outcome.failure.message);
+      setAccount((prev) => ({ ...prev, password: '', confirmPassword: '' }));
+      return;
+    }
+
+    // The provider holds the identity; this row is the chapter's copy of the questionnaire.
     submitApplication({
       fullName: formData.fullName,
       universityEmail: formData.universityEmail,
@@ -64,9 +102,14 @@ export const RegistrationPortal: React.FC<RegistrationPortalProps> = ({
       previousExperience: formData.previousExperience || '',
       motivation: formData.motivation,
       availabilityHours: formData.availabilityHours,
-      agreedToPolicies: formData.agreedToPolicies
+      agreedToPolicies: formData.agreedToPolicies,
+      authUserId: outcome.receipt.reference,
     });
 
+    setReceipt({
+      reference: outcome.receipt.reference,
+      requiresEmailVerification: outcome.receipt.requiresEmailVerification,
+    });
     setSubmitted(true);
     toast('Application submitted for review');
   };
@@ -83,15 +126,31 @@ export const RegistrationPortal: React.FC<RegistrationPortalProps> = ({
           <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
             <CheckCircle2 className="w-10 h-10" />
           </div>
-          <h2 className="text-2xl font-bold text-[#123B60]">Application Submitted!</h2>
+          <h2 className="text-2xl font-bold text-[#123B60]">Application received</h2>
           <p className="text-sm text-slate-600 mt-2 leading-relaxed">
-            Thank you, <strong>{formData.fullName}</strong>. Your membership application for the 2026–2027 season has been recorded in the chapter management registry.
+            Thank you, <strong>{formData.fullName}</strong>. Your request is recorded as
+            <strong> pending</strong> — it grants no access yet.
           </p>
-          <div className="mt-6 p-4 bg-slate-50 rounded-xl border border-slate-200 text-xs text-slate-600 text-left space-y-1.5">
-            <div><strong>Preferred Committee:</strong> {committees.find(c => c.id === formData.preferredCommitteeId)?.name}</div>
+          <div className="mt-6 p-4 bg-slate-50 rounded-xl border border-slate-200 text-xs text-slate-600 text-left space-y-2">
+            <div><strong>Reference:</strong> <span className="font-mono">{receipt?.reference || formData.universityEmail}</span></div>
+            <div><strong>Preferred Committee:</strong> {committees.find(c => c.id === formData.preferredCommitteeId)?.name ?? 'Not recorded'}</div>
             <div><strong>Email:</strong> {formData.universityEmail}</div>
-            <div><strong>Status:</strong> <span className="text-amber-600 font-bold">Pending Review</span></div>
+            <div><strong>Status:</strong> <span className="text-amber-600 font-bold">Pending review</span></div>
+            <ol className="pt-1 pl-4 list-decimal space-y-1 text-slate-500">
+              <li>
+                {receipt?.requiresEmailVerification === false
+                  ? 'Your address was already confirmed.'
+                  : 'Confirm your email address using the link we just sent.'}
+              </li>
+              <li>An administrator reviews the application and either approves or rejects it.</li>
+              <li>Only after approval does the account reach active and open the member workspace.</li>
+            </ol>
           </div>
+          <p className="mt-4 text-[11px] text-slate-400 inline-flex items-start gap-1.5 text-left">
+            <ShieldCheck className="w-3.5 h-3.5 mt-0.5 shrink-0" aria-hidden />
+            Verification alone does not grant access, and no role is chosen on this form — every new account is a
+            member until an administrator decides otherwise.
+          </p>
           <div className="mt-8 space-y-3">
             <button
               onClick={onBackToHome}
@@ -130,6 +189,7 @@ export const RegistrationPortal: React.FC<RegistrationPortalProps> = ({
             Back to Website
           </button>
           <div className="flex items-center gap-2">
+            <ThemeToggle />
             <img src="/branding/esme_logo.png" alt="ESME" className="h-7 w-auto object-contain" />
             <span className="text-xs font-bold text-[#123B60]">Recruitment 2026-2027</span>
           </div>
@@ -265,16 +325,80 @@ export const RegistrationPortal: React.FC<RegistrationPortalProps> = ({
             })}
           </div>
 
+          {/* Account credentials — created on the provider, never stored here */}
+          <div className="pt-6 border-t border-slate-100 space-y-4">
+            <div>
+              <h2 className="text-base font-bold text-[#123B60]">Chapter account</h2>
+              <p className="text-xs text-slate-500">
+                These credentials sign you in. They are sent to the authentication provider and are never written into
+                this browser or this repository.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+              <div className="space-y-1.5">
+                <label htmlFor="reg-username" className="block text-xs font-bold text-slate-700">
+                  Username <span className="text-red-500">*</span>
+                </label>
+                <input
+                  id="reg-username"
+                  value={account.username}
+                  onChange={(e) => setAccount({ ...account, username: e.target.value.toLowerCase() })}
+                  autoComplete="username"
+                  required
+                  placeholder="lowercase, 3-30 characters"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs focus:ring-2 focus:ring-[#123B60] focus:border-transparent outline-none transition"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label htmlFor="reg-password" className="block text-xs font-bold text-slate-700">
+                  Password <span className="text-red-500">*</span>
+                </label>
+                <input
+                  id="reg-password"
+                  type="password"
+                  value={account.password}
+                  onChange={(e) => setAccount({ ...account, password: e.target.value })}
+                  autoComplete="new-password"
+                  required
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs focus:ring-2 focus:ring-[#123B60] focus:border-transparent outline-none transition"
+                />
+              </div>
+              <div className="space-y-1.5 sm:col-span-2">
+                <label htmlFor="reg-confirm" className="block text-xs font-bold text-slate-700">
+                  Confirm password <span className="text-red-500">*</span>
+                </label>
+                <input
+                  id="reg-confirm"
+                  type="password"
+                  value={account.confirmPassword}
+                  onChange={(e) => setAccount({ ...account, confirmPassword: e.target.value })}
+                  autoComplete="new-password"
+                  required
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs focus:ring-2 focus:ring-[#123B60] focus:border-transparent outline-none transition"
+                />
+                <PasswordChecklist checks={passwordChecksView} />
+              </div>
+            </div>
+          </div>
+
+          {formError && (
+            <p role="alert" className="rounded-xl border border-rose-200 bg-rose-50 px-3.5 py-2.5 text-xs text-rose-800">
+              {formError}
+            </p>
+          )}
+
           <div className="pt-4 border-t border-slate-100 flex items-center justify-between gap-4">
             <span className="text-[11px] text-slate-400">
-              Applications are reviewed by the chapter executive board.
+              Applications are reviewed by administrators holding the approval capability.
             </span>
             <button
               type="submit"
-              className="px-8 py-3.5 bg-[#F59A16] hover:bg-[#D47F0A] text-white font-bold rounded-xl text-xs shadow-md transition flex items-center gap-2"
+              disabled={busy}
+              className="px-8 py-3.5 bg-[#F59A16] hover:bg-[#D47F0A] disabled:opacity-60 text-white font-bold rounded-xl text-xs shadow-md transition flex items-center gap-2"
             >
-              <Send className="w-3.5 h-3.5" />
-              Submit Application
+              {busy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
+              {busy ? 'Submitting…' : 'Submit Application'}
             </button>
           </div>
 

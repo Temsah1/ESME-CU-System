@@ -1,30 +1,26 @@
-import React, { useState } from 'react';
-import { 
-  History, 
-  Search, 
-  Filter, 
-  ShieldCheck, 
-  Clock, 
-  User, 
-  Database,
-  Layers,
-  FileCheck2,
-  CheckCircle2
-} from 'lucide-react';
-import { useApp } from '../../context/AppContext';
+import React, { useMemo, useState } from 'react';
+import { History, Search, Filter, TriangleAlert, Clock } from 'lucide-react';
+import { useApp, useActor } from '../../context/AppContext';
+import { AUDIT_RETENTION } from '../../domain/audit';
+import { EmptyState } from '../EmptyState';
 
 export const AuditTrailView: React.FC = () => {
   const { auditLogs } = useApp();
+  const actor = useActor();
   const [searchTerm, setSearchTerm] = useState('');
   const [targetTypeFilter, setTargetTypeFilter] = useState('all');
 
-  const filteredLogs = auditLogs.filter(log => {
-    const matchesSearch = log.actorName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          log.action.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          log.details.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesTarget = targetTypeFilter === 'all' || log.targetType === targetTypeFilter;
-    return matchesSearch && matchesTarget;
-  });
+  const filteredLogs = useMemo(() => {
+    const term = searchTerm.toLowerCase();
+    return auditLogs.filter((log) => {
+      const matchesSearch =
+        log.actorName.toLowerCase().includes(term) ||
+        log.action.toLowerCase().includes(term) ||
+        log.details.toLowerCase().includes(term);
+      const matchesTarget = targetTypeFilter === 'all' || log.targetType === targetTypeFilter;
+      return matchesSearch && matchesTarget;
+    });
+  }, [auditLogs, searchTerm, targetTypeFilter]);
 
   const getTargetBadgeColor = (type: string) => {
     switch (type) {
@@ -49,15 +45,28 @@ export const AuditTrailView: React.FC = () => {
             Chapter Governance & Audit Trail
           </h1>
           <p className="text-xs text-slate-500">
-            Immutable chronology of administrative decisions, score modifications, tasks, and system state transitions.
+            Actions this application has taken with your account, newest first — {auditLogs.length}{' '}
+            {auditLogs.length === 1 ? 'entry' : 'entries'} cached in this browser.
           </p>
         </div>
         <div className="flex items-center gap-2 self-start sm:self-auto">
-          <span className="px-3 py-1.5 bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400 text-xs font-bold rounded-xl border border-emerald-200 dark:border-emerald-800 flex items-center gap-1.5">
-            <ShieldCheck className="w-4 h-4" />
-            Append-Only Traceability
+          <span className="px-3 py-1.5 bg-slate-50 dark:bg-slate-800/60 text-slate-600 dark:text-slate-300 text-xs font-bold rounded-xl border border-slate-200 dark:border-slate-700 flex items-center gap-1.5">
+            <TriangleAlert className="w-4 h-4" />
+            Browser-cached copy, not a tamper-evident log
           </span>
         </div>
+      </div>
+
+      <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/60 p-4 text-xs text-slate-600 dark:text-slate-300 space-y-1.5">
+        <p className="font-bold text-slate-800 dark:text-slate-100">What this list is</p>
+        <p>
+          It is written by the application as operations run and cached in this browser, so it can
+          under-report: an action taken in another browser, another device, or directly against the database will not
+          appear here, and only the most recent {AUDIT_RETENTION} entries are kept locally. {actor ? `You are seeing it as ${actor.name} (${actor.role.replace('_', ' ')}).` : ''} The
+          durable trail lives in the provider's <span className="font-mono text-[10px]">esme_audit_log</span> table; the{' '}
+          <span className="font-mono text-[10px]">supabase/migrations</span> directory defines it as append-only, and until that
+          provider is configured nothing can be read back from it.
+        </p>
       </div>
 
       {/* Filter and Search Bar */}
@@ -131,9 +140,16 @@ export const AuditTrailView: React.FC = () => {
                 </div>
               </div>
             ))
+          ) : auditLogs.length === 0 ? (
+            <EmptyState
+              title="Nothing recorded in this session yet"
+              description="No operation has run with your account since this workspace opened. Entries appear as tasks, decisions and profile changes are made here."
+              icon={History}
+            />
           ) : (
             <div className="p-12 text-center text-slate-400 text-xs">
-              No audit log entries matching your current filters.
+              {auditLogs.length} {auditLogs.length === 1 ? 'entry' : 'entries'} exist, but none match this search or
+              filter.
             </div>
           )}
         </div>

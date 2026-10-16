@@ -1,33 +1,27 @@
 import React, { useState } from 'react';
-import { 
-  UserPlus, 
-  Search, 
-  Filter, 
-  CheckCircle2, 
-  XCircle, 
-  Clock, 
-  Layers, 
-  Sliders, 
-  Plus, 
-  Trash2, 
-  Eye, 
-  ExternalLink,
-  ChevronDown,
-  X
-} from 'lucide-react';
+import { Search, X, ShieldCheck, MailWarning } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
+import { useAuth } from '../../auth/AuthProvider';
 import { useStickyNonNull, ModalShell, useToast } from '../../motion';
+import { EmptyState } from '../EmptyState';
 import type { RegistrationApplication, RegistrationFieldConfig } from '../../types';
 
 export const RegistrationManager: React.FC = () => {
-  const { 
-    applications, 
-    updateApplicationStatus, 
-    committees, 
-    formFields, 
+  const {
+    applications,
+    registrationQueue,
+    refreshRegistrationQueue,
+    updateApplicationStatus,
+    committees,
+    formFields,
     updateFormFields,
-    currentUser 
+    can
   } = useApp();
+  const { adapter } = useAuth();
+  const adapterKind = adapter ? adapter.kind : 'no provider';
+
+  const mayDecide = can('registrations.decide');
+  const mayEditSchema = can('cms.settings.global');
 
   const [activeTab, setActiveTab] = useState<'applications' | 'form_builder'>('applications');
   const [searchTerm, setSearchTerm] = useState('');
@@ -45,22 +39,38 @@ export const RegistrationManager: React.FC = () => {
     return matchesSearch && matchesStatus;
   });
 
-  const handleStatusChange = (
-    id: string, 
-    newStatus: RegistrationApplication['status'], 
-    notes?: string, 
+  const isDecided = (app: RegistrationApplication | null) =>
+    !!app && (app.status === 'accepted' || app.status === 'rejected');
+
+  const handleStatusChange = async (
+    id: string,
+    newStatus: RegistrationApplication['status'],
+    notes?: string,
     commId?: string
   ) => {
-    updateApplicationStatus(id, newStatus, notes, commId);
-    toast(newStatus === 'accepted' ? 'Applicant accepted' : newStatus === 'rejected' ? 'Applicant rejected' : 'Application updated', newStatus === 'rejected' ? 'error' : 'success');
-    if (selectedApp && selectedApp.id === id) {
-      setSelectedApp(prev => prev ? { ...prev, status: newStatus } : null);
+    try {
+      await updateApplicationStatus(id, newStatus, notes, commId);
+      toast(
+        newStatus === 'accepted'
+          ? 'Applicant approved. The account is now active.'
+          : newStatus === 'rejected'
+            ? 'Applicant rejected.'
+            : 'Application moved to ' + newStatus.replace('_', ' ') + '.',
+        newStatus === 'rejected' ? 'error' : 'success'
+      );
+      setSelectedApp(prev => prev && prev.id === id ? { ...prev, status: newStatus } : prev);
+    } catch (error) {
+      toast(error instanceof Error ? error.message : 'The decision was refused.', 'error');
     }
   };
 
   const handleSaveFields = () => {
-    updateFormFields(localFields);
-    alert('Registration form builder configuration saved successfully!');
+    try {
+      updateFormFields(localFields);
+      toast('Registration form schema saved.');
+    } catch (error) {
+      toast(error instanceof Error ? error.message : 'The schema was refused.', 'error');
+    }
   };
 
   const viewApp = useStickyNonNull(selectedApp);
@@ -99,6 +109,21 @@ export const RegistrationManager: React.FC = () => {
 
       {activeTab === 'applications' ? (
         <div className="space-y-6">
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-4 py-3">
+            <p className="text-[11px] text-slate-500">
+              {registrationQueue.from === 'provider'
+                ? `Queue read from the ${adapterKind} provider — this list is the server's record, not this browser's cache.`
+                : 'Queue read from this browser only. The provider did not return a list, so decisions here cannot be relied on for access.'}
+              {registrationQueue.error ? ` Last attempt failed: ${registrationQueue.error}` : ''}
+            </p>
+            <button
+              onClick={() => void refreshRegistrationQueue()}
+              className="text-[11px] font-bold text-[#123B60] dark:text-[#F59A16] hover:underline"
+            >
+              Reload from provider
+            </button>
+          </div>
+
           
           {/* Search and Filters */}
           <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 flex flex-wrap items-center justify-between gap-4">
@@ -127,6 +152,13 @@ export const RegistrationManager: React.FC = () => {
             </select>
           </div>
 
+          {applications.length === 0 && (
+            <EmptyState
+              title="No applications in this workspace"
+              description="Every submission from the public form lands here once the recruitment backend stores it. Nothing is pre-seeded, so an empty queue means no one has applied yet — not that the list was filtered."
+            />
+          )}
+
           {/* Applications Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredApps.map((app) => {
@@ -150,8 +182,25 @@ export const RegistrationManager: React.FC = () => {
                       </span>
                     </div>
 
+                    {app.accountStatus && (
+                      <p className="text-[10px] text-slate-400 mb-2">
+                        Provider status: <span className="font-bold">{app.accountStatus.replace(/_/g, ' ')}</span>
+                      </p>
+                    )}
+
                     <h2 className="text-base font-bold text-slate-900 dark:text-white">{app.fullName}</h2>
-                    <p className="text-xs text-slate-500">{app.universityEmail}</p>
+                    <p className="text-xs text-slate-500 flex items-center gap-1.5 flex-wrap">
+                      {app.universityEmail}
+                      {app.emailVerified ? (
+                        <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700">
+                          <ShieldCheck className="w-3 h-3" aria-hidden /> verified
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-700">
+                          <MailWarning className="w-3 h-3" aria-hidden /> email unverified
+                        </span>
+                      )}
+                    </p>
 
                     <div className="mt-3 p-3 bg-slate-50 dark:bg-slate-800/40 rounded-xl border border-slate-100 dark:border-slate-800 text-xs space-y-1">
                       <div>Year: <strong className="text-slate-800 dark:text-slate-200">{app.academicYear}</strong> ({app.department})</div>
@@ -172,24 +221,32 @@ export const RegistrationManager: React.FC = () => {
                       Full Profile
                     </button>
 
-                    <div className="flex items-center gap-1.5">
-                      {app.status !== 'accepted' && (
-                        <button
-                          onClick={() => handleStatusChange(app.id, 'accepted')}
-                          className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold transition"
-                        >
-                          Accept
-                        </button>
-                      )}
-                      {app.status !== 'rejected' && (
-                        <button
-                          onClick={() => handleStatusChange(app.id, 'rejected')}
-                          className="px-2.5 py-1.5 text-xs text-red-600 hover:bg-red-50 rounded-lg transition"
-                        >
-                          Reject
-                        </button>
-                      )}
-                    </div>
+                    {mayDecide && (
+                      <div className="flex items-center gap-1.5">
+                        {app.status !== 'accepted' && (
+                          <button
+                            onClick={() => handleStatusChange(app.id, 'accepted')}
+                            disabled={!app.emailVerified || isDecided(app)}
+                            title={app.emailVerified ? 'Approve and activate the account' : 'The applicant must confirm their email first'}
+                            className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-300 disabled:text-slate-500 disabled:cursor-not-allowed text-white rounded-lg text-xs font-bold transition"
+                          >
+                            Accept
+                          </button>
+                        )}
+                        {app.status !== 'rejected' && (
+                          <button
+                            onClick={() => {
+                              const reason = window.prompt('Reason for rejection (recorded in the audit trail):') ?? '';
+                              handleStatusChange(app.id, 'rejected', reason || 'Rejected by reviewer');
+                            }}
+                            disabled={isDecided(app)}
+                            className="px-2.5 py-1.5 text-xs text-red-600 hover:bg-red-50 disabled:opacity-40 rounded-lg transition"
+                          >
+                            Reject
+                          </button>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </div>
               );
@@ -205,12 +262,16 @@ export const RegistrationManager: React.FC = () => {
               <h2 className="text-base font-bold text-slate-900 dark:text-white">Registration Field Schema</h2>
               <p className="text-xs text-slate-500">Configure enabled fields, requirement rules, and input types for the public form.</p>
             </div>
-            <button
-              onClick={handleSaveFields}
-              className="px-5 py-2 bg-[#F59A16] hover:bg-[#D47F0A] text-white text-xs font-bold rounded-xl shadow-md transition"
-            >
-              Save Schema Changes
-            </button>
+            {mayEditSchema ? (
+              <button
+                onClick={handleSaveFields}
+                className="px-5 py-2 bg-[#F59A16] hover:bg-[#D47F0A] text-white text-xs font-bold rounded-xl shadow-md transition"
+              >
+                Save Schema Changes
+              </button>
+            ) : (
+              <span className="text-[11px] text-slate-400">Read-only: editing the schema requires the global CMS settings capability.</span>
+            )}
           </div>
 
           <div className="divide-y divide-slate-100 dark:divide-slate-800">

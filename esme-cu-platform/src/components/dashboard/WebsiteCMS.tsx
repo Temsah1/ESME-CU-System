@@ -1,31 +1,32 @@
-import React, { useState } from 'react';
-import { 
-  Globe, 
-  Save, 
-  RotateCcw, 
-  CheckCircle2, 
-  Sliders, 
-  Sparkles, 
-  Eye, 
-  Layers, 
-  FileText 
-} from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { Save, CircleCheck, Lock, TriangleAlert } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
+import { useToast } from '../../motion';
 import type { WebsiteContentConfig } from '../../types';
 
 export const WebsiteCMS: React.FC = () => {
-  const { websiteContent, updateWebsiteContent } = useApp();
-  
+  const { websiteContent, updateWebsiteContent, can } = useApp();
+  const { toast } = useToast();
+
   const [activeSection, setActiveSection] = useState<'hero' | 'about' | 'vision' | 'contact'>('hero');
-  const [savedMessage, setSavedMessage] = useState(false);
+  const [savedAt, setSavedAt] = useState<string | null>(null);
+
+  const mayEdit = can('cms.settings.global');
 
   // Local draft state
   const [draft, setDraft] = useState<WebsiteContentConfig>(websiteContent);
 
+  // A cached edit on another surface must not be silently overwritten by a stale draft here.
+  useEffect(() => setDraft(websiteContent), [websiteContent]);
+
   const handleSave = () => {
-    updateWebsiteContent(draft);
-    setSavedMessage(true);
-    setTimeout(() => setSavedMessage(false), 3000);
+    try {
+      updateWebsiteContent(draft);
+      setSavedAt(new Date().toLocaleTimeString());
+      toast('Draft saved in this browser. Deploy the site to publish it.', 'success');
+    } catch (error) {
+      toast(error instanceof Error ? error.message : 'Save refused.', 'error');
+    }
   };
 
   return (
@@ -40,21 +41,42 @@ export const WebsiteCMS: React.FC = () => {
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
-          {savedMessage && (
-            <span className="text-xs font-bold text-emerald-600 flex items-center gap-1">
-              <CheckCircle2 className="w-4 h-4" />
-              Published Live!
+        <div className="flex flex-col items-end gap-2">
+          {savedAt && (
+            <span className="text-[11px] font-bold text-emerald-700 dark:text-emerald-400 flex items-center gap-1">
+              <CircleCheck className="w-4 h-4" />
+              Saved as a local draft at {savedAt}
             </span>
           )}
           <button
             onClick={handleSave}
-            className="px-5 py-2.5 bg-[#F59A16] hover:bg-[#D47F0A] text-white text-xs font-bold rounded-xl shadow-md transition flex items-center gap-1.5"
+            disabled={!mayEdit}
+            className="px-5 py-2.5 bg-[#F59A16] hover:bg-[#D47F0A] disabled:opacity-50 disabled:hover:bg-[#F59A16] text-white text-xs font-bold rounded-xl shadow-md transition flex items-center gap-1.5"
           >
             <Save className="w-4 h-4" />
-            Save & Publish
+            {mayEdit ? 'Save draft' : 'Read-only'}
           </button>
         </div>
+      </div>
+
+      {!mayEdit && (
+        <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/60 p-4 flex items-start gap-3 text-xs text-slate-600 dark:text-slate-300">
+          <Lock className="w-4 h-4 shrink-0 mt-0.5 text-slate-400" aria-hidden />
+          <p>
+            Global site copy is written by the <span className="font-mono text-[10px]">cms.settings.global</span>{' '}
+            capability. Your role can read this configuration but not change it, and the provider — not this page — is
+            what refuses a write attempt.
+          </p>
+        </div>
+      )}
+
+      <div className="rounded-2xl border border-amber-200 dark:border-amber-500/30 bg-amber-50 dark:bg-amber-500/10 p-4 flex items-start gap-3 text-xs text-amber-900 dark:text-amber-200">
+        <TriangleAlert className="w-4 h-4 shrink-0 mt-0.5 text-amber-600" aria-hidden />
+        <p>
+          Saving stores this text in the browser cache of the machine you are using. Nothing here is pushed to the live
+          website: the public pages pick the configuration up on the next build and deploy, so the site you see online
+          can differ from this draft.
+        </p>
       </div>
 
       {/* Tabs */}
@@ -94,7 +116,11 @@ export const WebsiteCMS: React.FC = () => {
       </div>
 
       {/* Editor Body */}
-      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 sm:p-8 shadow-sm space-y-6">
+      <fieldset
+        disabled={!mayEdit}
+        aria-label="Public website content editor"
+        className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 sm:p-8 shadow-sm space-y-6 min-w-0"
+      >
         
         {activeSection === 'hero' && (
           <div className="space-y-4 max-w-2xl">
@@ -273,7 +299,7 @@ export const WebsiteCMS: React.FC = () => {
           </div>
         )}
 
-      </div>
+      </fieldset>
 
     </div>
   );

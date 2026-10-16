@@ -119,8 +119,14 @@ export const APPRECIATION_PROFILES: AppreciationProfile[] = [
   }
 ];
 
+/**
+ * Transcribed by hand from Meta Business Suite screenshots of four official posts.
+ * It is a static record, not a measurement: no analytics API is connected to this
+ * application, so nothing here refreshes, and the platform cannot confirm the figures.
+ */
 export const HISTORICAL_SOCIAL_INSIGHTS = {
   reportDate: 'October 2026',
+  provenance: 'Manually transcribed from Meta Insights screenshots — not produced by a live analytics integration.',
   summary: 'Concise performance report based on Meta Insights screenshots analyzed for 4 official posts.',
   totalViews: 43217,
   avgViewsPerPost: 10804,

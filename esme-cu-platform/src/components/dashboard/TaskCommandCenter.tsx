@@ -1,26 +1,21 @@
 import React, { useState } from 'react';
 import { motion } from 'motion/react';
-import { 
-  CheckSquare, 
-  Plus, 
-  Search, 
-  Filter, 
-  Calendar, 
-  Award, 
-  Clock, 
-  AlertCircle, 
-  ChevronRight, 
-  CheckCircle2, 
-  Upload, 
-  ExternalLink,
-  X
-} from 'lucide-react';
-import { useApp } from '../../context/AppContext';
+import { CheckSquare, Plus, Search, Calendar, Award, Upload, X, Play, Ban } from 'lucide-react';
+import { useApp, useActor } from '../../context/AppContext';
+import { scopeFor } from '../../domain/roles';
+import { canMoveTask, selfServiceMoves } from '../../domain/workflow';
 import { useStickyNonNull, ModalShell, useToast } from '../../motion';
+import { EmptyState } from '../EmptyState';
 import type { Task, TaskStatus } from '../../types';
 
+const MOVE_LABELS: Partial<Record<TaskStatus, string>> = {
+  in_progress: 'Start work',
+  cancelled: 'Cancel task',
+};
+
 export const TaskCommandCenter: React.FC = () => {
-  const { tasks, committees, users, addTask, updateTask, currentUser, addSubmission } = useApp();
+  const { tasks, committees, users, addTask, moveTask, reviewTask, addSubmission, can } = useApp();
+  const currentUser = useActor();
   
   const [viewMode, setViewMode] = useState<'board' | 'table'>('board');
   const [searchTerm, setSearchTerm] = useState('');
@@ -31,25 +26,29 @@ export const TaskCommandCenter: React.FC = () => {
   const { toast } = useToast();
   const [selectedTaskForSubmission, setSelectedTaskForSubmission] = useState<Task | null>(null);
 
-  // New task form state
-  const [newTask, setNewTask] = useState({
+  // New task form state. The start date is filled when the modal opens, not while this
+  // component renders, so the clock is only read on an explicit user action.
+  const blankTask = () => ({
     title: '',
     description: '',
-    committeeId: committees[0]?.id || 'comm_te',
+    committeeId: '',
     assigneeIds: [] as string[],
     priority: 'medium' as Task['priority'],
     points: 100,
-    startDate: new Date().toISOString().split('T')[0],
+    startDate: '',
     deadline: '',
     acceptanceCriteria: '',
     category: 'Technical Workshop'
   });
+  const [newTask, setNewTask] = useState(blankTask);
 
   // Submission form state
   const [submissionDesc, setSubmissionDesc] = useState('');
   const [submissionLinks, setSubmissionLinks] = useState('');
 
-  const canCreateTask = currentUser.role === 'super_admin' || currentUser.role === 'director' || currentUser.role === 'head';
+  const canCreateTask = can('tasks.write');
+  const maySubmit = can('submissions.create');
+  const taskScope = scopeFor(currentUser.role, 'tasks.read');
 
   const filteredTasks = tasks.filter((t) => {
     const matchesSearch = t.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -57,8 +56,9 @@ export const TaskCommandCenter: React.FC = () => {
     const matchesComm = committeeFilter === 'all' || t.committeeId === committeeFilter;
     const matchesPrio = priorityFilter === 'all' || t.priority === priorityFilter;
 
-    // Role-scoped visibility: Members only see tasks assigned to them or their committee
-    if (currentUser.role === 'member') {
+    // Visibility follows the scope the provider grants for tasks.read.
+    if (taskScope === 'self') return matchesSearch && matchesComm && matchesPrio && t.assigneeIds.includes(currentUser.id);
+    if (taskScope === 'committee') {
       const isAssigned = t.assigneeIds.includes(currentUser.id);
       const isSameComm = t.committeeId === currentUser.committeeId;
       return matchesSearch && matchesComm && matchesPrio && (isAssigned || isSameComm);
@@ -77,64 +77,116 @@ export const TaskCommandCenter: React.FC = () => {
 
   const handleCreate = (e: React.FormEvent) => {
     e.preventDefault();
-    const comm = committees.find(c => c.id === newTask.committeeId);
-    const assignees = users.filter(u => newTask.assigneeIds.includes(u.id));
+    const draft = newTask;
 
-    addTask({
-      title: newTask.title,
-      description: newTask.description,
-      committeeId: newTask.committeeId,
-      committeeName: comm?.name || 'Committee',
-      assigneeIds: newTask.assigneeIds,
-      assigneeNames: assignees.map(a => a.name),
-      createdById: currentUser.id,
-      createdByName: currentUser.name,
-      priority: newTask.priority,
-      points: Number(newTask.points),
-      startDate: newTask.startDate,
-      deadline: newTask.deadline,
-      status: 'assigned',
-      acceptanceCriteria: newTask.acceptanceCriteria.split('\n').filter(c => c.trim()),
-      category: newTask.category
-    });
+    try {
+      const comm = committees.find((c) => c.id === draft.committeeId);
+      if (!comm) throw new Error('Choose the committee that owns this task before saving.');
+      const assignees = users.filter((u) => draft.assigneeIds.includes(u.id));
 
-    toast(`Task "${newTask.title}" created`);
-    setIsCreateModalOpen(false);
-    setNewTask({
-      title: '',
-      description: '',
-      committeeId: committees[0]?.id || 'comm_te',
-      assigneeIds: [],
-      priority: 'medium',
-      points: 100,
-      startDate: new Date().toISOString().split('T')[0],
-      deadline: '',
-      acceptanceCriteria: '',
-      category: 'Technical Workshop'
-    });
+      addTask({
+        title: draft.title,
+        description: draft.description,
+        committeeId: draft.committeeId,
+        committeeName: comm.name,
+        assigneeIds: draft.assigneeIds,
+        assigneeNames: assignees.map(a => a.name),
+        createdById: currentUser.id,
+        createdByName: currentUser.name,
+        priority: draft.priority,
+        points: Number(draft.points),
+        startDate: draft.startDate,
+        deadline: draft.deadline,
+        status: 'assigned',
+        acceptanceCriteria: draft.acceptanceCriteria.split('\n').filter(c => c.trim()),
+        category: draft.category
+      });
+
+      toast(`Task "${draft.title}" created`);
+      setIsCreateModalOpen(false);
+      setNewTask(blankTask());
+    } catch (error) {
+      toast(error instanceof Error ? error.message : 'The task was refused.', 'error');
+    }
   };
+
+  const openCreateModal = () => {
+    setNewTask({ ...blankTask(), startDate: new Date().toISOString().split('T')[0] });
+    setIsCreateModalOpen(true);
+  };
+
+  // Only an assignee moves a task, and only along the states the delivery flow leaves open.
+  const movesFor = (task: Task) =>
+    task.assigneeIds.includes(currentUser.id) ? selfServiceMoves(task.status) : [];
+
+  const handleMove = (task: Task, to: TaskStatus) => {
+    try {
+      moveTask(task.id, to);
+      toast(`"${task.title}" is now ${to.replace('_', ' ')}.`, 'success');
+    } catch (error) {
+      toast(error instanceof Error ? error.message : 'That move was refused.', 'error');
+    }
+  };
+
+  // One column, decided once, so header and rows never disagree about its width.
+  const showActions = maySubmit || filteredTasks.some((t) => movesFor(t).length > 0);
+
+  type BoardReviewMove = 'under_review' | 'revision_requested' | 'rejected';
+  const [reviewMove, setReviewMove] = useState<{ task: Task; to: BoardReviewMove } | null>(null);
+  const [reviewNote, setReviewNote] = useState('');
+
+  // Board-side review moves only. Approving happens in the review centre, where the rubric runs.
+  const mayReviewTask = (task: Task) =>
+    can('submissions.review', { committeeId: task.committeeId }) &&
+    (task.status === 'submitted' || task.status === 'under_review');
+
+  const openReviewMove = (task: Task, to: BoardReviewMove) => {
+    setReviewMove({ task, to });
+    setReviewNote('');
+  };
+
+  const confirmReviewMove = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!reviewMove) return;
+    try {
+      reviewTask(reviewMove.task.id, reviewMove.to, reviewNote);
+      toast(`"${reviewMove.task.title}" is now ${reviewMove.to.replace(/_/g, ' ')}.`, 'success');
+      setReviewMove(null);
+      setReviewNote('');
+    } catch (error) {
+      toast(error instanceof Error ? error.message : 'That decision was not recorded.', 'error');
+    }
+  };
+
+  const viewReviewMove = useStickyNonNull(reviewMove);
 
   const handleSubmitDeliverable = (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedTaskForSubmission) return;
 
-    addSubmission({
-      taskId: selectedTaskForSubmission.id,
-      taskTitle: selectedTaskForSubmission.title,
-      committeeId: selectedTaskForSubmission.committeeId,
-      committeeName: selectedTaskForSubmission.committeeName,
-      memberId: currentUser.id,
-      memberName: currentUser.name,
-      description: submissionDesc,
-      externalLinks: submissionLinks.split('\n').map(l => l.trim()).filter(Boolean),
-      status: 'submitted',
-      proposedPoints: selectedTaskForSubmission.points
-    });
+    const task = selectedTaskForSubmission;
+    const description = submissionDesc;
+    const links = submissionLinks.split('\n').map(l => l.trim()).filter(Boolean);
 
-    toast('Deliverable submitted for review');
-    setSelectedTaskForSubmission(null);
-    setSubmissionDesc('');
-    setSubmissionLinks('');
+    try {
+      addSubmission({
+        taskId: task.id,
+        taskTitle: task.title,
+        committeeId: task.committeeId,
+        committeeName: task.committeeName,
+        memberId: currentUser.id,
+        memberName: currentUser.name,
+        description,
+        externalLinks: links,
+        proposedPoints: task.points
+      });
+      toast('Deliverable submitted for review');
+      setSelectedTaskForSubmission(null);
+      setSubmissionDesc('');
+      setSubmissionLinks('');
+    } catch (error) {
+      toast(error instanceof Error ? error.message : 'The submission was refused.', 'error');
+    }
   };
 
   const viewTask = useStickyNonNull(selectedTaskForSubmission);
@@ -147,7 +199,7 @@ export const TaskCommandCenter: React.FC = () => {
         <div>
           <h1 className="text-xl font-black text-slate-900 dark:text-white">Task Command & Delivery Center</h1>
           <p className="text-xs text-slate-500">
-            {currentUser.role === 'member'
+            {taskScope === 'self'
               ? 'Your assigned workflows, deadlines, and deliverable submission portal.'
               : 'Assign committee deliverables, set point values, track status pipelines, and inspect deadlines.'}
           </p>
@@ -178,7 +230,7 @@ export const TaskCommandCenter: React.FC = () => {
 
           {canCreateTask && (
             <button
-              onClick={() => setIsCreateModalOpen(true)}
+              onClick={openCreateModal}
               className="px-4 py-2 bg-[#F59A16] hover:bg-[#D47F0A] text-white text-xs font-bold rounded-xl shadow-md transition flex items-center gap-1.5"
             >
               <Plus className="w-4 h-4" />
@@ -228,7 +280,13 @@ export const TaskCommandCenter: React.FC = () => {
       </div>
 
       {/* Kanban Board View */}
-      {viewMode === 'board' ? (
+      {tasks.length === 0 ? (
+        <EmptyState
+          icon={CheckSquare}
+          title="No tasks recorded"
+          description="Nothing appears because no task rows exist within your scope. History is never simulated to fill a board — create the first task with the button above, or connect the backend that stores them."
+        />
+      ) : viewMode === 'board' ? (
         <motion.div
           key="board"
           initial={{ opacity: 0, y: 12 }}
@@ -290,8 +348,58 @@ export const TaskCommandCenter: React.FC = () => {
                         </div>
                       </div>
 
-                      {/* Submit deliverable button for members */}
-                      {t.status !== 'approved' && (
+                      {mayReviewTask(t) && (
+                        <div className="mt-2 pt-2 border-t border-slate-100 dark:border-slate-800 space-y-1.5">
+                          <div className="flex flex-wrap gap-1.5">
+                            {t.status === 'submitted' && (
+                              <button
+                                onClick={() => openReviewMove(t, 'under_review')}
+                                className="px-2 py-1 rounded-lg border border-purple-300 text-purple-700 dark:text-purple-300 text-[10px] font-bold hover:bg-purple-50 dark:hover:bg-purple-950/30"
+                              >
+                                Take into review
+                              </button>
+                            )}
+                            <button
+                              onClick={() => openReviewMove(t, 'revision_requested')}
+                              className="px-2 py-1 rounded-lg border border-amber-300 text-amber-700 dark:text-amber-400 text-[10px] font-bold hover:bg-amber-50 dark:hover:bg-amber-950/20"
+                            >
+                              Return for revision
+                            </button>
+                            <button
+                              onClick={() => openReviewMove(t, 'rejected')}
+                              className="px-2 py-1 rounded-lg border border-red-300 text-red-700 dark:text-red-400 text-[10px] font-bold hover:bg-red-50 dark:hover:bg-red-950/20"
+                            >
+                              Reject
+                            </button>
+                          </div>
+                          <p className="text-[10px] text-slate-400">
+                            Approval is recorded in the Review Centre, where the rubric and the independent-reviewer
+                            check run.
+                          </p>
+                        </div>
+                      )}
+
+                      {movesFor(t).length > 0 && (
+                        <div className="flex flex-wrap gap-1.5 mt-2">
+                          {movesFor(t).map((to) => (
+                            <button
+                              key={to}
+                              onClick={() => handleMove(t, to)}
+                              className={`flex-1 py-1.5 rounded-lg text-[11px] font-bold transition flex items-center justify-center gap-1.5 border ${
+                                to === 'in_progress'
+                                  ? 'border-indigo-300 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-950/30'
+                                  : 'border-slate-300 text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800'
+                              }`}
+                            >
+                              {to === 'in_progress' ? <Play className="w-3 h-3" /> : <Ban className="w-3 h-3" />}
+                              {MOVE_LABELS[to] ?? to}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Submit deliverable — needs the submission capability and a task the flow lets you file against */}
+                      {maySubmit && canMoveTask(t.status, 'submitted') && (
                         <button
                           onClick={() => setSelectedTaskForSubmission(t)}
                           className="w-full mt-2 py-1.5 rounded-lg bg-[#123B60] hover:bg-[#0A2239] text-white text-[11px] font-bold transition flex items-center justify-center gap-1.5"
@@ -330,7 +438,7 @@ export const TaskCommandCenter: React.FC = () => {
                 <th className="py-3 px-4">Points</th>
                 <th className="py-3 px-4">Deadline</th>
                 <th className="py-3 px-4">Status</th>
-                <th className="py-3 px-4 text-right">Actions</th>
+                {showActions && <th className="py-3 px-4 text-right">Actions</th>}
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
@@ -353,14 +461,29 @@ export const TaskCommandCenter: React.FC = () => {
                       {t.status.replace('_', ' ')}
                     </span>
                   </td>
-                  <td className="py-3 px-4 text-right">
-                    <button
-                      onClick={() => setSelectedTaskForSubmission(t)}
-                      className="px-3 py-1 bg-[#123B60] text-white rounded-lg text-xs font-semibold"
-                    >
-                      Submit
-                    </button>
-                  </td>
+                  {(maySubmit || movesFor(t).length > 0) && (
+                    <td className="py-3 px-4 text-right">
+                      <div className="inline-flex flex-wrap items-center justify-end gap-1.5">
+                        {movesFor(t).map((to) => (
+                          <button
+                            key={to}
+                            onClick={() => handleMove(t, to)}
+                            className="px-3 py-1 rounded-lg border border-slate-300 dark:border-slate-700 text-[11px] font-semibold text-slate-600 dark:text-slate-300"
+                          >
+                            {MOVE_LABELS[to] ?? to.replace('_', ' ')}
+                          </button>
+                        ))}
+                        {maySubmit && canMoveTask(t.status, 'submitted') && (
+                          <button
+                            onClick={() => setSelectedTaskForSubmission(t)}
+                            className="px-3 py-1 bg-[#123B60] text-white rounded-lg text-xs font-semibold"
+                          >
+                            Submit
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>
@@ -407,13 +530,21 @@ export const TaskCommandCenter: React.FC = () => {
                   <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">Responsible Committee</label>
                   <select
                     value={newTask.committeeId}
-                    onChange={(e) => setNewTask({ ...newTask, committeeId: e.target.value })}
+                    onChange={(e) => setNewTask({ ...newTask, committeeId: e.target.value, assigneeIds: [] })}
                     className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 outline-none"
                   >
+                    <option value="" disabled>
+                      {committees.length === 0 ? 'No committees stored yet' : 'Choose a committee...'}
+                    </option>
                     {committees.map((c) => (
                       <option key={c.id} value={c.id}>{c.name}</option>
                     ))}
                   </select>
+                  {committees.length === 0 && (
+                    <p className="text-[11px] text-slate-400 mt-1">
+                      A task must belong to a committee. Create one in Committees & Sectors first.
+                    </p>
+                  )}
                 </div>
                 <div>
                   <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">Priority</label>
@@ -458,7 +589,14 @@ export const TaskCommandCenter: React.FC = () => {
               <div>
                 <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">Assign Members</label>
                 <div className="max-h-28 overflow-y-auto border border-slate-200 dark:border-slate-700 rounded-xl p-2 space-y-1">
-                  {users.filter(u => u.committeeId === newTask.committeeId).map((u) => (
+                  {users.filter(u => u.committeeId === newTask.committeeId).length === 0 ? (
+                    <p className="text-[11px] text-slate-400 p-1">
+                      {newTask.committeeId
+                        ? 'No members are attached to this committee yet. You can still save the task and assign later.'
+                        : 'Pick a committee to list its members.'}
+                    </p>
+                  ) : (
+                    users.filter(u => u.committeeId === newTask.committeeId).map((u) => (
                     <label key={u.id} className="flex items-center gap-2 cursor-pointer p-1 rounded hover:bg-slate-100 dark:hover:bg-slate-800">
                       <input
                         type="checkbox"
@@ -474,7 +612,8 @@ export const TaskCommandCenter: React.FC = () => {
                       />
                       <span className="text-[11px] font-medium text-slate-700 dark:text-slate-300">{u.name} ({u.role})</span>
                     </label>
-                  ))}
+                  ))
+                  )}
                 </div>
               </div>
 
@@ -484,7 +623,7 @@ export const TaskCommandCenter: React.FC = () => {
                   rows={2}
                   value={newTask.acceptanceCriteria}
                   onChange={(e) => setNewTask({ ...newTask, acceptanceCriteria: e.target.value })}
-                  placeholder="Minimum 2 certified trainers sourced..."
+                  placeholder="What must be true before this counts as done..."
                   className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 outline-none"
                 />
               </div>
@@ -572,6 +711,57 @@ export const TaskCommandCenter: React.FC = () => {
             </form>
           </>
           )}
+      </ModalShell>
+
+      {/* Board-side review move: a claim, a return or a rejection. Never an approval. */}
+      <ModalShell open={!!reviewMove} onClose={() => setReviewMove(null)} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 max-w-md w-full shadow-2xl">
+        {viewReviewMove && (
+          <form onSubmit={confirmReviewMove} className="space-y-4 text-xs">
+            <div>
+              <h2 className="text-base font-bold text-slate-900 dark:text-white capitalize">
+                {viewReviewMove.to.replace(/_/g, ' ')}
+              </h2>
+              <p className="text-[11px] text-slate-400 mt-0.5">{viewReviewMove.task.title}</p>
+            </div>
+            <div>
+              <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1" htmlFor="board-review-note">
+                {viewReviewMove.to === 'revision_requested' ? 'What must change (required)' : 'Note on this decision'}
+              </label>
+              <textarea
+                id="board-review-note"
+                rows={3}
+                required={viewReviewMove.to === 'revision_requested'}
+                minLength={viewReviewMove.to === 'revision_requested' ? 15 : undefined}
+                value={reviewNote}
+                onChange={(e) => setReviewNote(e.target.value)}
+                placeholder={
+                  viewReviewMove.to === 'revision_requested'
+                    ? 'Name the missing evidence or the defect to fix...'
+                    : 'Optional context for the audit trail...'
+                }
+                className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 outline-none"
+              />
+            </div>
+            {viewReviewMove.to !== 'revision_requested' && (
+              <p className="text-[11px] text-slate-400">
+                This records your name and the decision in the audit trail. It awards no points — an approval with a
+                rubric is made in the Review Centre.
+              </p>
+            )}
+            <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100 dark:border-slate-800">
+              <button
+                type="button"
+                onClick={() => setReviewMove(null)}
+                className="px-4 py-2 rounded-xl border border-slate-200 text-slate-600 font-semibold"
+              >
+                Cancel
+              </button>
+              <button type="submit" className="px-5 py-2 bg-[#123B60] hover:bg-[#0A2239] text-white font-bold rounded-xl">
+                Record decision
+              </button>
+            </div>
+          </form>
+        )}
       </ModalShell>
 
     </div>

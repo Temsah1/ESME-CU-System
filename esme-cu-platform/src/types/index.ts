@@ -1,9 +1,13 @@
+import type { AccountStatus } from '../domain/accountState';
+
+export type Role = 'super_admin' | 'director' | 'head' | 'member' | 'moderator';
+
 export interface User {
   id: string;
   name: string;
   email: string;
   username: string;
-  role: 'super_admin' | 'director' | 'head' | 'member' | 'moderator';
+  role: Role;
   committeeId?: string;
   subTeam?: string;
   avatar?: string;
@@ -11,7 +15,8 @@ export interface User {
   department?: string;
   studentId?: string;
   phone?: string;
-  status: 'active' | 'inactive';
+  status: AccountStatus;
+  emailVerified: boolean;
   totalPoints: number;
   approvedTasksCount: number;
   joinedDate: string;
@@ -27,7 +32,8 @@ export interface Committee {
   directorName?: string;
   headId?: string;
   headName?: string;
-  memberCount: number;
+  /** Computed from real memberships; never typed in. Absent until members exist. */
+  memberCount?: number;
   objectives: string[];
   subTeams: string[];
   isPublic: boolean;
@@ -82,6 +88,9 @@ export interface TaskSubmission {
   externalLinks?: string[];
   status: 'submitted' | 'under_review' | 'revision_requested' | 'approved' | 'rejected';
   reviewerFeedback?: string;
+  /** Quality is recorded apart from completion: the rubric marks actually given. */
+  reviewRubric?: { label: string; mark: 0 | 1 | 2 }[];
+  rubricPercent?: number | null;
   reviewedBy?: string;
   reviewedAt?: string;
   proposedPoints: number;
@@ -123,9 +132,15 @@ export interface RegistrationApplication {
   agreedToPolicies: boolean;
   appliedDate: string;
   status: 'pending' | 'under_review' | 'accepted' | 'rejected' | 'waitlisted';
+  /** The provider's own account status, shown next to the stage the board projects it to. */
+  accountStatus?: AccountStatus;
+  emailVerified: boolean;
+  authUserId?: string;
   assignedCommitteeId?: string;
   internalNotes?: string;
+  rejectionReason?: string;
   reviewedBy?: string;
+  reviewedAt?: string;
 }
 
 export interface RegistrationFieldConfig {

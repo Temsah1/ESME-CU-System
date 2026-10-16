@@ -21,9 +21,11 @@ import {
   LogOut,
   Sun,
   Moon,
+  MonitorSmartphone,
   ExternalLink
 } from 'lucide-react';
-import { useApp } from '../../context/AppContext';
+import { useApp, useActor } from '../../context/AppContext';
+import type { Capability } from '../../domain/roles';
 import { transitions } from '../../motion';
 
 export type DashboardView =
@@ -43,10 +45,21 @@ export type DashboardView =
   | 'audit_log'
   | 'settings';
 
+type NavItem = {
+  id: DashboardView;
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+  capability?: Capability;
+  badge?: number;
+};
+
+type NavGroup = { group: string; items: NavItem[] };
+
 interface DashboardShellProps {
   currentView: DashboardView;
   onViewChange: (view: DashboardView) => void;
   onExitToPublicWebsite: () => void;
+  onSignOut: () => void;
   children: React.ReactNode;
 }
 
@@ -54,18 +67,20 @@ export const DashboardShell: React.FC<DashboardShellProps> = ({
   currentView,
   onViewChange,
   onExitToPublicWebsite,
+  onSignOut,
   children
 }) => {
   const {
-    currentUser,
-    switchRole,
+    can,
     theme,
-    toggleTheme,
+    setTheme,
+    resolvedTheme,
     notifications,
     markNotificationRead,
     applications,
     submissions
   } = useApp();
+  const currentUser = useActor();
 
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [notifDropdownOpen, setNotifDropdownOpen] = useState(false);
@@ -74,6 +89,10 @@ export const DashboardShell: React.FC<DashboardShellProps> = ({
   useEffect(() => {
     mainRef.current?.scrollTo({ top: 0 });
   }, [currentView]);
+
+  const cycleTheme = () => {
+    setTheme(theme === 'light' ? 'dark' : theme === 'dark' ? 'system' : 'light');
+  };
 
   const pendingSubmissionsCount = submissions.filter(s => s.status === 'submitted' || s.status === 'under_review').length;
   const pendingAppsCount = applications.filter(a => a.status === 'pending').length;
@@ -88,52 +107,60 @@ export const DashboardShell: React.FC<DashboardShellProps> = ({
     moderator: { label: 'IT Moderator', color: 'bg-purple-600 text-white' }
   };
 
-  // Nav Groups
-  const navItems = [
+  // Nav Groups — each entry declares the capability that makes it visible. Hiding an
+  // entry is presentation only; the provider's policies decide whether a request runs.
+  const allNavGroups: NavGroup[] = [
     {
       group: 'Core Command',
       items: [
-        { id: 'overview' as DashboardView, label: 'Overview', icon: LayoutDashboard },
-        { id: 'kpi_analytics' as DashboardView, label: 'KPI & Analytics', icon: LineChart },
-        { id: 'season_planner' as DashboardView, label: 'Season 26–27', icon: Compass },
+        { id: 'overview', label: 'Overview', icon: LayoutDashboard },
+        { id: 'kpi_analytics', label: 'KPI & Analytics', icon: LineChart, capability: 'analytics.configure' },
+        { id: 'season_planner', label: 'Season 26–27', icon: Compass, capability: 'events.read' },
       ]
     },
     {
       group: 'Organization & People',
       items: [
-        { id: 'members' as DashboardView, label: 'Members Directory', icon: Users },
-        { id: 'committees' as DashboardView, label: 'Committees & Teams', icon: Layers },
-        { id: 'applications' as DashboardView, label: 'Recruitment Apps', icon: UserPlus, badge: pendingAppsCount > 0 ? pendingAppsCount : undefined },
-        { id: 'skill_matrix' as DashboardView, label: 'L0–L4 Skill Matrix', icon: Award },
+        { id: 'members', label: 'Members Directory', icon: Users, capability: 'users.read' },
+        { id: 'committees', label: 'Committees & Teams', icon: Layers, capability: 'committees.read' },
+        { id: 'applications', label: 'Recruitment Apps', icon: UserPlus, capability: 'registrations.read', badge: pendingAppsCount > 0 ? pendingAppsCount : undefined },
+        { id: 'skill_matrix', label: 'L0–L4 Skill Matrix', icon: Award, capability: 'skills.read' },
       ]
     },
     {
       group: 'Operations & Execution',
       items: [
-        { id: 'tasks' as DashboardView, label: 'Tasks Command', icon: CheckSquare },
-        { id: 'submissions' as DashboardView, label: 'Submissions Review', icon: FileCheck2, badge: pendingSubmissionsCount > 0 ? pendingSubmissionsCount : undefined },
-        { id: 'scoring' as DashboardView, label: 'Points & Ledger', icon: Award },
+        { id: 'tasks', label: 'Tasks Command', icon: CheckSquare, capability: 'tasks.read' },
+        { id: 'submissions', label: 'Submissions Review', icon: FileCheck2, capability: 'submissions.read', badge: pendingSubmissionsCount > 0 ? pendingSubmissionsCount : undefined },
+        { id: 'scoring', label: 'Points & Ledger', icon: Award, capability: 'scores.read' },
       ]
     },
     {
       group: 'Public Channels & Content',
       items: [
-        { id: 'website_cms' as DashboardView, label: 'Website CMS', icon: Globe },
-        { id: 'social_media' as DashboardView, label: 'Meta Post Insights', icon: Share2 },
+        { id: 'website_cms', label: 'Website CMS', icon: Globe, capability: 'cms.content.write' },
+        { id: 'social_media', label: 'Meta Post Insights', icon: Share2, capability: 'cms.content.write' },
       ]
     },
     {
       group: 'System & Governance',
       items: [
-        { id: 'audit_log' as DashboardView, label: 'Audit Trail', icon: History },
-        { id: 'moderator' as DashboardView, label: 'IT Moderator Tools', icon: ShieldAlert },
-        { id: 'settings' as DashboardView, label: 'Settings & Backups', icon: Settings },
+        { id: 'audit_log', label: 'Audit Trail', icon: History, capability: 'audit.read' },
+        { id: 'moderator', label: 'IT Moderator Tools', icon: ShieldAlert, capability: 'registrations.decide' },
+        { id: 'settings', label: 'Settings & Backups', icon: Settings, capability: 'settings.manage' },
       ]
-    }
+    },
   ];
 
+  const navGroups: NavGroup[] = allNavGroups
+    .map((group) => ({
+      ...group,
+      items: group.items.filter((item) => item.capability === undefined || can(item.capability)),
+    }))
+    .filter((group) => group.items.length > 0);
+
   return (
-    <div className={`min-h-screen flex ${theme === 'dark' ? 'bg-slate-950 text-slate-100' : 'bg-slate-50 text-slate-900'} font-sans`}>
+    <div className={`min-h-screen flex ${resolvedTheme === 'dark' ? 'bg-slate-950 text-slate-100' : 'bg-slate-50 text-slate-900'} font-sans`}>
 
       {/* Sidebar */}
       <motion.aside
@@ -141,7 +168,7 @@ export const DashboardShell: React.FC<DashboardShellProps> = ({
         animate={{ width: sidebarCollapsed ? 80 : 256 }}
         transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
         className={`flex flex-col border-r overflow-hidden shrink-0 z-30 ${
-          theme === 'dark' ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'
+          resolvedTheme === 'dark' ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'
         }`}
       >
 
@@ -190,7 +217,7 @@ export const DashboardShell: React.FC<DashboardShellProps> = ({
         </div>
 
         {/* Current Active Persona Banner in Sidebar */}
-        <div className={`p-3 border-b border-inherit shrink-0 ${theme === 'dark' ? 'bg-slate-800/40' : 'bg-slate-50'}`}>
+        <div className={`p-3 border-b border-inherit shrink-0 ${resolvedTheme === 'dark' ? 'bg-slate-800/40' : 'bg-slate-50'}`}>
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-full bg-[#123B60] text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-sm">
               {currentUser.name.split(' ').map(n => n[0]).join('')}
@@ -219,7 +246,7 @@ export const DashboardShell: React.FC<DashboardShellProps> = ({
 
         {/* Navigation list */}
         <div className="flex-1 overflow-y-auto overflow-x-hidden px-3 py-4 space-y-6">
-          {navItems.map((group, gIdx) => (
+          {navGroups.map((group, gIdx) => (
             <div key={gIdx} className="space-y-1">
               <AnimatePresence initial={false}>
                 {!sidebarCollapsed && (
@@ -309,7 +336,7 @@ export const DashboardShell: React.FC<DashboardShellProps> = ({
 
         {/* Top Header */}
         <header className={`h-16 px-6 border-b flex items-center justify-between z-20 shrink-0 ${
-          theme === 'dark' ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'
+          resolvedTheme === 'dark' ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'
         }`}>
 
           {/* Breadcrumb / Title */}
@@ -335,28 +362,21 @@ export const DashboardShell: React.FC<DashboardShellProps> = ({
           {/* Right Header Utilities */}
           <div className="flex items-center gap-3">
 
-            {/* Persona Switcher Quick Dropdown */}
-            <div className="flex items-center gap-2 text-xs bg-slate-100 dark:bg-slate-800 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 transition-colors hover:border-[#123B60]/40">
+            {/* Role badge — the provider assigns roles; this only reports the one on the session */}
+            <div className="flex items-center gap-2 text-xs bg-slate-100 dark:bg-slate-800 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700">
               <span className="text-slate-400 font-medium">Role:</span>
-              <select
-                value={currentUser.role}
-                onChange={(e) => switchRole(e.target.value as any)}
-                className="bg-transparent font-bold text-[#123B60] dark:text-[#F59A16] outline-none cursor-pointer text-xs"
-              >
-                <option value="super_admin">Super Admin (Kareem Tamer)</option>
-                <option value="director">Director (Mahmoud Khalil)</option>
-                <option value="head">Head (Ali Salah)</option>
-                <option value="member">Member (Noureldin Mohamed)</option>
-                <option value="moderator">IT Moderator (Sameh Ibrahem)</option>
-              </select>
+              <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider ${roleDisplayNames[currentUser.role]?.color ?? 'bg-slate-600 text-white'}`}>
+                {roleDisplayNames[currentUser.role]?.label ?? currentUser.role}
+              </span>
             </div>
 
             {/* Theme Toggle */}
             <motion.button
-              onClick={toggleTheme}
+              onClick={cycleTheme}
               className="p-2 rounded-xl text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
               whileTap={{ scale: 0.9, rotate: -15 }}
-              title="Toggle theme"
+              title={`Appearance: ${theme} — click to change`}
+              aria-label={`Appearance: ${theme}. Click to change.`}
             >
               <AnimatePresence mode="wait" initial={false}>
                 <motion.span
@@ -367,7 +387,11 @@ export const DashboardShell: React.FC<DashboardShellProps> = ({
                   transition={{ duration: 0.2 }}
                   className="block"
                 >
-                  {theme === 'dark' ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-slate-600" />}
+                  {theme === 'system'
+                    ? <MonitorSmartphone className="w-4 h-4 text-slate-500" />
+                    : resolvedTheme === 'dark'
+                      ? <Sun className="w-4 h-4 text-amber-400" />
+                      : <Moon className="w-4 h-4 text-slate-600" />}
                 </motion.span>
               </AnimatePresence>
             </motion.button>
@@ -418,6 +442,11 @@ export const DashboardShell: React.FC<DashboardShellProps> = ({
                         </button>
                       </div>
                       <div className="space-y-2 max-h-64 overflow-y-auto">
+                        {notifications.length === 0 && (
+                          <p className="text-[11px] text-slate-500 py-4 text-center">
+                            Nothing here yet. Activity notifications appear once the workspace has records.
+                          </p>
+                        )}
                         {notifications.map((n, i) => (
                           <motion.div
                             key={n.id}
@@ -441,17 +470,17 @@ export const DashboardShell: React.FC<DashboardShellProps> = ({
               </AnimatePresence>
             </div>
 
-            {/* Profile Avatar & Sign Out */}
+            {/* Sign out ends the provider session, not just this screen */}
             <motion.button
-              onClick={onExitToPublicWebsite}
+              onClick={onSignOut}
               className="px-3 py-1.5 bg-[#123B60] hover:bg-[#0A2239] text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-sm"
               whileHover={{ y: -1 }}
               whileTap={{ scale: 0.96 }}
               transition={transitions.micro}
-              title="Logout session"
+              title="End your session"
             >
               <LogOut className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Logout</span>
+              <span className="hidden sm:inline">Sign out</span>
             </motion.button>
 
           </div>

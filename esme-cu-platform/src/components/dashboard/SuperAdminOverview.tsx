@@ -14,7 +14,7 @@ import {
   ChevronRight,
   Plus
 } from 'lucide-react';
-import { useApp } from '../../context/AppContext';
+import { useApp, useActor } from '../../context/AppContext';
 import type { DashboardView } from './DashboardShell';
 import { AnimatedNumber, MagneticButton, StaggerGroup, StaggerItem, groupItemScale, transitions } from '../../motion';
 
@@ -24,7 +24,6 @@ interface SuperAdminOverviewProps {
 
 export const SuperAdminOverview: React.FC<SuperAdminOverviewProps> = ({ onNavigate }) => {
   const {
-    currentUser,
     users,
     committees,
     tasks,
@@ -32,8 +31,10 @@ export const SuperAdminOverview: React.FC<SuperAdminOverviewProps> = ({ onNaviga
     applications,
     seasonEvents,
     scoreLedger,
-    auditLogs
+    auditLogs,
+    can
   } = useApp();
+  const currentUser = useActor();
 
   // Dynamic calculations from initialized state
   const totalMembers = users.length;
@@ -47,7 +48,14 @@ export const SuperAdminOverview: React.FC<SuperAdminOverviewProps> = ({ onNaviga
   // Season KPI completion calculation
   const totalSeasonDeliverables = seasonEvents.length;
   const completedDeliverables = seasonEvents.filter(e => e.status === 'Completed').length;
-  const seasonProgressPct = Math.round((completedDeliverables / totalSeasonDeliverables) * 100);
+  const seasonProgressPct = totalSeasonDeliverables === 0
+    ? 0
+    : Math.round((completedDeliverables / totalSeasonDeliverables) * 100);
+
+  const hour = new Date().getHours();
+  const greeting = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
+
+  const rosterSizeFor = (committeeId: string) => users.filter(u => u.committeeId === committeeId).length;
 
   const kpiCards: {
     label: string;
@@ -58,9 +66,11 @@ export const SuperAdminOverview: React.FC<SuperAdminOverviewProps> = ({ onNaviga
     color: string;
     bg: string;
     actionView: DashboardView;
+    capability?: Parameters<typeof can>[0];
   }[] = [
     {
       label: 'Total Chapter Members',
+      capability: 'users.read',
       value: totalMembers,
       subtitle: `${users.filter(u => u.status === 'active').length} active in rosters`,
       icon: Users,
@@ -71,7 +81,7 @@ export const SuperAdminOverview: React.FC<SuperAdminOverviewProps> = ({ onNaviga
     {
       label: 'Active Committees',
       value: activeCommittees,
-      subtitle: 'T&E, M&C, MKT, Design',
+      subtitle: committees.filter(c => c.status === 'active').map(c => c.shortCode).join(', ') || 'No active committees',
       icon: Layers,
       color: 'text-[#F59A16]',
       bg: 'bg-[#F59A16]/10',
@@ -79,6 +89,7 @@ export const SuperAdminOverview: React.FC<SuperAdminOverviewProps> = ({ onNaviga
     },
     {
       label: 'Active Tasks',
+      capability: 'tasks.read',
       value: activeTasks,
       subtitle: `${tasks.length} total season tasks`,
       icon: CheckSquare,
@@ -88,6 +99,7 @@ export const SuperAdminOverview: React.FC<SuperAdminOverviewProps> = ({ onNaviga
     },
     {
       label: 'Pending Submissions',
+      capability: 'submissions.read',
       value: pendingSubmissions,
       subtitle: 'Awaiting board review',
       icon: FileCheck2,
@@ -98,6 +110,7 @@ export const SuperAdminOverview: React.FC<SuperAdminOverviewProps> = ({ onNaviga
     {
       label: 'Pending Applications',
       value: pendingApplications,
+      capability: 'registrations.read',
       subtitle: `${applications.length} recruitment entries`,
       icon: UserPlus,
       color: 'text-emerald-600',
@@ -106,6 +119,7 @@ export const SuperAdminOverview: React.FC<SuperAdminOverviewProps> = ({ onNaviga
     },
     {
       label: 'Overdue / Flagged',
+      capability: 'tasks.read',
       value: overdueTasks,
       subtitle: 'Requiring leadership intervention',
       icon: AlertTriangle,
@@ -114,9 +128,10 @@ export const SuperAdminOverview: React.FC<SuperAdminOverviewProps> = ({ onNaviga
       actionView: 'tasks'
     },
     {
-      label: 'Total Approved Points',
+      label: 'Points Recorded',
       value: totalPointsDistributed,
-      subtitle: 'Points ledger verified',
+      capability: 'scores.read',
+      subtitle: `${scoreLedger.length} ledger entries`,
       icon: Award,
       color: 'text-purple-600',
       bg: 'bg-purple-500/10',
@@ -133,6 +148,8 @@ export const SuperAdminOverview: React.FC<SuperAdminOverviewProps> = ({ onNaviga
       actionView: 'season_planner'
     }
   ];
+
+  const visibleKpiCards = kpiCards.filter((card) => card.capability === undefined || can(card.capability));
 
   return (
     <div className="space-y-8">
@@ -152,7 +169,7 @@ export const SuperAdminOverview: React.FC<SuperAdminOverviewProps> = ({ onNaviga
               <span>Season 2026–2027 Command Center</span>
             </div>
             <h1 className="text-2xl sm:text-3xl font-black tracking-tight">
-              Good morning, {currentUser.name}
+              {greeting}, {currentUser.name}
             </h1>
             <p className="text-xs sm:text-sm text-slate-200 max-w-2xl leading-relaxed">
               Your ESME command center. Monitor performance, review submissions, manage your committees, and keep the chapter moving forward.
@@ -161,6 +178,7 @@ export const SuperAdminOverview: React.FC<SuperAdminOverviewProps> = ({ onNaviga
 
           {/* Quick Action Buttons */}
           <div className="flex flex-wrap items-center gap-2.5">
+            {can('tasks.write') && (
             <MagneticButton
               onClick={() => onNavigate('tasks')}
               strength={0.2}
@@ -169,6 +187,8 @@ export const SuperAdminOverview: React.FC<SuperAdminOverviewProps> = ({ onNaviga
               <Plus className="w-3.5 h-3.5" />
               Create Task
             </MagneticButton>
+            )}
+            {can('submissions.review') && (
             <motion.button
               onClick={() => onNavigate('submissions')}
               className="px-4 py-2.5 bg-white/10 hover:bg-white/20 text-white text-xs font-bold rounded-xl border border-white/20 flex items-center gap-1.5 backdrop-blur-sm"
@@ -179,6 +199,8 @@ export const SuperAdminOverview: React.FC<SuperAdminOverviewProps> = ({ onNaviga
               <FileCheck2 className="w-3.5 h-3.5" />
               Review Submissions
             </motion.button>
+            )}
+            {can('cms.content.write') && (
             <motion.button
               onClick={() => onNavigate('website_cms')}
               className="px-4 py-2.5 bg-white/10 hover:bg-white/20 text-white text-xs font-bold rounded-xl border border-white/20 flex items-center gap-1.5 backdrop-blur-sm"
@@ -188,13 +210,14 @@ export const SuperAdminOverview: React.FC<SuperAdminOverviewProps> = ({ onNaviga
             >
               Edit Website
             </motion.button>
+            )}
           </div>
         </div>
       </motion.div>
 
       {/* KPI Metric Cards Grid */}
       <StaggerGroup className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4" step={0.06} amount={0.1}>
-        {kpiCards.map((card, idx) => {
+        {visibleKpiCards.map((card, idx) => {
           const Icon = card.icon;
           return (
             <StaggerItem key={idx} variants={groupItemScale} className="h-full">
@@ -256,6 +279,11 @@ export const SuperAdminOverview: React.FC<SuperAdminOverviewProps> = ({ onNaviga
             </motion.button>
           </div>
 
+          {submissions.length === 0 && (
+            <p className="text-[11px] text-slate-400 rounded-2xl border border-dashed border-slate-200 dark:border-slate-700 px-4 py-6 text-center">
+              Nothing is waiting for review. Submissions appear here as soon as members file work against a task.
+            </p>
+          )}
           <StaggerGroup className="space-y-3" step={0.07} amount={0.1}>
             {submissions.slice(0, 4).map((sub) => (
               <StaggerItem key={sub.id}>
@@ -303,7 +331,9 @@ export const SuperAdminOverview: React.FC<SuperAdminOverviewProps> = ({ onNaviga
           <div className="flex items-center justify-between mb-4">
             <div>
               <h2 className="text-sm font-bold text-slate-900 dark:text-white">Committees Roster</h2>
-              <p className="text-[11px] text-slate-400">T&E, M&C, Marketing, and Design</p>
+              <p className="text-[11px] text-slate-400">
+                {committees.length} committee{committees.length === 1 ? '' : 's'} in the organizational structure
+              </p>
             </div>
             <button
               onClick={() => onNavigate('committees')}
@@ -314,6 +344,11 @@ export const SuperAdminOverview: React.FC<SuperAdminOverviewProps> = ({ onNaviga
           </div>
 
           <StaggerGroup className="space-y-3" step={0.06} amount={0.1}>
+            {committees.length === 0 && (
+              <p className="text-[11px] text-slate-400 rounded-2xl border border-dashed border-slate-200 dark:border-slate-700 px-4 py-6 text-center">
+                No committees are defined yet.
+              </p>
+            )}
             {committees.map((comm) => (
               <StaggerItem key={comm.id}>
                 <motion.div
@@ -328,11 +363,13 @@ export const SuperAdminOverview: React.FC<SuperAdminOverviewProps> = ({ onNaviga
                     </span>
                     <div>
                       <div className="font-bold text-slate-800 dark:text-slate-100">{comm.name}</div>
-                      <div className="text-[10px] text-slate-400">{comm.directorName || 'No director'}</div>
+                      <div className="text-[10px] text-slate-400">{comm.directorName ?? 'Director not assigned'}</div>
                     </div>
                   </div>
                   <div className="text-right">
-                    <div className="font-bold text-slate-700 dark:text-slate-300">{comm.memberCount} members</div>
+                    <div className="font-bold text-slate-700 dark:text-slate-300">
+                      {rosterSizeFor(comm.id)} member{rosterSizeFor(comm.id) === 1 ? '' : 's'}
+                    </div>
                     <div className="text-[10px] text-emerald-600 font-semibold">{comm.status}</div>
                   </div>
                 </motion.div>
@@ -356,14 +393,22 @@ export const SuperAdminOverview: React.FC<SuperAdminOverviewProps> = ({ onNaviga
             <h2 className="text-sm font-bold text-slate-900 dark:text-white">Recent Organization Activity & Audit Log</h2>
             <p className="text-[11px] text-slate-400">Centralized immutable record of all administrative actions</p>
           </div>
-          <button
-            onClick={() => onNavigate('audit_log')}
-            className="text-xs text-[#F59A16] font-bold hover:underline"
-          >
-            Full Audit Log
-          </button>
+          {can('audit.read') && (
+            <button
+              onClick={() => onNavigate('audit_log')}
+              className="text-xs text-[#F59A16] font-bold hover:underline"
+            >
+              Full Audit Log
+            </button>
+          )}
         </div>
 
+        {auditLogs.length === 0 && (
+          <p className="text-[11px] text-slate-400 rounded-2xl border border-dashed border-slate-200 dark:border-slate-700 px-4 py-6 text-center">
+            No administrative actions recorded in this workspace yet. Every privileged change made here will appear as
+            an append-only entry.
+          </p>
+        )}
         <StaggerGroup className="divide-y divide-slate-100 dark:divide-slate-800" step={0.05} amount={0.1}>
           {auditLogs.slice(0, 5).map((log) => (
             <StaggerItem key={log.id}>
