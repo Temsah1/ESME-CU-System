@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { History, Search, Filter, TriangleAlert, Clock } from 'lucide-react';
+import { History, Search, Filter, TriangleAlert, Clock, Ban } from 'lucide-react';
 import { useApp, useActor } from '../../context/AppContext';
 import { AUDIT_RETENTION } from '../../domain/audit';
 import { EmptyState } from '../EmptyState';
@@ -9,18 +9,24 @@ export const AuditTrailView: React.FC = () => {
   const actor = useActor();
   const [searchTerm, setSearchTerm] = useState('');
   const [targetTypeFilter, setTargetTypeFilter] = useState('all');
+  const [outcomeFilter, setOutcomeFilter] = useState('all');
 
   const filteredLogs = useMemo(() => {
     const term = searchTerm.toLowerCase();
     return auditLogs.filter((log) => {
       const matchesSearch =
         log.actorName.toLowerCase().includes(term) ||
+        log.actorId.toLowerCase().includes(term) ||
+        log.targetId.toLowerCase().includes(term) ||
         log.action.toLowerCase().includes(term) ||
         log.details.toLowerCase().includes(term);
       const matchesTarget = targetTypeFilter === 'all' || log.targetType === targetTypeFilter;
-      return matchesSearch && matchesTarget;
+      // Older rows carry no outcome, so "executed" means "not explicitly refused".
+      const matchesOutcome =
+        outcomeFilter === 'all' || (outcomeFilter === 'denied' ? log.outcome === 'denied' : log.outcome !== 'denied');
+      return matchesSearch && matchesTarget && matchesOutcome;
     });
-  }, [auditLogs, searchTerm, targetTypeFilter]);
+  }, [auditLogs, searchTerm, targetTypeFilter, outcomeFilter]);
 
   const getTargetBadgeColor = (type: string) => {
     switch (type) {
@@ -46,7 +52,9 @@ export const AuditTrailView: React.FC = () => {
           </h1>
           <p className="text-xs text-slate-500">
             Actions this application has taken with your account, newest first — {auditLogs.length}{' '}
-            {auditLogs.length === 1 ? 'entry' : 'entries'} cached in this browser.
+            {auditLogs.length === 1 ? 'entry' : 'entries'} cached in this browser, of which{' '}
+            {auditLogs.filter((log) => log.outcome === 'denied').length} refused attempts are kept alongside the
+            changes that ran.
           </p>
         </div>
         <div className="flex items-center gap-2 self-start sm:self-auto">
@@ -98,6 +106,16 @@ export const AuditTrailView: React.FC = () => {
             <option value="cms">Website CMS</option>
             <option value="system">System & Diagnostics</option>
           </select>
+          <select
+            value={outcomeFilter}
+            onChange={(e) => setOutcomeFilter(e.target.value)}
+            aria-label="Filter by outcome"
+            className="px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-semibold outline-none text-slate-700 dark:text-slate-200"
+          >
+            <option value="all">Executed and refused</option>
+            <option value="denied">Refused attempts only</option>
+            <option value="allowed">Executed only</option>
+          </select>
         </div>
       </div>
 
@@ -106,9 +124,13 @@ export const AuditTrailView: React.FC = () => {
         <div className="divide-y divide-slate-100 dark:divide-slate-800">
           {filteredLogs.length > 0 ? (
             filteredLogs.map((log) => (
-              <div 
-                key={log.id} 
-                className="p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-slate-50/50 dark:hover:bg-slate-800/40 transition"
+              <div
+                key={log.id}
+                className={`p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 transition ${
+                  log.outcome === 'denied'
+                    ? 'bg-rose-50/60 dark:bg-rose-950/20 border-l-4 border-l-rose-400'
+                    : 'hover:bg-slate-50/50 dark:hover:bg-slate-800/40'
+                }`}
               >
                 <div className="flex items-start gap-3.5">
                   <div className="w-8 h-8 rounded-full bg-[#123B60] text-white flex items-center justify-center font-bold text-xs shrink-0 mt-0.5 shadow-sm">
@@ -127,9 +149,23 @@ export const AuditTrailView: React.FC = () => {
                       <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider ${getTargetBadgeColor(log.targetType)}`}>
                         {log.targetType}
                       </span>
+                      {log.outcome === 'denied' && (
+                        <span className="text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300 inline-flex items-center gap-1">
+                          <Ban className="w-3 h-3" aria-hidden />
+                          Refused
+                        </span>
+                      )}
+                      {log.previousRole && log.newRole && (
+                        <span className="text-[10px] px-2 py-0.5 rounded-full font-mono font-semibold bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300">
+                          {log.previousRole.replace('_', ' ')} → {log.newRole.replace('_', ' ')}
+                        </span>
+                      )}
                     </div>
                     <div className="text-xs text-slate-600 dark:text-slate-300">
                       {log.details}
+                    </div>
+                    <div className="text-[10px] text-slate-400 font-mono">
+                      actor {log.actorId} · target {log.targetId}
                     </div>
                   </div>
                 </div>

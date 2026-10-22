@@ -1,6 +1,7 @@
 // @vitest-environment node
 import { describe, expect, it } from 'vitest';
 import {
+  ALL_ROLES,
   canActOn,
   capabilitiesFor,
   hasCapability,
@@ -16,16 +17,19 @@ import {
   canAccessErp,
   canTransition,
   describeLoginOutcome,
-  isEligibleForApproval,
+  isDecidable,
   InvalidStatusTransitionError,
   assertTransition,
+  repairStoredStatus,
 } from './accountState';
 import {
   createPendingRegistration,
   findDuplicateIdentity,
   isPasswordAcceptable,
+  MAX_SUBMISSIONS_PER_WINDOW,
   normalizeEmail,
   normalizeUsername,
+  submissionThrottleBlocked,
   validatePassword,
   validateRegistration,
   type RegistrationInput,
@@ -47,10 +51,33 @@ describe('capability matrix', () => {
   });
 
   it('denies role assignment to every role except super_admin', () => {
-    for (const role of ['member', 'director', 'head', 'moderator'] as const) {
-      expect(hasCapability(role, 'users.role.assign')).toBe(false);
-      expect(scopeFor(role, 'users.role.assign')).toBeNull();
+    // Every label the platform ships, not a hand-typed list: a role added without revisiting the
+    // matrix has to fail here rather than quietly inherit the capability.
+    for (const role of ALL_ROLES) {
+      if (role === 'super_admin') continue;
+      expect(hasCapability(role, 'users.role.assign'), role).toBe(false);
+      expect(scopeFor(role, 'users.role.assign'), role).toBeNull();
     }
+    expect(hasCapability('super_admin', 'users.role.assign')).toBe(true);
+  });
+
+  it('counts every role label except member as privileged', () => {
+    // 0002 froze four labels as privileged; 0006 added high_board and the list stayed behind, so a
+    // grantee below Super Admin could hand out a chapter-wide read role. The rule is now "not
+    // member", in TS here and in SQL in 0010, and this pins that nothing was left out.
+    expect([...PRIVILEGED_ROLES].sort()).toEqual(ALL_ROLES.filter((role) => role !== 'member').sort());
+  });
+
+  it('refuses every account as its own privilege gate', () => {
+    for (const actor of [member, director, head, moderator, superAdmin]) {
+      const verdict = validateRoleChange(actor, { id: actor.id, role: actor.role }, 'moderator');
+      expect(verdict.allowed, actor.role).toBe(false);
+    }
+    // Including a demotion: an administrator cannot remove their own privileges by accident and be
+    // left with no path back, which is the case 0002's esme_assign_role() allowed until 0010.
+    const selfDemote = validateRoleChange(superAdmin, { id: superAdmin.id, role: 'super_admin' }, 'member');
+    expect(selfDemote.allowed).toBe(false);
+    if (!selfDemote.allowed) expect(selfDemote.reason).toMatch(/own role/);
   });
 
   it('denies members every administrative capability', () => {
@@ -130,14 +157,14 @@ describe('privilege escalation guards', () => {
 
 describe('account state machine', () => {
   it('allows only the documented transitions', () => {
-    expect(canTransition('pending_email_verification', 'pending_approval')).toBe(true);
-    expect(canTransition('pending_email_verification', 'active')).toBe(false);
     expect(canTransition('pending_approval', 'active')).toBe(true);
+    expect(canTransition('pending_approval', 'rejected')).toBe(true);
     expect(canTransition('pending_approval', 'suspended')).toBe(false);
     expect(canTransition('active', 'pending_approval')).toBe(false);
     expect(canTransition('active', 'suspended')).toBe(true);
     expect(canTransition('suspended', 'active')).toBe(true);
     expect(canTransition('rejected', 'active')).toBe(false);
+    expect(canTransition('rejected', 'pending_approval')).toBe(true);
   });
 
   it('grants ERP access to active accounts only', () => {
@@ -146,8 +173,22 @@ describe('account state machine', () => {
     }
   });
 
+  it('has no stage before the review: a submission is decidable the moment it exists', () => {
+    expect(ACCOUNT_STATUSES).toEqual(['pending_approval', 'active', 'rejected', 'suspended']);
+    expect(isDecidable('pending_approval')).toBe(true);
+    for (const status of ACCOUNT_STATUSES.filter((s) => s !== 'pending_approval')) {
+      expect(isDecidable(status)).toBe(false);
+    }
+  });
+
+  it('repairs the retired verification stage onto the queue when reading old storage', () => {
+    expect(repairStoredStatus('pending_email_verification')).toBe('pending_approval');
+    for (const status of ACCOUNT_STATUSES) {
+      expect(repairStoredStatus(status)).toBe(status);
+    }
+  });
+
   it('projects every provider status onto exactly one review-board stage', () => {
-    expect(applicationStageFor('pending_email_verification')).toBe('pending');
     expect(applicationStageFor('pending_approval')).toBe('under_review');
     expect(applicationStageFor('active')).toBe('accepted');
     expect(applicationStageFor('rejected')).toBe('rejected');
@@ -156,21 +197,15 @@ describe('account state machine', () => {
     expect(ACCOUNT_STATUSES.every((s) => typeof applicationStageFor(s) === 'string')).toBe(true);
   });
 
-  it('requires verified email before approval', () => {
-    expect(isEligibleForApproval('pending_approval', false)).toBe(false);
-    expect(isEligibleForApproval('pending_approval', true)).toBe(true);
-    expect(isEligibleForApproval('pending_email_verification', true)).toBe(false);
-  });
-
   it('throws on an illegal transition', () => {
     expect(() => assertTransition('rejected', 'active')).toThrow(InvalidStatusTransitionError);
   });
 
   it('blocks login for every non-active status without leaking details', () => {
     for (const status of ACCOUNT_STATUSES.filter((s) => s !== 'active')) {
-      expect(describeLoginOutcome(status, true).kind).toBe('blocked');
+      expect(describeLoginOutcome(status).kind).toBe('blocked');
     }
-    expect(describeLoginOutcome('active', true).kind).toBe('granted');
+    expect(describeLoginOutcome('active').kind).toBe('granted');
   });
 });
 
@@ -189,8 +224,19 @@ describe('registration rules', () => {
     expect(validateRegistration(valid)).toEqual({});
   });
 
-  it('rejects weak passwords, mismatched confirmation and unaccepted policies', () => {
-    const errors = validateRegistration({ ...valid, password: 'short1!', confirmPassword: 'different' });
+  it('accepts the short signup: no committee and no questionnaire answers', () => {
+    const shortForm: RegistrationInput = {
+      fullName: 'Mariam Adel',
+      email: 'mariam.adel@esme.edu.eg',
+      username: 'mariam.adel',
+      password: 'Volt#Arc7!2026',
+      confirmPassword: 'Volt#Arc7!2026',
+      acceptedPolicies: true,
+    };
+    expect(validateRegistration(shortForm)).toEqual({});
+  });
+
+  it('rejects weak passwords, mismatched confirmation and unaccepted policies', () => {    const errors = validateRegistration({ ...valid, password: 'short1!', confirmPassword: 'different' });
     expect(errors.password).toBeTruthy();
     expect(errors.confirmPassword).toBeTruthy();
 
@@ -222,8 +268,21 @@ describe('registration rules', () => {
 
   it('produces a pending applicant with zero capabilities', () => {
     const pending = createPendingRegistration();
-    expect(pending.status).toBe('pending_email_verification');
+    expect(pending.status).toBe('pending_approval');
     expect(pending.role).toBe('member');
     expect(pending.capabilities).toEqual([]);
+  });
+
+  it('refuses a burst of submissions once nobody has to click a link', () => {
+    const now = '2026-10-19T12:00:00.000Z';
+    const recent = Array.from({ length: MAX_SUBMISSIONS_PER_WINDOW }, (_, i) =>
+      new Date(Date.parse(now) - i * 60_000).toISOString()
+    );
+    expect(submissionThrottleBlocked(recent, now)).toBe(true);
+    expect(submissionThrottleBlocked(recent.slice(0, MAX_SUBMISSIONS_PER_WINDOW - 1), now)).toBe(false);
+    // Outside the window the counter is gone, so a slow trickle of real applicants is never blocked.
+    const aDayAgo = recent.map((stamp) => new Date(Date.parse(stamp) - 86_400_000).toISOString());
+    expect(submissionThrottleBlocked(aDayAgo, now)).toBe(false);
+    expect(submissionThrottleBlocked(['not-a-date'], now)).toBe(false);
   });
 });

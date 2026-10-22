@@ -1,17 +1,33 @@
 import React, { useState } from 'react';
 import { motion } from 'motion/react';
-import { CheckSquare, Plus, Search, Calendar, Award, Upload, X, Play, Ban } from 'lucide-react';
+import {
+  CheckSquare,
+  Plus,
+  Search,
+  Calendar,
+  Award,
+  Upload,
+  X,
+  Play,
+  Ban,
+  Eye,
+  RotateCcw,
+} from 'lucide-react';
 import { useApp, useActor } from '../../context/AppContext';
 import { scopeFor } from '../../domain/roles';
 import { canMoveTask, selfServiceMoves } from '../../domain/workflow';
 import { useStickyNonNull, ModalShell, useToast } from '../../motion';
 import { EmptyState } from '../EmptyState';
+import { DataTable, type DataTableAction } from './DataTable';
 import type { Task, TaskStatus } from '../../types';
 
 const MOVE_LABELS: Partial<Record<TaskStatus, string>> = {
   in_progress: 'Start work',
   cancelled: 'Cancel task',
 };
+
+/** Ascending by this rank puts the most urgent work on top. */
+const PRIORITY_RANK: Record<Task['priority'], number> = { urgent: 0, high: 1, medium: 2, low: 3 };
 
 export const TaskCommandCenter: React.FC = () => {
   const { tasks, committees, users, addTask, moveTask, reviewTask, addSubmission, can } = useApp();
@@ -128,9 +144,6 @@ export const TaskCommandCenter: React.FC = () => {
     }
   };
 
-  // One column, decided once, so header and rows never disagree about its width.
-  const showActions = maySubmit || filteredTasks.some((t) => movesFor(t).length > 0);
-
   type BoardReviewMove = 'under_review' | 'revision_requested' | 'rejected';
   const [reviewMove, setReviewMove] = useState<{ task: Task; to: BoardReviewMove } | null>(null);
   const [reviewNote, setReviewNote] = useState('');
@@ -159,6 +172,82 @@ export const TaskCommandCenter: React.FC = () => {
   };
 
   const viewReviewMove = useStickyNonNull(reviewMove);
+  const viewTask = useStickyNonNull(selectedTaskForSubmission);
+
+  const noTasksState = {
+    title: 'No tasks recorded',
+    description:
+      'Nothing appears because no task rows exist within your scope. History is never simulated to fill a board — create the first task with the button above, or connect the backend that stores them.',
+    icon: CheckSquare,
+  };
+
+  /**
+   * What one row offers: the reviewer's decisions, the assignee's own moves and a submission
+   * portal — the same set the board shows, derived from the delivery flow rather than the view.
+   */
+  const rowActionsFor = (task: Task): DataTableAction<Task>[] => [
+    ...(mayReviewTask(task) && task.status === 'submitted'
+      ? [
+          {
+            key: 'review',
+            label: 'Take into review',
+            icon: Eye,
+            showLabel: true,
+            onClick: () => openReviewMove(task, 'under_review'),
+          } as DataTableAction<Task>,
+        ]
+      : []),
+    ...(mayReviewTask(task)
+      ? [
+          {
+            key: 'revision',
+            label: 'Return for revision',
+            icon: RotateCcw,
+            showLabel: true,
+            onClick: () => openReviewMove(task, 'revision_requested'),
+          } as DataTableAction<Task>,
+          {
+            key: 'reject',
+            label: 'Reject',
+            icon: Ban,
+            showLabel: true,
+            danger: true,
+            onClick: () => openReviewMove(task, 'rejected'),
+          } as DataTableAction<Task>,
+        ]
+      : []),
+    ...movesFor(task).map(
+      (to) =>
+        ({
+          key: `move:${to}`,
+          label: MOVE_LABELS[to] ?? to.replace('_', ' '),
+          icon: to === 'in_progress' ? Play : Ban,
+          showLabel: true,
+          danger: to === 'cancelled',
+          confirm:
+            to === 'cancelled'
+              ? {
+                  title: 'Cancel this task?',
+                  confirmLabel: 'Cancel task',
+                  body: (t: Task) =>
+                    `"${t.title}" leaves the pipeline and stops counting toward deadlines. Assignees and the point value stay on the record, and the decision is audited.`,
+                }
+              : undefined,
+          onClick: () => handleMove(task, to),
+        }) as DataTableAction<Task>
+    ),
+    ...(maySubmit && canMoveTask(task.status, 'submitted')
+      ? [
+          {
+            key: 'submit',
+            label: 'Submit work',
+            icon: Upload,
+            showLabel: true,
+            onClick: () => setSelectedTaskForSubmission(task),
+          } as DataTableAction<Task>,
+        ]
+      : []),
+  ];
 
   const handleSubmitDeliverable = (e: React.FormEvent) => {
     e.preventDefault();
@@ -188,8 +277,6 @@ export const TaskCommandCenter: React.FC = () => {
       toast(error instanceof Error ? error.message : 'The submission was refused.', 'error');
     }
   };
-
-  const viewTask = useStickyNonNull(selectedTaskForSubmission);
 
   return (
     <div className="space-y-6">
@@ -281,11 +368,7 @@ export const TaskCommandCenter: React.FC = () => {
 
       {/* Kanban Board View */}
       {tasks.length === 0 ? (
-        <EmptyState
-          icon={CheckSquare}
-          title="No tasks recorded"
-          description="Nothing appears because no task rows exist within your scope. History is never simulated to fill a board — create the first task with the button above, or connect the backend that stores them."
-        />
+        <EmptyState {...noTasksState} />
       ) : viewMode === 'board' ? (
         <motion.div
           key="board"
@@ -421,73 +504,73 @@ export const TaskCommandCenter: React.FC = () => {
           })}
         </motion.div>
       ) : (
-        /* Table View */
+        /* Table View — the same records, the same decisions, in rows. */
         <motion.div
           key="table"
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
-          className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-sm"
         >
-          <table className="w-full text-left text-xs">
-            <thead className="bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800 text-slate-500 font-semibold uppercase text-[10px]">
-              <tr>
-                <th className="py-3 px-4">Task</th>
-                <th className="py-3 px-4">Committee</th>
-                <th className="py-3 px-4">Priority</th>
-                <th className="py-3 px-4">Points</th>
-                <th className="py-3 px-4">Deadline</th>
-                <th className="py-3 px-4">Status</th>
-                {showActions && <th className="py-3 px-4 text-right">Actions</th>}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-              {filteredTasks.map((t) => (
-                <tr key={t.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors duration-150">
-                  <td className="py-3 px-4">
+          <DataTable
+            rows={filteredTasks}
+            rowKey={(t) => t.id}
+            noMatchesLabel="No task matches this search and these filters."
+            empty={noTasksState}
+            columns={[
+              {
+                key: 'task',
+                label: 'Task',
+                cardTitle: true,
+                sortValue: (t) => t.title,
+                render: (t) => (
+                  <>
                     <div className="font-bold text-slate-800 dark:text-slate-100">{t.title}</div>
                     <div className="text-[11px] text-slate-400 line-clamp-1">{t.description}</div>
-                  </td>
-                  <td className="py-3 px-4 text-slate-600 dark:text-slate-300">{t.committeeName}</td>
-                  <td className="py-3 px-4">
-                    <span className="text-[10px] px-2 py-0.5 rounded font-bold uppercase bg-slate-100 dark:bg-slate-800">
-                      {t.priority}
-                    </span>
-                  </td>
-                  <td className="py-3 px-4 font-bold text-[#F59A16]">{t.points} pts</td>
-                  <td className="py-3 px-4 text-slate-500">{t.deadline}</td>
-                  <td className="py-3 px-4">
-                    <span className="text-[10px] px-2.5 py-1 rounded-full font-bold uppercase bg-blue-100 text-blue-700">
-                      {t.status.replace('_', ' ')}
-                    </span>
-                  </td>
-                  {(maySubmit || movesFor(t).length > 0) && (
-                    <td className="py-3 px-4 text-right">
-                      <div className="inline-flex flex-wrap items-center justify-end gap-1.5">
-                        {movesFor(t).map((to) => (
-                          <button
-                            key={to}
-                            onClick={() => handleMove(t, to)}
-                            className="px-3 py-1 rounded-lg border border-slate-300 dark:border-slate-700 text-[11px] font-semibold text-slate-600 dark:text-slate-300"
-                          >
-                            {MOVE_LABELS[to] ?? to.replace('_', ' ')}
-                          </button>
-                        ))}
-                        {maySubmit && canMoveTask(t.status, 'submitted') && (
-                          <button
-                            onClick={() => setSelectedTaskForSubmission(t)}
-                            className="px-3 py-1 bg-[#123B60] text-white rounded-lg text-xs font-semibold"
-                          >
-                            Submit
-                          </button>
-                        )}
-                      </div>
-                    </td>
-                  )}
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                  </>
+                ),
+              },
+              {
+                key: 'committee',
+                label: 'Committee',
+                sortValue: (t) => t.committeeName,
+                render: (t) => <span className="text-slate-600 dark:text-slate-300">{t.committeeName}</span>,
+              },
+              {
+                key: 'priority',
+                label: 'Priority',
+                sortValue: (t) => PRIORITY_RANK[t.priority],
+                render: (t) => (
+                  <span className="text-[10px] px-2 py-0.5 rounded font-bold uppercase bg-slate-100 dark:bg-slate-800">
+                    {t.priority}
+                  </span>
+                ),
+              },
+              {
+                key: 'points',
+                label: 'Points',
+                align: 'center',
+                sortValue: (t) => t.points,
+                render: (t) => <span className="font-bold text-[#F59A16]">{t.points} pts</span>,
+              },
+              {
+                key: 'deadline',
+                label: 'Deadline',
+                sortValue: (t) => t.deadline,
+                render: (t) => <span className="text-slate-500">{t.deadline}</span>,
+              },
+              {
+                key: 'status',
+                label: 'Status',
+                sortValue: (t) => t.status.replace('_', ' '),
+                render: (t) => (
+                  <span className="text-[10px] px-2.5 py-1 rounded-full font-bold uppercase bg-blue-100 text-blue-700">
+                    {t.status.replace('_', ' ')}
+                  </span>
+                ),
+              },
+            ]}
+            actions={rowActionsFor}
+          />
         </motion.div>
       )}
 

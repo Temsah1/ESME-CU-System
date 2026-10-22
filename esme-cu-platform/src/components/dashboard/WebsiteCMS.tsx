@@ -1,63 +1,211 @@
-import React, { useEffect, useState } from 'react';
-import { Save, CircleCheck, Lock, TriangleAlert } from 'lucide-react';
+import React, { useMemo, useState } from 'react';
+import { CircleCheck, Lock, Save, Send, TriangleAlert, Undo2 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { useToast } from '../../motion';
+import { validateContentDocument } from '../../domain/cms';
+import { changedPaths, summarizeChanges } from '../../domain/publishing';
 import type { WebsiteContentConfig } from '../../types';
+import { AboutPanel, ContactPanel, HeroPanel, SharingPanel, VisionPanel, type PanelProps } from './cms/CopyPanels';
+import { BlocksPanel, LinksPanel } from './cms/StructurePanels';
+import { ImagesPanel } from './cms/ImagesPanel';
+import { HistoryPanel } from './cms/HistoryPanel';
+import type { DashboardView } from './DashboardShell';
 
-export const WebsiteCMS: React.FC = () => {
-  const { websiteContent, updateWebsiteContent, can } = useApp();
+type Tab = 'hero' | 'about' | 'vision' | 'contact' | 'sharing' | 'blocks' | 'links' | 'images' | 'history';
+
+const TABS: { id: Tab; label: string }[] = [
+  { id: 'hero', label: 'Hero' },
+  { id: 'about', label: 'About' },
+  { id: 'vision', label: 'Vision' },
+  { id: 'contact', label: 'Contact' },
+  { id: 'sharing', label: 'Share card' },
+  { id: 'blocks', label: 'Blocks' },
+  { id: 'links', label: 'Links' },
+  { id: 'images', label: 'Images' },
+  { id: 'history', label: 'History' },
+];
+
+/**
+ * The content editor.
+ *
+ * One draft is held here and nowhere else: every panel edits it through `patch`, Save writes it to
+ * the store (which runs it through the validator), and Publish is only offered once what is stored
+ * matches what is on screen. That ordering is deliberate — publish promotes the stored draft, so a
+ * half-typed sentence in this form must never be mistaken for something the live page has.
+ */
+export const WebsiteCMS: React.FC<{ onNavigate?: (view: DashboardView) => void }> = ({ onNavigate }) => {
+  const {
+    websiteContent,
+    updateWebsiteContent,
+    unpublishedChanges,
+    publishWebsiteContent,
+    discardWebsiteDraft,
+    can,
+  } = useApp();
   const { toast } = useToast();
 
-  const [activeSection, setActiveSection] = useState<'hero' | 'about' | 'vision' | 'contact'>('hero');
+  const [tab, setTab] = useState<Tab>('hero');
+  const [draft, setDraft] = useState<WebsiteContentConfig>(websiteContent);
+  const [syncedFrom, setSyncedFrom] = useState<WebsiteContentConfig>(websiteContent);
   const [savedAt, setSavedAt] = useState<string | null>(null);
+  const [publishLabel, setPublishLabel] = useState('');
 
   const mayEdit = can('cms.settings.global');
+  const mayPublish = can('cms.content.publish');
 
-  // Local draft state
-  const [draft, setDraft] = useState<WebsiteContentConfig>(websiteContent);
+  // A cached edit on another surface must not be silently overwritten by a stale draft here, and a
+  // save that the validator rewrote must show the document that was actually stored. Adjusted while
+  // rendering rather than in an effect, so the form never paints a draft the store has moved past.
+  if (syncedFrom !== websiteContent) {
+    setSyncedFrom(websiteContent);
+    setDraft(websiteContent);
+  }
 
-  // A cached edit on another surface must not be silently overwritten by a stale draft here.
-  useEffect(() => setDraft(websiteContent), [websiteContent]);
+  const patch: PanelProps['patch'] = (updates) => setDraft((current) => ({ ...current, ...updates }));
+
+  /** The same rules the store applies, run here so a refusal is seen before it is saved. */
+  const check = useMemo(() => validateContentDocument(draft), [draft]);
+  const unsaved = changedPaths(websiteContent, draft).length > 0;
+  const waiting = unpublishedChanges.length;
 
   const handleSave = () => {
     try {
       updateWebsiteContent(draft);
       setSavedAt(new Date().toLocaleTimeString());
-      toast('Draft saved in this browser. Deploy the site to publish it.', 'success');
+      toast(
+        check.notes.length === 0
+          ? 'Draft saved in this browser.'
+          : `Draft saved with ${check.notes.length} field(s) adjusted: ${check.notes.join(' ')}`,
+        check.notes.length === 0 ? 'success' : 'info'
+      );
     } catch (error) {
       toast(error instanceof Error ? error.message : 'Save refused.', 'error');
     }
   };
 
+  const handlePublish = () => {
+    try {
+      const outcome = publishWebsiteContent(publishLabel);
+      setPublishLabel('');
+      toast(
+        outcome.unresolvedSlots.length > 0
+          ? `Published. ${outcome.unresolvedSlots.length} slot(s) name a picture this device does not hold, so those blocks show the asset shipped with the build: ${outcome.unresolvedSlots.join(', ')}.`
+          : `Published. The live page now says: ${summarizeChanges(outcome.revision.changes)}.`,
+        'success'
+      );
+    } catch (error) {
+      toast(error instanceof Error ? error.message : 'Publish refused.', 'error');
+    }
+  };
+
+  const handleDiscard = () => {
+    try {
+      const { discarded } = discardWebsiteDraft();
+      toast(discarded === 0 ? 'The draft already matches the live page.' : `Threw away ${discarded} unpublished field(s).`, 'info');
+    } catch (error) {
+      toast(error instanceof Error ? error.message : 'Discard refused.', 'error');
+    }
+  };
+
+  const publishBlockedBecause = !mayPublish
+    ? 'Publishing the live page needs the cms.content.publish capability, which this role does not hold.'
+    : unsaved
+      ? 'Save the draft first: publish promotes what is stored, not what is unsaved in this form.'
+      : waiting === 0
+        ? 'Nothing to publish — the draft matches the live page.'
+        : null;
+
+  const panel = (() => {
+    const props: PanelProps = { draft, patch };
+    switch (tab) {
+      case 'hero':
+        return <HeroPanel {...props} />;
+      case 'about':
+        return <AboutPanel {...props} />;
+      case 'vision':
+        return <VisionPanel {...props} />;
+      case 'contact':
+        return <ContactPanel {...props} />;
+      case 'sharing':
+        return <SharingPanel {...props} />;
+      case 'blocks':
+        return <BlocksPanel {...props} />;
+      case 'links':
+        return <LinksPanel {...props} />;
+      case 'images':
+        return <ImagesPanel {...props} onNavigate={onNavigate} />;
+      case 'history':
+        return null;
+    }
+  })();
+
   return (
     <div className="space-y-6">
-      
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="flex flex-col xl:flex-row xl:items-end justify-between gap-4">
         <div>
-          <h1 className="text-xl font-black text-slate-900 dark:text-white">Public Website Content Management (CMS)</h1>
+          <h1 className="text-xl font-black text-slate-900 dark:text-white">Public website content</h1>
           <p className="text-xs text-slate-500">
-            Customize headlines, supporting messages, objectives, and contact details without editing source code.
+            The words, blocks, links and pictures of the public page. Editing changes a draft; publishing puts it on
+            the page.
           </p>
         </div>
 
-        <div className="flex flex-col items-end gap-2">
+        <div className="flex flex-wrap items-end gap-2">
           {savedAt && (
             <span className="text-[11px] font-bold text-emerald-700 dark:text-emerald-400 flex items-center gap-1">
-              <CircleCheck className="w-4 h-4" />
-              Saved as a local draft at {savedAt}
+              <CircleCheck className="w-4 h-4" /> Draft saved {savedAt}
             </span>
           )}
+          <span
+            className={`text-[11px] font-bold px-2.5 py-1 rounded-lg ${
+              waiting === 0
+                ? 'bg-slate-100 dark:bg-slate-800 text-slate-500'
+                : 'bg-amber-100 dark:bg-amber-500/20 text-amber-800 dark:text-amber-300'
+            }`}
+          >
+            {waiting === 0 ? 'Live page matches the draft' : `${waiting} field(s) waiting to publish`}
+          </span>
+
+          <label className="block">
+            <span className="sr-only">Note for the publish history</span>
+            <input
+              value={publishLabel}
+              onChange={(event) => setPublishLabel(event.target.value)}
+              placeholder="What changed (optional)"
+              aria-label="Note for the publish history"
+              className="w-44 px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-[11px] outline-none"
+            />
+          </label>
+
           <button
             onClick={handleSave}
             disabled={!mayEdit}
-            className="px-5 py-2.5 bg-[#F59A16] hover:bg-[#D47F0A] disabled:opacity-50 disabled:hover:bg-[#F59A16] text-white text-xs font-bold rounded-xl shadow-md transition flex items-center gap-1.5"
+            className="px-4 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 transition flex items-center gap-1.5 disabled:opacity-50"
           >
-            <Save className="w-4 h-4" />
-            {mayEdit ? 'Save draft' : 'Read-only'}
+            <Save className="w-4 h-4" /> Save draft
+          </button>
+          <button
+            onClick={handlePublish}
+            disabled={publishBlockedBecause !== null}
+            className="px-4 py-2.5 rounded-xl bg-[#123B60] text-white text-xs font-bold hover:bg-[#0d2c47] transition flex items-center gap-1.5 disabled:opacity-50"
+          >
+            <Send className="w-4 h-4" /> Publish live page
+          </button>
+          <button
+            onClick={handleDiscard}
+            disabled={!mayEdit || waiting === 0}
+            className="px-3 py-2.5 rounded-xl border border-rose-200 dark:border-rose-500/40 text-xs font-bold text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-500/10 transition flex items-center gap-1.5 disabled:opacity-50"
+          >
+            <Undo2 className="w-4 h-4" /> Discard draft
           </button>
         </div>
       </div>
+
+      {publishBlockedBecause && (
+        <p className="text-[11px] font-bold text-slate-500 dark:text-slate-400" role="status">
+          {publishBlockedBecause}
+        </p>
+      )}
 
       {!mayEdit && (
         <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/60 p-4 flex items-start gap-3 text-xs text-slate-600 dark:text-slate-300">
@@ -70,237 +218,59 @@ export const WebsiteCMS: React.FC = () => {
         </div>
       )}
 
-      <div className="rounded-2xl border border-amber-200 dark:border-amber-500/30 bg-amber-50 dark:bg-amber-500/10 p-4 flex items-start gap-3 text-xs text-amber-900 dark:text-amber-200">
-        <TriangleAlert className="w-4 h-4 shrink-0 mt-0.5 text-amber-600" aria-hidden />
-        <p>
-          Saving stores this text in the browser cache of the machine you are using. Nothing here is pushed to the live
-          website: the public pages pick the configuration up on the next build and deploy, so the site you see online
-          can differ from this draft.
-        </p>
-      </div>
+      {check.notes.length > 0 && (
+        <div className="rounded-2xl border border-amber-200 dark:border-amber-500/30 bg-amber-50 dark:bg-amber-500/10 p-4 text-amber-900 dark:text-amber-200 space-y-1.5">
+          <p className="flex items-start gap-3 text-xs font-bold">
+            <TriangleAlert className="w-4 h-4 shrink-0 mt-0.5 text-amber-600" aria-hidden />
+            Saving now would change what you typed, because the page will not accept it as written:
+          </p>
+          <ul className="list-disc pl-9 space-y-0.5 text-[11px] leading-relaxed">
+            {check.notes.map((note, index) => (
+              <li key={index}>{note}</li>
+            ))}
+          </ul>
+        </div>
+      )}
 
-      {/* Tabs */}
+      {mayEdit && check.notes.length === 0 && (
+        <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 flex items-start gap-3 text-[11px] leading-relaxed text-slate-600 dark:text-slate-300">
+          <TriangleAlert className="w-4 h-4 shrink-0 mt-0.5 text-slate-400" aria-hidden />
+          <p>
+            Save stores the draft in this browser; Publish moves it onto the page a visitor reads. Neither is a deploy —
+            this build ships through no provider, so the internet still serves the last bundle pushed to it. A publish
+            is written to the history and can be rolled back from the History tab.
+          </p>
+        </div>
+      )}
+
       <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-1 flex overflow-x-auto">
-        <button
-          onClick={() => setActiveSection('hero')}
-          className={`px-4 py-2 rounded-xl text-xs font-bold transition whitespace-nowrap ${
-            activeSection === 'hero' ? 'bg-[#123B60] text-white' : 'text-slate-500 hover:text-slate-900'
-          }`}
-        >
-          Hero Banner
-        </button>
-        <button
-          onClick={() => setActiveSection('about')}
-          className={`px-4 py-2 rounded-xl text-xs font-bold transition whitespace-nowrap ${
-            activeSection === 'about' ? 'bg-[#123B60] text-white' : 'text-slate-500 hover:text-slate-900'
-          }`}
-        >
-          About & Profile
-        </button>
-        <button
-          onClick={() => setActiveSection('vision')}
-          className={`px-4 py-2 rounded-xl text-xs font-bold transition whitespace-nowrap ${
-            activeSection === 'vision' ? 'bg-[#123B60] text-white' : 'text-slate-500 hover:text-slate-900'
-          }`}
-        >
-          Official Vision 26–27
-        </button>
-        <button
-          onClick={() => setActiveSection('contact')}
-          className={`px-4 py-2 rounded-xl text-xs font-bold transition whitespace-nowrap ${
-            activeSection === 'contact' ? 'bg-[#123B60] text-white' : 'text-slate-500 hover:text-slate-900'
-          }`}
-        >
-          Contact & Coordinates
-        </button>
+        {TABS.map((entry) => (
+          <button
+            key={entry.id}
+            onClick={() => setTab(entry.id)}
+            aria-pressed={tab === entry.id}
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition whitespace-nowrap ${
+              tab === entry.id ? 'bg-[#123B60] text-white' : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
+            }`}
+          >
+            {entry.label}
+          </button>
+        ))}
       </div>
 
-      {/* Editor Body */}
-      <fieldset
-        disabled={!mayEdit}
-        aria-label="Public website content editor"
-        className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 sm:p-8 shadow-sm space-y-6 min-w-0"
-      >
-        
-        {activeSection === 'hero' && (
-          <div className="space-y-4 max-w-2xl">
-            <h2 className="text-base font-bold text-slate-900 dark:text-white">Hero Section Configuration</h2>
-
-            <div>
-              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Top Badge Text</label>
-              <input
-                type="text"
-                value={draft.hero.badge}
-                onChange={(e) => setDraft({ ...draft, hero: { ...draft.hero, badge: e.target.value } })}
-                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs outline-none"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Headline</label>
-              <input
-                type="text"
-                value={draft.hero.headline}
-                onChange={(e) => setDraft({ ...draft, hero: { ...draft.hero, headline: e.target.value } })}
-                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs outline-none font-bold"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Supporting Message</label>
-              <textarea
-                rows={3}
-                value={draft.hero.supportingMessage}
-                onChange={(e) => setDraft({ ...draft, hero: { ...draft.hero, supportingMessage: e.target.value } })}
-                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs outline-none"
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Primary CTA Label</label>
-                <input
-                  type="text"
-                  value={draft.hero.ctaPrimary}
-                  onChange={(e) => setDraft({ ...draft, hero: { ...draft.hero, ctaPrimary: e.target.value } })}
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs outline-none"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Secondary CTA Label</label>
-                <input
-                  type="text"
-                  value={draft.hero.ctaSecondary}
-                  onChange={(e) => setDraft({ ...draft, hero: { ...draft.hero, ctaSecondary: e.target.value } })}
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs outline-none"
-                />
-              </div>
-            </div>
-          </div>
-        )}
-
-        {activeSection === 'about' && (
-          <div className="space-y-4 max-w-2xl">
-            <h2 className="text-base font-bold text-slate-900 dark:text-white">About ESME & Society Profile</h2>
-
-            <div>
-              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Section Title</label>
-              <input
-                type="text"
-                value={draft.about.title}
-                onChange={(e) => setDraft({ ...draft, about: { ...draft.about, title: e.target.value } })}
-                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs outline-none"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Founding Story & Chapter Origins</label>
-              <textarea
-                rows={4}
-                value={draft.about.story}
-                onChange={(e) => setDraft({ ...draft, about: { ...draft.about, story: e.target.value } })}
-                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs outline-none"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Chapter Purpose</label>
-              <textarea
-                rows={3}
-                value={draft.about.purpose}
-                onChange={(e) => setDraft({ ...draft, about: { ...draft.about, purpose: e.target.value } })}
-                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs outline-none"
-              />
-            </div>
-          </div>
-        )}
-
-        {activeSection === 'vision' && (
-          <div className="space-y-4 max-w-2xl">
-            <h2 className="text-base font-bold text-slate-900 dark:text-white">2026–2027 Vision Statement</h2>
-
-            <div>
-              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Official Quote Statement</label>
-              <textarea
-                rows={2}
-                value={draft.vision2027.quote}
-                onChange={(e) => setDraft({ ...draft, vision2027: { ...draft.vision2027, quote: e.target.value } })}
-                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs outline-none font-bold text-[#F59A16]"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Vision Narrative</label>
-              <textarea
-                rows={4}
-                value={draft.vision2027.description}
-                onChange={(e) => setDraft({ ...draft, vision2027: { ...draft.vision2027, description: e.target.value } })}
-                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs outline-none"
-              />
-            </div>
-          </div>
-        )}
-
-        {activeSection === 'contact' && (
-          <div className="space-y-4 max-w-2xl">
-            <h2 className="text-base font-bold text-slate-900 dark:text-white">Official Contact Coordinates</h2>
-
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Email</label>
-                <input
-                  type="email"
-                  value={draft.contact.email}
-                  onChange={(e) => setDraft({ ...draft, contact: { ...draft.contact, email: e.target.value } })}
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs outline-none"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Phone</label>
-                <input
-                  type="tel"
-                  value={draft.contact.phone}
-                  onChange={(e) => setDraft({ ...draft, contact: { ...draft.contact, phone: e.target.value } })}
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs outline-none"
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Official Website URL</label>
-                <input
-                  type="text"
-                  value={draft.contact.website}
-                  onChange={(e) => setDraft({ ...draft, contact: { ...draft.contact, website: e.target.value } })}
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs outline-none"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Social Handle</label>
-                <input
-                  type="text"
-                  value={draft.contact.socialHandle}
-                  onChange={(e) => setDraft({ ...draft, contact: { ...draft.contact, socialHandle: e.target.value } })}
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs outline-none font-bold"
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Physical Location</label>
-              <input
-                type="text"
-                value={draft.contact.location}
-                onChange={(e) => setDraft({ ...draft, contact: { ...draft.contact, location: e.target.value } })}
-                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs outline-none"
-              />
-            </div>
-          </div>
-        )}
-
-      </fieldset>
-
+      {tab === 'history' ? (
+        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 sm:p-8 shadow-sm min-w-0">
+          <HistoryPanel />
+        </div>
+      ) : (
+        <fieldset
+          disabled={!mayEdit}
+          aria-label="Public website content editor"
+          className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 sm:p-8 shadow-sm space-y-6 min-w-0"
+        >
+          {panel}
+        </fieldset>
+      )}
     </div>
   );
 };

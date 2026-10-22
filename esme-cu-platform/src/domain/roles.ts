@@ -36,7 +36,10 @@ export type Capability =
   | 'audit.read'
   | 'settings.manage'
   | 'integrations.manage'
-  | 'backups.manage';
+  | 'backups.manage'
+  | 'rewards.read'
+  | 'rewards.write'
+  | 'rewards.configure';
 
 /**
  * `all` — every record.
@@ -45,11 +48,13 @@ export type Capability =
  */
 export type Scope = 'all' | 'committee' | 'self';
 
-export const ALL_ROLES: Role[] = ['super_admin', 'director', 'head', 'moderator', 'member'];
+/** Ordered strongest-first; used for display and for the "never target a superior" rule. */
+export const ALL_ROLES: Role[] = ['super_admin', 'high_board', 'moderator', 'director', 'head', 'member'];
 
 /** Display names only — never an authority. */
 export const ROLE_LABELS: Record<Role, string> = {
   super_admin: 'Super Administrator',
+  high_board: 'High Board',
   moderator: 'IT Moderator',
   director: 'Committee Director',
   head: 'Team Head',
@@ -57,7 +62,20 @@ export const ROLE_LABELS: Record<Role, string> = {
 };
 
 /** Roles that hold privileged power. Only a Super Admin may grant or revoke them. */
-export const PRIVILEGED_ROLES: Role[] = ['super_admin', 'director', 'head', 'moderator'];
+export const PRIVILEGED_ROLES: Role[] = ['super_admin', 'high_board', 'director', 'head', 'moderator'];
+
+/**
+ * Seniority, for the rule that nobody may direct an action at someone above themselves.
+ * Committee leadership is deliberately absent: a Head seat is not a rank.
+ */
+export const ROLE_RANK: Record<Role, number> = {
+  super_admin: 100,
+  high_board: 80,
+  moderator: 70,
+  director: 50,
+  head: 40,
+  member: 10,
+};
 
 /** The single pre-provisioned administrator. Email/username identify it; the provider authenticates it. */
 export const PRIMARY_ADMIN = {
@@ -103,6 +121,25 @@ const MATRIX: Matrix = {
     'settings.manage': 'all',
     'integrations.manage': 'all',
     'backups.manage': 'all',
+    'rewards.read': 'all',
+    'rewards.write': 'all',
+    'rewards.configure': 'all',
+  },
+  high_board: {
+    'users.read': 'all',
+    'registrations.read': 'all',
+    'committees.read': 'all',
+    'tasks.read': 'all',
+    'submissions.read': 'all',
+    'submissions.review': 'all',
+    'scores.read': 'all',
+    'events.read': 'all',
+    'skills.read': 'all',
+    'analytics.configure': 'all',
+    'notifications.manage': 'all',
+    'audit.read': 'all',
+    'rewards.read': 'all',
+    'rewards.write': 'all',
   },
   moderator: {
     'users.read': 'all',
@@ -140,6 +177,8 @@ const MATRIX: Matrix = {
     'skills.manage': 'committee',
     'analytics.configure': 'committee',
     'cms.content.write': 'committee',
+    'rewards.read': 'committee',
+    'rewards.write': 'committee',
   },
   head: {
     'users.read': 'committee',
@@ -154,6 +193,8 @@ const MATRIX: Matrix = {
     'events.read': 'all',
     'skills.read': 'committee',
     'cms.content.write': 'committee',
+    'rewards.read': 'committee',
+    'rewards.write': 'committee',
   },
   member: {
     'committees.read': 'all',
@@ -164,6 +205,7 @@ const MATRIX: Matrix = {
     'scores.read': 'self',
     'events.read': 'all',
     'skills.read': 'self',
+    'rewards.read': 'self',
   },
 };
 
@@ -215,6 +257,11 @@ export function validateRoleChange(
 ): RoleChangeRejection {
   if (!hasCapability(actor.role, 'users.role.assign')) {
     return { allowed: false, reason: 'Only a Super Admin may change roles.' };
+  }
+  // Holding the capability is not a licence to use it on yourself: a role change is decided by
+  // someone else, so no account — including a Super Admin — can raise or drop its own privileges.
+  if (target.id === actor.id) {
+    return { allowed: false, reason: 'You cannot change your own role.' };
   }
   if (targetIsPrimaryAdmin && nextRole !== 'super_admin') {
     return { allowed: false, reason: 'The primary Super Admin account cannot be demoted.' };

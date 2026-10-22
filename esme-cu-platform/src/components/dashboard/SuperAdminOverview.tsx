@@ -15,6 +15,8 @@ import {
   Plus
 } from 'lucide-react';
 import { useApp, useActor } from '../../context/AppContext';
+import { leaderAccount } from '../../domain/committees';
+import { seasonCovering, seasonsInOrder } from '../../domain/seasons';
 import type { DashboardView } from './DashboardShell';
 import { AnimatedNumber, MagneticButton, StaggerGroup, StaggerItem, groupItemScale, transitions } from '../../motion';
 
@@ -32,9 +34,17 @@ export const SuperAdminOverview: React.FC<SuperAdminOverviewProps> = ({ onNaviga
     seasonEvents,
     scoreLedger,
     auditLogs,
+    seasons,
     can
   } = useApp();
   const currentUser = useActor();
+
+  // The clock is read once when the page opens: a figure that moves while somebody watches it
+  // is not a measurement, and reading it during render would shift every count below.
+  const [clock] = React.useState(() => {
+    const at = new Date();
+    return { ms: at.getTime(), iso: at.toISOString().slice(0, 10), hour: at.getHours() };
+  });
 
   // Dynamic calculations from initialized state
   const totalMembers = users.length;
@@ -42,24 +52,29 @@ export const SuperAdminOverview: React.FC<SuperAdminOverviewProps> = ({ onNaviga
   const activeTasks = tasks.filter(t => t.status === 'assigned' || t.status === 'in_progress').length;
   const pendingSubmissions = submissions.filter(s => s.status === 'submitted' || s.status === 'under_review').length;
   const pendingApplications = applications.filter(a => a.status === 'pending').length;
-  const overdueTasks = tasks.filter(t => t.status === 'overdue' || (new Date(t.deadline) < new Date() && t.status !== 'approved')).length;
+  const overdueTasks = tasks.filter(t => t.status === 'overdue' || (Date.parse(t.deadline) < clock.ms && t.status !== 'approved')).length;
   const totalPointsDistributed = scoreLedger.reduce((acc, curr) => acc + curr.points, 0);
 
-  // Season KPI completion calculation
+  // Season KPI completion calculation. The planner starts with nothing written in it, so an
+  // empty plan reports "—" rather than a 0% that looks like a season that went nowhere.
   const totalSeasonDeliverables = seasonEvents.length;
   const completedDeliverables = seasonEvents.filter(e => e.status === 'Completed').length;
   const seasonProgressPct = totalSeasonDeliverables === 0
-    ? 0
+    ? null
     : Math.round((completedDeliverables / totalSeasonDeliverables) * 100);
 
-  const hour = new Date().getHours();
-  const greeting = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
+  const orderedSeasons = seasonsInOrder(seasons);
+  const activeSeason = seasonCovering(orderedSeasons, clock.iso)
+    ?? orderedSeasons.find(s => s.status === 'active');
+
+  const greeting = clock.hour < 12 ? 'Good morning' : clock.hour < 18 ? 'Good afternoon' : 'Good evening';
 
   const rosterSizeFor = (committeeId: string) => users.filter(u => u.committeeId === committeeId).length;
 
   const kpiCards: {
     label: string;
-    value: number;
+    /** null draws an em dash: the records the figure needs do not exist yet. */
+    value: number | null;
     format?: (n: number) => string;
     subtitle: React.ReactNode;
     icon: React.ElementType;
@@ -138,10 +153,12 @@ export const SuperAdminOverview: React.FC<SuperAdminOverviewProps> = ({ onNaviga
       actionView: 'scoring'
     },
     {
-      label: 'Season 26–27 Progress',
+      label: activeSeason ? `Season ${activeSeason.label} progress` : 'Season progress',
       value: seasonProgressPct,
       format: (n) => `${Math.round(n)}%`,
-      subtitle: `${completedDeliverables} of ${totalSeasonDeliverables} milestones completed`,
+      subtitle: totalSeasonDeliverables === 0
+        ? 'No milestone is written in the season planner yet'
+        : `${completedDeliverables} of ${totalSeasonDeliverables} milestones completed`,
       icon: Target,
       color: 'text-teal-600',
       bg: 'bg-teal-500/10',
@@ -166,7 +183,9 @@ export const SuperAdminOverview: React.FC<SuperAdminOverviewProps> = ({ onNaviga
           <div className="space-y-2">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 text-[#F59A16] text-xs font-bold border border-white/15">
               <Sparkles className="w-3.5 h-3.5" />
-              <span>Season 2026–2027 Command Center</span>
+              <span>
+                {activeSeason ? `Season ${activeSeason.label} command center` : 'Chapter command center'}
+              </span>
             </div>
             <h1 className="text-2xl sm:text-3xl font-black tracking-tight">
               {greeting}, {currentUser.name}
@@ -239,7 +258,7 @@ export const SuperAdminOverview: React.FC<SuperAdminOverviewProps> = ({ onNaviga
                 </div>
                 <div className="mt-4">
                   <div className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">
-                    <AnimatedNumber value={card.value} format={card.format} startOnView />
+                    {card.value === null ? '—' : <AnimatedNumber value={card.value} format={card.format} startOnView />}
                   </div>
                   <div className="text-[11px] text-slate-400 mt-1 flex items-center justify-between">
                     <span>{card.subtitle}</span>
@@ -363,7 +382,7 @@ export const SuperAdminOverview: React.FC<SuperAdminOverviewProps> = ({ onNaviga
                     </span>
                     <div>
                       <div className="font-bold text-slate-800 dark:text-slate-100">{comm.name}</div>
-                      <div className="text-[10px] text-slate-400">{comm.directorName ?? 'Director not assigned'}</div>
+                      <div className="text-[10px] text-slate-400">{leaderAccount(comm, 'director', users)?.name ?? 'Director not assigned'}</div>
                     </div>
                   </div>
                   <div className="text-right">

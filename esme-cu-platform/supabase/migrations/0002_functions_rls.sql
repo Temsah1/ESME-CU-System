@@ -266,6 +266,47 @@ create trigger esme_pages_touch
   before update on esme_content_pages
   for each row execute function esme_touch_updated_at();
 
+-- Publishing is a different privilege from editing, and a row level security policy cannot express
+-- that rule by itself: WITH CHECK is evaluated against the row as it is about to be stored, with no
+-- access to the row as it was. `old` is a trigger variable, so the `published = old.published` this
+-- guard replaces was never a rule — it is a parse error (column "old" does not exist) that would
+-- have aborted this whole migration. Comparing the two versions belongs in a trigger.
+create or replace function esme_assert_publication_write()
+returns trigger
+language plpgsql
+set search_path = public
+as $$
+declare
+  touches_publication boolean;
+begin
+  -- esme_has_capability() reads the signed-in profile, which an operator session does not have: the
+  -- service role, and the SQL editor's postgres session, are the paths 0003 and 0008 are built on.
+  if auth.role() = 'service_role' or current_user in ('postgres', 'supabase_admin') then
+    return new;
+  end if;
+  if esme_has_capability('cms.content.publish') then
+    return new;
+  end if;
+  if tg_op = 'UPDATE' then
+    touches_publication := new.published is distinct from old.published
+                        or new.published_at is distinct from old.published_at
+                        or new.published_by is distinct from old.published_by;
+  else
+    -- Inserting an already-published row would reach the same privilege by a different route.
+    touches_publication := new.published or new.published_at is not null or new.published_by is not null;
+  end if;
+  if touches_publication then
+    raise exception 'ESME_FORBIDDEN: published, published_at and published_by need the cms.content.publish capability'
+      using hint = 'Edit the content with cms.content.write; publish it from a session that holds cms.content.publish.';
+  end if;
+  return new;
+end;
+$$;
+
+create trigger esme_pages_publication_guard
+  before insert or update on esme_content_pages
+  for each row execute function esme_assert_publication_write();
+
 create or replace function esme_assert_status_transition()
 returns trigger
 language plpgsql
@@ -857,11 +898,10 @@ create policy esme_pages_write on esme_content_pages
 create policy esme_pages_update on esme_content_pages
   for update to authenticated
   using (esme_has_capability('cms.content.write'))
-  with check (
-    -- Only a publisher may flip the published flag or set publication metadata.
-    esme_has_capability('cms.content.publish')
-    or published = old.published
-  );
+  -- Only the capability is checkable here. The rule that an editor may not flip `published` or
+  -- rewrite publication metadata lives in esme_pages_publication_guard above, which can compare the
+  -- row before and after; a policy sees only the after.
+  with check (esme_has_capability('cms.content.write'));
 
 create policy esme_pages_delete on esme_content_pages
   for delete to authenticated

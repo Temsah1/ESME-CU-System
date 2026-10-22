@@ -1,0 +1,76 @@
+name: ci
+
+# Typecheck, lint, test, build. That is all this can prove from a pull request, and it is what the
+# repository has been running by hand so far.
+#
+# It deliberately holds no credentials. The suite resolves the auth provider before every store and
+# screen test, so `vite.config.ts`'s `test.env` block pins VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY
+# empty — a green run here is the local development adapter, never a real project. Staging builds and
+# automated tests must never point at Production, and nothing below reaches a network at all:
+# no migration is applied, no RPC is called, no mail is sent.
+#
+# What CI does NOT cover, and no amount of green here changes that: the SQL has still never been
+# parsed by Postgres. That validation is a staging run — see scripts/apply-migrations.mjs and
+# supabase/probes/authorization_probes.sql.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: esme-cu-platform
+    env:
+      # Belt and braces beside the vite.config.ts pin: no provider is reachable from this run, so no
+      # test can accidentally authenticate against a real project if the config ever stops pinning.
+      VITE_SUPABASE_URL: ''
+      VITE_SUPABASE_ANON_KEY: ''
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: esme-cu-platform/package-lock.json
+
+      - name: Install (lockfile only)
+        run: npm ci
+
+      - name: Typecheck
+        run: npx tsc -b --force
+
+      # Warnings are reported and do not fail the run: 13 pre-existing react-hooks/react-compiler
+      # notices are on record in PROJECT_MASTER_GUIDE.md §11. Errors fail, as they always have.
+      - name: Lint
+        run: npx oxlint .
+
+      - name: Unit and integration tests
+        run: npx vitest run
+
+      - name: Production build
+        run: npm run build
+
+      # A credential VALUE in the shipped bundle is a release blocker, not a review note. The bare
+      # prefixes do appear as string literals in configurationProblems(), which is why this greps for
+      # a prefix followed by a value.
+      - name: Scan the bundle for credential values
+        run: |
+          if grep -rEo 'sb_secret_[A-Za-z0-9_-]{8,}|eyJ[A-Za-z0-9_-]{10,}\.eyJ[A-Za-z0-9_-]{10,}' dist/ >/dev/null 2>&1; then
+            echo 'A JWT-shaped or secret-key value was found in dist/. Blocking the build.' >&2
+            exit 1
+          fi
+          echo 'No credential-shaped value in dist/.'

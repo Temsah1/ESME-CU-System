@@ -54,14 +54,16 @@ interface DrawerShellProps {
   open: boolean;
   onClose: () => void;
   className?: string;
+  /** Which edge the panel hangs from. A navigation drawer comes from the left. */
+  side?: 'left' | 'right';
   children: React.ReactNode;
 }
 
-export const DrawerShell: React.FC<DrawerShellProps> = ({ open, onClose, className, children }) => (
+export const DrawerShell: React.FC<DrawerShellProps> = ({ open, onClose, className, side = 'right', children }) => (
   <AnimatePresence>
     {open && (
       <motion.div
-        className="fixed inset-0 z-50 flex justify-end"
+        className={`fixed inset-0 z-50 flex ${side === 'left' ? 'justify-start' : 'justify-end'}`}
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
@@ -72,9 +74,9 @@ export const DrawerShell: React.FC<DrawerShellProps> = ({ open, onClose, classNa
       >
         <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" aria-hidden="true" />
         <motion.aside
-          initial={{ x: '100%' }}
+          initial={{ x: side === 'left' ? '-100%' : '100%' }}
           animate={{ x: 0 }}
-          exit={{ x: '100%' }}
+          exit={{ x: side === 'left' ? '-100%' : '100%' }}
           transition={{ type: 'spring', stiffness: 320, damping: 34 }}
           className={`relative h-full overflow-y-auto ${className ?? ''}`}
         >

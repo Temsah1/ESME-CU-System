@@ -1,16 +1,17 @@
 // @vitest-environment node
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createLocalDevAdapter } from './localDevAdapter';
-import { createSupabaseAdapter, isSupabaseConfigured } from './supabaseAdapter';
+import { createSupabaseAdapter, configurationProblems, isSupabaseConfigured } from './supabaseAdapter';
 import { resolveAdapter } from './index';
-import { AccessRevokedError, AuthFailedError, AuthNotConfiguredError, RateLimitedError } from './errors';
+import { AccessRevokedError, AuthFailedError, AuthMisconfiguredError, AuthNotConfiguredError, RateLimitedError } from './errors';
 import { DUPLICATE_IDENTITY_MESSAGE } from '../domain/registration';
 import type { AuthAdapter, RegistrationDraft } from './types';
 
 /**
  * These suites exercise the *rules* the auth layer must enforce: nothing is privileged at
- * registration, email verification alone grants no access, only the decided states open the
- * ERP, and every admin action re-reads the caller's capability.
+ * registration, a submitted request is reviewable at once with no click in between, only an
+ * approved account opens the ERP, the queue refuses a burst of submissions, and every admin
+ * action re-reads the caller's capability.
  *
  * They run against the local development adapter, which simulates those rules in browser
  * storage. It is the only adapter reachable without provider credentials, so passing here
@@ -115,11 +116,8 @@ describe('public registration', () => {
     const registered = await adapter.register(draft());
     expect(registered.ok).toBe(true);
     if (!registered.ok) return;
-    expect(registered.receipt.status).toBe('pending_email_verification');
-    expect(registered.receipt.requiresEmailVerification).toBe(true);
+    expect(registered.receipt.status).toBe('pending_approval');
 
-    const verified = await adapter.completeEmailVerification(registered.receipt.reference);
-    expect(verified.ok).toBe(true);
     const approved = await adapter.decideRegistration(registered.receipt.reference, 'approve');
     expect(approved.ok).toBe(true);
 
@@ -143,8 +141,7 @@ describe('public registration', () => {
     expect(record?.motivation).toBe('Wants to run the NDT workshop track.');
     expect(record?.technicalSkills).toBe('ANSYS, ultrasonic testing');
     expect(record?.availabilityHours).toBe('10 h/week');
-    expect(record?.status).toBe('pending_email_verification');
-    expect(record?.emailVerified).toBe(false);
+    expect(record?.status).toBe('pending_approval');
   });
 
   it('rejects a duplicate identity with the deliberately vague message', async () => {    await bootstrapSuperAdmin();
@@ -179,40 +176,120 @@ describe('public registration', () => {
       );
     }
   });
+  it('refuses a burst of submissions now that nothing waits for a click', async () => {
+    await bootstrapSuperAdmin();
+    // The administrator's account is inside the window too, so four more fill it.
+    for (let i = 0; i < 4; i += 1) {
+      const outcome = await adapter.register(draft({ email: `applicant${i}@esme-cu.edu`, username: `applicant.${i}` }));
+      expect(outcome.ok).toBe(true);
+    }
+    const burst = await adapter.register(draft({ email: 'applicant4@esme-cu.edu', username: 'applicant.4' }));
+    expect(burst.ok).toBe(false);
+    if (!burst.ok) expect(burst.failure.code).toBe('rate_limited');
+    // Nothing was written for the refused request, so the queue did not grow.
+    expect((await adapter.listRegistrations()).filter((r) => r.email === 'applicant4@esme-cu.edu')).toHaveLength(0);
+  });
+});
+
+/**
+ * The academic questions are only worth having if the answers survive the trip.
+ *
+ * The portal validates against the schema it rendered; these run the same rules with no form in
+ * the loop, because that is what the provider-side call does — and it is the difference between a
+ * dropdown nobody can bypass and a suggestion an applicant can.
+ */
+describe('the academic answers on the trusted side', () => {
+  it('are stored with the request and still there after the decision', async () => {
+    await bootstrapSuperAdmin();
+    const registered = await adapter.register(
+      draft({
+        studentId: '2026-118842',
+        academicYear: 'Junior',
+        department: 'Mechanical Design & Production',
+        phone: '+201000000000',
+        committeeMembership: 'yes',
+        committeeId: 'comm_high_board',
+      })
+    );
+    expect(registered.ok).toBe(true);
+    if (!registered.ok) return;
+
+    const before = (await adapter.listRegistrations()).find((r) => r.id === registered.receipt.reference);
+    expect(before?.academicYear).toBe('Junior');
+    expect(before?.department).toBe('Mechanical Design & Production');
+    expect(before?.studentId).toBe('2026-118842');
+    expect(before?.committeeMembership).toBe('yes');
+    // The committee named on the form is the request; nothing is assigned until a reviewer says so.
+    expect(before?.committeeId).toBe('comm_high_board');
+    expect(before?.assignedCommitteeId).toBeUndefined();
+
+    expect((await adapter.decideRegistration(registered.receipt.reference, 'approve')).ok).toBe(true);
+
+    const after = (await adapter.listRegistrations()).find((r) => r.id === registered.receipt.reference);
+    expect(after?.status).toBe('active');
+    expect(after?.academicYear).toBe('Junior');
+    expect(after?.department).toBe('Mechanical Design & Production');
+    expect(after?.committeeMembership).toBe('yes');
+    expect(after?.assignedCommitteeId).toBeUndefined();
+
+    // …and the account the approval activated is a plain member, High Board named or not.
+    const session = await adapter.signIn('aya.student@esme-cu.edu', STRONG);
+    expect(session.identity.role).toBe('member');
+    expect(session.identity.committeeId).toBe('comm_high_board');
+    expect(session.identity.capabilities).not.toContain('registrations.decide');
+    expect(session.identity.capabilities).not.toContain('users.role.assign');
+  });
+
+  it('refuses a yes that names no committee, with no form to catch it first', async () => {
+    await bootstrapSuperAdmin();
+    const outcome = await adapter.register(draft({ committeeMembership: 'yes' }));
+    expect(outcome.ok).toBe(false);
+    if (!outcome.ok) {
+      expect(outcome.failure.code).toBe('validation');
+      expect(Object.keys(outcome.failure.fields ?? {})).toContain('committeeId');
+    }
+    expect((await adapter.listRegistrations()).filter((r) => r.email === 'aya.student@esme-cu.edu')).toHaveLength(0);
+  });
+
+  it('refuses a second preference that names the same committee twice', async () => {
+    await bootstrapSuperAdmin();
+    const outcome = await adapter.register(
+      draft({ committeeMembership: 'yes', committeeId: 'comm_mc', secondCommitteePreferenceId: 'comm_mc' })
+    );
+    expect(outcome.ok).toBe(false);
+    if (!outcome.ok) expect(Object.keys(outcome.failure.fields ?? {})).toContain('secondCommitteePreferenceId');
+  });
+
+  it('still registers the request an earlier build sent, with no academic answers at all', async () => {
+    await bootstrapSuperAdmin();
+    const registered = await adapter.register(draft());
+    expect(registered.ok).toBe(true);
+    if (!registered.ok) return;
+
+    const record = (await adapter.listRegistrations()).find((r) => r.id === registered.receipt.reference);
+    // Absent, not invented: a reviewer sees an empty row rather than a department nobody chose.
+    expect(record?.committeeMembership).toBeUndefined();
+    expect(record?.department).toBeUndefined();
+    expect(record?.academicYear).toBeUndefined();
+    expect((await adapter.decideRegistration(registered.receipt.reference, 'approve')).ok).toBe(true);
+  });
 });
 
 describe('account status gates access', () => {
-  it('refuses an applicant who has not verified the email address yet', async () => {
+  it('refuses an applicant whose request has not been decided yet', async () => {
     const admin = await bootstrapSuperAdmin();
-    const registered = await adapter.register(draft());
-    if (!registered.ok) throw new Error('registration should succeed');
+    await adapter.register(draft());
 
     await expect(adapter.signIn('aya.student@esme-cu.edu', STRONG)).rejects.toBeInstanceOf(AccessRevokedError);
     // the failed attempt belongs to the applicant, not the administrator holding the session
     expect((await adapter.restore())?.identity.id).toBe(admin.identity.id);
   });
 
-  it('email verification on its own still grants no ERP access', async () => {
-    const admin = await bootstrapSuperAdmin();
-    const registered = await adapter.register(draft());
-    if (!registered.ok) throw new Error('registration should succeed');
-    await adapter.completeEmailVerification(registered.receipt.reference);
-
-    await expect(adapter.signIn('aya.student@esme-cu.edu', STRONG)).rejects.toBeInstanceOf(AccessRevokedError);
-    // the administrator session is untouched by the failed attempt
-    expect((await adapter.restore())?.identity.id).toBe(admin.identity.id);
-  });
-
-  it('approval is what activates an account, and it waits for verification', async () => {
+  it('approval is what activates an account, and the request is decidable the moment it exists', async () => {
     await bootstrapSuperAdmin();
     const registered = await adapter.register(draft());
     if (!registered.ok) throw new Error('registration should succeed');
 
-    const tooEarly = await adapter.decideRegistration(registered.receipt.reference, 'approve');
-    expect(tooEarly.ok).toBe(false);
-    if (!tooEarly.ok) expect(tooEarly.error.code).toBe('unverified');
-
-    await adapter.completeEmailVerification(registered.receipt.reference);
     const approved = await adapter.decideRegistration(registered.receipt.reference, 'approve');
     expect(approved.ok).toBe(true);
 
@@ -220,11 +297,37 @@ describe('account status gates access', () => {
     expect(session.identity.status).toBe('active');
   });
 
+  it('will not decide the same request twice', async () => {
+    await bootstrapSuperAdmin();
+    const registered = await adapter.register(draft());
+    if (!registered.ok) throw new Error('registration should succeed');
+
+    expect((await adapter.decideRegistration(registered.receipt.reference, 'approve')).ok).toBe(true);
+    const again = await adapter.decideRegistration(registered.receipt.reference, 'reject', { reason: 'changed my mind' });
+    expect(again.ok).toBe(false);
+    if (!again.ok) expect(again.error.code).toBe('already_decided');
+  });
+
+  it('repairs a vault row left on the retired verification stage', async () => {
+    await bootstrapSuperAdmin();
+    const registered = await adapter.register(draft());
+    if (!registered.ok) throw new Error('registration should succeed');
+
+    // Storage written by the build that still had the stage.
+    const vault = JSON.parse(localStorage.getItem('ESME_CU_DEV_AUTH_V1') ?? '{}');
+    vault.accounts.find((a: { id: string }) => a.id === registered.receipt.reference).status = 'pending_email_verification';
+    localStorage.setItem('ESME_CU_DEV_AUTH_V1', JSON.stringify(vault));
+
+    const reopened = createLocalDevAdapter();
+    const queued = (await reopened.listRegistrations()).find((r) => r.id === registered.receipt.reference);
+    expect(queued?.status).toBe('pending_approval');
+    expect((await reopened.decideRegistration(registered.receipt.reference, 'approve')).ok).toBe(true);
+  });
+
   it('suspending an account blocks it and leaves no usable session', async () => {
     await bootstrapSuperAdmin();
     const registered = await adapter.register(draft());
     if (!registered.ok) throw new Error('registration should succeed');
-    await adapter.completeEmailVerification(registered.receipt.reference);
     await adapter.decideRegistration(registered.receipt.reference, 'approve');
     const memberId = registered.receipt.reference;
 
@@ -250,7 +353,6 @@ describe('account status gates access', () => {
     // Promote the applicant to a moderator: they may decide registrations, not suspend people.
     const registered = await adapter.register(draft());
     if (!registered.ok) throw new Error('registration should succeed');
-    await adapter.completeEmailVerification(registered.receipt.reference);
     await adapter.decideRegistration(registered.receipt.reference, 'approve');
     const promoted = await adapter.assignRole(registered.receipt.reference, 'moderator');
     expect(promoted.ok).toBe(true);
@@ -270,7 +372,6 @@ describe('capability enforcement inside the adapter', () => {
     await bootstrapSuperAdmin();
     const registered = await adapter.register(draft());
     if (!registered.ok) throw new Error('registration should succeed');
-    await adapter.completeEmailVerification(registered.receipt.reference);
     await adapter.decideRegistration(registered.receipt.reference, 'approve');
 
     await adapter.signIn('aya.student@esme-cu.edu', STRONG);
@@ -284,7 +385,6 @@ describe('capability enforcement inside the adapter', () => {
     await bootstrapSuperAdmin();
     const registered = await adapter.register(draft());
     if (!registered.ok) throw new Error('registration should succeed');
-    await adapter.completeEmailVerification(registered.receipt.reference);
     await adapter.decideRegistration(registered.receipt.reference, 'approve');
     const memberSession = await adapter.signIn('aya.student@esme-cu.edu', STRONG);
 
@@ -340,6 +440,271 @@ describe('brute-force handling', () => {
   });
 });
 
+describe('account directory', () => {
+  /**
+   * The committee screens can only appoint someone the provider actually reports. Before
+   * `listAccounts` existed, an approved applicant stayed invisible to the ERP, so the
+   * leadership selector offered nothing and an appointment could only be faked by creating a
+   * duplicate profile by hand.
+   */
+  it('shows the administrator every account, applicants included', async () => {
+    await bootstrapSuperAdmin();
+    await adapter.register(draft());
+
+    const accounts = await adapter.listAccounts();
+    expect(accounts.map((a) => a.email).sort()).toEqual(['aya.student@esme-cu.edu', ADMIN.email].sort());
+    const applicant = accounts.find((a) => a.email === 'aya.student@esme-cu.edu')!;
+    expect(applicant).toMatchObject({ status: 'pending_approval', role: 'member' });
+    // Nothing on the account says "awaiting a click" any more — the queue has no such stage.
+    expect(applicant).not.toHaveProperty('emailVerified');
+    expect(applicant.id).toBeTruthy();
+    expect(applicant).not.toHaveProperty('hash');
+    expect(applicant).not.toHaveProperty('salt');
+  });
+
+  it('lists an approved applicant under the same id the admin actions use', async () => {
+    await bootstrapSuperAdmin();
+    await adapter.register(draft());
+    const queued = (await adapter.listRegistrations()).find((r) => r.email === 'aya.student@esme-cu.edu')!;
+
+    const decided = await adapter.decideRegistration(queued.id, 'approve', { committeeId: 'comm_te' });
+    expect(decided.ok).toBe(true);
+
+    const listed = (await adapter.listAccounts()).find((a) => a.id === queued.id)!;
+    expect(listed).toMatchObject({ status: 'active', committeeId: 'comm_te' });
+
+    // The id the directory advertises is the id the provider will accept a change for.
+    expect((await adapter.setAccountStatus(queued.id, 'suspended')).ok).toBe(true);
+    expect((await adapter.listAccounts()).find((a) => a.id === queued.id)?.status).toBe('suspended');
+    expect((await adapter.assignRole(queued.id, 'head')).ok).toBe(true);
+  });
+
+  it('refuses the directory to a role that has no users.read', async () => {
+    await bootstrapSuperAdmin();
+    await adapter.register(draft());
+    const queued = (await adapter.listRegistrations()).find((r) => r.email === 'aya.student@esme-cu.edu')!;
+    await adapter.decideRegistration(queued.id, 'approve');
+    await adapter.signIn(queued.email, STRONG);
+
+    await expect(adapter.listAccounts()).rejects.toBeInstanceOf(AuthFailedError);
+  });
+});
+
+describe('email preferences through the adapter', () => {
+  it('round-trips the choice through the provider, not through the screen state', async () => {
+    const admin = await bootstrapSuperAdmin();
+
+    expect(await adapter.readEmailPreferences()).toEqual(
+      expect.objectContaining({ userId: admin.identity.id, locale: 'en', mutedEvents: [] })
+    );
+
+    const saved = await adapter.saveEmailPreferences({
+      userId: admin.identity.id,
+      locale: 'ar',
+      mutedEvents: ['deadline_reminder'],
+      updatedAt: new Date().toISOString(),
+    });
+    expect(saved.ok).toBe(true);
+
+    // A second adapter over the same storage is what another mount of the screen sees.
+    const reopened = createLocalDevAdapter();
+    expect(await reopened.readEmailPreferences()).toMatchObject({ locale: 'ar', mutedEvents: ['deadline_reminder'] });
+  });
+
+  it('will not store an account-safety mute, even from a hand-made request', async () => {
+    await bootstrapSuperAdmin();
+    const result = await adapter.saveEmailPreferences({
+      userId: 'someone-else',
+      locale: 'en',
+      mutedEvents: ['login_security_alert', 'account_approved', 'task_assigned'],
+      updatedAt: new Date().toISOString(),
+    });
+    expect(result.ok).toBe(true);
+
+    const stored = await adapter.readEmailPreferences();
+    expect(stored?.mutedEvents).toEqual(['task_assigned']);
+    // The request claimed another account; the provider keys the row to the session.
+    expect(stored?.userId).not.toBe('someone-else');
+  });
+
+  it('refuses to save for an account that is not signed in', async () => {
+    await bootstrapSuperAdmin();
+    await adapter.signOut();
+    const result = await adapter.saveEmailPreferences({
+      userId: 'x',
+      locale: 'en',
+      mutedEvents: [],
+      updatedAt: new Date().toISOString(),
+    });
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error.code).toBe('no-session');
+    expect(await adapter.readEmailPreferences()).toBeNull();
+  });
+});
+
+describe('seeded test accounts', () => {
+  const COMMITTEES = [
+    { id: 'comm_te', shortCode: 'T&E', name: 'Technical & Engineering Committee' },
+    { id: 'comm_marketing', shortCode: 'MK', name: 'Marketing Committee' },
+  ];
+  const accounts = () =>
+    (JSON.parse(localStorage.getItem('ESME_CU_DEV_AUTH_V1') ?? '{}').accounts ?? []) as {
+      id: string;
+      email: string;
+      username: string;
+      role: string;
+      status: string;
+      hash: string;
+    }[];
+
+  async function seed() {
+    await bootstrapSuperAdmin();
+    return adapter.seedTestAccounts({ committees: COMMITTEES });
+  }
+
+  it('opens one account per role, seated and signed in with its own fixture password', async () => {
+    const report = await seed();
+    expect(report.refusal).toBeNull();
+    expect(report.created.map((c) => c.email)).toEqual([
+      'test.head@esme.test',
+      'test.director@esme.test',
+      'test.member@esme.test',
+    ]);
+    expect(report.conflicts).toEqual([]);
+
+    const head = await adapter.signIn('test.head@esme.test', 'TestHead@123');
+    expect(head.identity.role).toBe('head');
+    expect(head.identity.committeeId).toBe('comm_te');
+    const director = await adapter.signIn('test.director@esme.test', 'TestDir@123');
+    expect(director.identity.role).toBe('director');
+    expect(director.identity.committeeId).toBe('comm_marketing');
+    const member = await adapter.signIn('test.member@esme.test', 'TestMem@123');
+    expect(member.identity.capabilities).toContain('submissions.create');
+  });
+
+  it('seeds an active account, not an applicant waiting to be decided', async () => {
+    await seed();
+    // A plain member is normally in the queue because an approved applicant stays readable there;
+    // a provisioned tester never applied, so it must not appear as though it did.
+    const registered = await adapter.register(draft());
+    expect(registered.ok).toBe(true);
+    const queue = await adapter.listRegistrations();
+    expect(queue.map((r) => r.email)).toContain('aya.student@esme-cu.edu');
+    expect(queue.map((r) => r.email)).not.toContain('test.member@esme.test');
+  });
+
+  it('resets a fixture this device had edited away, and says it repaired rather than created', async () => {
+    await seed();
+    const vault = JSON.parse(localStorage.getItem('ESME_CU_DEV_AUTH_V1') ?? '{}');
+    vault.accounts.find((a: { email: string }) => a.email === 'test.head@esme.test').role = 'member';
+    vault.accounts.find((a: { email: string }) => a.email === 'test.head@esme.test').status = 'suspended';
+    localStorage.setItem('ESME_CU_DEV_AUTH_V1', JSON.stringify(vault));
+
+    const second = await adapter.seedTestAccounts({ committees: COMMITTEES });
+    expect(second.created).toEqual([]);
+    expect(second.repaired.map((r) => r.email)).toEqual([
+      'test.head@esme.test',
+      'test.director@esme.test',
+      'test.member@esme.test',
+    ]);
+    expect(accounts().length).toBe(4); // three testers plus the primary admin, never a fourth tester
+
+    const revived = await adapter.signIn('test.head@esme.test', 'TestHead@123');
+    expect(revived.identity.role).toBe('head');
+    expect(revived.identity.status).toBe('active');
+  });
+
+  it('refuses to take over an identity a real account already holds', async () => {
+    await bootstrapSuperAdmin();
+    const squatter = await adapter.register(draft({ username: 'test_head' }));
+    expect(squatter.ok).toBe(true);
+    const before = accounts().find((a) => a.username === 'test_head');
+
+    const report = await adapter.seedTestAccounts({ committees: COMMITTEES });
+    expect(report.conflicts.map((c) => c.fixtureKey)).toEqual(['head']);
+    expect(report.conflicts[0].reason).toMatch(/not this fixture/);
+    expect(report.created.map((c) => c.email)).toEqual([
+      'test.director@esme.test',
+      'test.member@esme.test',
+    ]);
+    const after = accounts().find((a) => a.username === 'test_head');
+    expect(after?.hash).toBe(before?.hash);
+    expect(after?.email).toBe('aya.student@esme-cu.edu');
+  });
+
+  it('deletes exactly the three testers and leaves every other account alone', async () => {
+    await seed();
+    const registered = await adapter.register(draft());
+    expect(registered.ok).toBe(true);
+
+    const report = await adapter.removeTestAccounts();
+    expect(report.refusal).toBeNull();
+    expect(report.removed.slice().sort()).toEqual(
+      ['test.head@esme.test', 'test.director@esme.test', 'test.member@esme.test'].sort()
+    );
+    expect(accounts().map((a) => a.email).sort()).toEqual([ADMIN.email, 'aya.student@esme-cu.edu'].sort());
+  });
+
+  it('drops the live session when the account holding it is one of the testers', async () => {
+    await seed();
+    // Reachable through a promotion: a tester raised to Super Admin is the only fixture that could
+    // issue its own deletion, and it must not stay authenticated to a row that no longer exists.
+    const promote = await adapter.assignRole('usr_test_head', 'super_admin');
+    expect(promote.ok).toBe(true);
+    await adapter.signIn('test.head@esme.test', 'TestHead@123');
+    expect(localStorage.getItem('ESME_CU_DEV_SESSION_V1')).toBeTruthy();
+
+    const report = await adapter.removeTestAccounts();
+    expect(report.removed.length).toBe(3);
+    expect(localStorage.getItem('ESME_CU_DEV_SESSION_V1')).toBeNull();
+  });
+
+  it('will not seed in a production build unless the operator switched it on', async () => {
+    await bootstrapSuperAdmin();
+    vi.stubEnv('PROD', true);
+    const report = await adapter.seedTestAccounts({ committees: COMMITTEES });
+    expect(report.refusal).toMatch(/production build/i);
+    expect(report.created).toEqual([]);
+    expect(accounts().length).toBe(1);
+    vi.unstubAllEnvs();
+
+    vi.stubEnv('PROD', true);
+    vi.stubEnv('VITE_ALLOW_TEST_ACCOUNTS', 'true');
+    const allowed = await adapter.seedTestAccounts({ committees: COMMITTEES });
+    expect(allowed.refusal).toBeNull();
+    expect(allowed.created.length).toBe(3);
+    vi.unstubAllEnvs();
+  });
+
+  it('seats a tester without inventing a committee this workspace does not have', async () => {
+    await bootstrapSuperAdmin();
+    const report = await adapter.seedTestAccounts({ committees: [{ id: 'comm_only_te', shortCode: 't&e' }] });
+    expect(report.unresolvedCommittees).toEqual(['comm_marketing']);
+    expect(report.created.find((c) => c.username === 'test_head')?.committeeId).toBe('comm_only_te');
+    expect(report.created.find((c) => c.username === 'test_director')?.committeeId).toBeUndefined();
+  });
+
+  it('requires the capability that opens accounts, whichever session asks', async () => {
+    await seed();
+    await adapter.signIn('test.member@esme.test', 'TestMem@123');
+    await expect(adapter.seedTestAccounts({ committees: COMMITTEES })).rejects.toBeInstanceOf(AuthFailedError);
+    await expect(adapter.removeTestAccounts()).rejects.toBeInstanceOf(AuthFailedError);
+  });
+
+  it('never creates the real provider’s accounts from a browser, and prints the statements instead', async () => {
+    const storage = new MemoryStorage();
+    vi.stubGlobal('localStorage', storage);
+    const provider = createSupabaseAdapter();
+    const seed = await provider.seedTestAccounts({ committees: COMMITTEES });
+    expect(seed.refusal).toContain('esme_arm_test_account_seed');
+    expect(seed.refusal).toContain('esme_seed_test_accounts');
+    const remove = await provider.removeTestAccounts();
+    expect(remove.refusal).toContain('esme_remove_test_accounts');
+    // Refusing is not the same as failing: no client was built, so no credential was needed.
+    expect(storage.length).toBe(0);
+  });
+});
+
 describe('provider resolution', () => {
   it('refuses to authenticate a production build from browser storage', () => {
     vi.stubEnv('DEV', false);
@@ -357,6 +722,69 @@ describe('provider resolution', () => {
   it('names the missing variables rather than failing silently', async () => {
     expect(isSupabaseConfigured()).toBe(false);
     await expect(createSupabaseAdapter().restore()).rejects.toBeInstanceOf(AuthNotConfiguredError);
+  });
+
+  it('refuses a configured-looking provider that cannot work from a browser', () => {
+    // Synthetic. A publishable key is still a credential and never belongs in a tracked file; the
+    // shape is what this test cares about, not a live value.
+    const publishable = 'sb_publishable_AAAAAAAAAAAAAAAAAAAAAAAA_AAAAAAA';
+    // The mistake this catches was observed in a real .env.local: the REST path pasted after the
+    // project host, which sends every request to …/rest/v1/rest/v1/… and reads back as a bad login.
+    expect(configurationProblems('https://project.supabase.co/rest/v1/', publishable)).toEqual([
+      expect.stringContaining('project root only'),
+    ]);
+    expect(configurationProblems('not a url', publishable)[0]).toContain('absolute URL');
+    expect(configurationProblems('http://project.supabase.co', publishable)).toEqual([]);
+
+    const serviceRoleJwt = `header.${btoa(JSON.stringify({ role: 'service_role' })).replace(/\+/g, '-').replace(/\//g, '_')}.sig`;
+    for (const forbidden of ['sb_secret_AbCdEfGhIjKlMnOpQrStUv', serviceRoleJwt]) {
+      const problems = configurationProblems('https://project.supabase.co', forbidden);
+      expect(problems).toHaveLength(1);
+      // The value is a credential: the words that reach the screen must not carry it.
+      expect(problems[0]).not.toContain(forbidden);
+      expect(problems[0]).not.toContain('AbCdEfGhIjKlMnOp');
+    }
+
+    expect(configurationProblems('https://project.supabase.co', publishable)).toEqual([]);
+    expect(configurationProblems('https://project.supabase.co', 'eyJhbGciOiJIUzI1NiJ9.eyJyb2xlIjoiYW5vbiJ9.sig')).toEqual([]);
+  });
+
+  it('raises the misconfiguration instead of letting it look like a rejected password', async () => {
+    vi.stubEnv('VITE_SUPABASE_URL', 'https://project.supabase.co/rest/v1/');
+    vi.stubEnv('VITE_SUPABASE_ANON_KEY', 'sb_secret_AbCdEfGhIjKlMnOpQrStUv');
+    const first = await createSupabaseAdapter().restore().catch((e: unknown) => e);
+    expect(first).toBeInstanceOf(AuthMisconfiguredError);
+    expect((first as AuthMisconfiguredError).problems).toEqual([
+      expect.stringContaining('project root only'),
+      expect.stringContaining('secret API key'),
+    ]);
+
+    // A failed attempt may not be memoised: the second call must report the configuration it is
+    // actually looking at now, not the first one's complaint. Neither call builds a client, so this
+    // stays offline — the client is only reached once both values pass.
+    vi.stubEnv('VITE_SUPABASE_URL', 'not a url');
+    vi.stubEnv('VITE_SUPABASE_ANON_KEY', 'sb_publishable_AAAAAAAAAAAAAAAAAAAAAAAA_AAAAAAA');
+    const second = await createSupabaseAdapter().restore().catch((e: unknown) => e);
+    expect(second).toBeInstanceOf(AuthMisconfiguredError);
+    expect((second as AuthMisconfiguredError).problems).toEqual([expect.stringContaining('absolute URL')]);
+
+    // The rejected configuration is still a configured provider: falling back to the development
+    // vault here would let a misread environment sign somebody in against browser storage.
+    expect(isSupabaseConfigured()).toBe(true);
+    vi.unstubAllEnvs();
+  });
+
+  it('does not report a saved email preference that no provider accepted', async () => {
+    const withoutProvider = createSupabaseAdapter();
+    await expect(withoutProvider.readEmailPreferences()).rejects.toBeInstanceOf(AuthNotConfiguredError);
+    await expect(
+      withoutProvider.saveEmailPreferences({
+        userId: 'x',
+        locale: 'ar',
+        mutedEvents: ['task_assigned'],
+        updatedAt: new Date().toISOString(),
+      })
+    ).rejects.toBeInstanceOf(AuthNotConfiguredError);
   });
 
   it('labels the development fallback as development-only in every session', () => {

@@ -2,21 +2,28 @@ import React from 'react';
 import { DashboardShell } from './DashboardShell';
 import type { DashboardView } from './DashboardShell';
 import { RequireCapability } from '../../auth/guards';
-import type { Capability } from '../../domain/roles';
-import { SuperAdminOverview } from './SuperAdminOverview';
+import { NAV_BY_ID } from './nav';
+import { DashboardHome } from './DashboardHome';
+import { ExecutiveDecisionCenter } from './ExecutiveDecisionCenter';
+import { ActionCenter } from './ActionCenter';
 import { MemberManagement } from './MemberManagement';
 import { CommitteeManagement } from './CommitteeManagement';
 import { TaskCommandCenter } from './TaskCommandCenter';
 import { SubmissionReviewCenter } from './SubmissionReviewCenter';
 import { PointsAndLeaderboard } from './PointsAndLeaderboard';
+import { RewardsAndDiscipline } from './RewardsAndDiscipline';
 import { RegistrationManager } from './RegistrationManager';
 import { WebsiteCMS } from './WebsiteCMS';
+import { MediaLibrary } from './MediaLibrary';
 import { SeasonPlanner } from './SeasonPlanner';
+import { SeasonsAndObjectives } from './SeasonsAndObjectives';
 import { SkillMatrix } from './SkillMatrix';
 import { KPIAnalytics } from './KPIAnalytics';
 import { SocialMediaInsightsView } from './SocialMediaInsightsView';
 import { ModeratorTools } from './ModeratorTools';
 import { AuditTrailView } from './AuditTrailView';
+import { NotificationsAndEmail } from './NotificationsAndEmail';
+import { ReportBuilder } from './ReportBuilder';
 import { SettingsAndBackups } from './SettingsAndBackups';
 
 interface DashboardRoutesProps {
@@ -28,40 +35,34 @@ interface DashboardRoutesProps {
 
 type ViewProps = { onNavigate: (view: DashboardView) => void };
 
-/** The capability each surface needs, kept in one table so nav and render agree. */
-const VIEW_REQUIREMENTS: Record<DashboardView, Capability | null> = {
-  overview: null,
-  members: 'users.read',
-  committees: 'committees.read',
-  tasks: 'tasks.read',
-  submissions: 'submissions.read',
-  scoring: 'scores.read',
-  applications: 'registrations.read',
-  website_cms: 'cms.content.write',
-  season_planner: 'events.read',
-  skill_matrix: 'skills.read',
-  kpi_analytics: 'analytics.configure',
-  social_media: 'cms.content.write',
-  moderator: 'registrations.decide',
-  audit_log: 'audit.read',
-  settings: 'settings.manage',
-};
+/**
+ * What each surface needs is declared once, in `nav.ts`, so a screen cannot be listed in the
+ * sidebar without also being wrapped here. The wrapper is presentation as much as routing —
+ * `RequireCapability` refuses to render, and the provider refuses the request regardless.
+ */
 
 const views: Record<DashboardView, React.FC<ViewProps>> = {
-  overview: SuperAdminOverview,
+  overview: DashboardHome,
+  decision_center: ExecutiveDecisionCenter,
+  action_center: ActionCenter,
   members: MemberManagement,
   committees: CommitteeManagement,
   tasks: TaskCommandCenter,
   submissions: SubmissionReviewCenter,
   scoring: PointsAndLeaderboard,
+  rewards: RewardsAndDiscipline,
   applications: RegistrationManager,
   website_cms: WebsiteCMS,
+  media_library: MediaLibrary,
   season_planner: SeasonPlanner,
+  seasons_objectives: SeasonsAndObjectives,
   skill_matrix: SkillMatrix,
   kpi_analytics: KPIAnalytics,
   social_media: SocialMediaInsightsView,
   moderator: ModeratorTools,
   audit_log: AuditTrailView,
+  notifications: NotificationsAndEmail,
+  report_builder: ReportBuilder,
   settings: SettingsAndBackups,
 };
 
@@ -72,7 +73,7 @@ export const DashboardRoutes: React.FC<DashboardRoutesProps> = ({
   onSignOut,
 }) => {
   const ActiveView = views[currentView];
-  const requirement = VIEW_REQUIREMENTS[currentView];
+  const requirement = NAV_BY_ID[currentView]?.capability ?? null;
   const body = <ActiveView onNavigate={onViewChange} />;
 
   return (

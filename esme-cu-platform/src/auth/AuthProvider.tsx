@@ -155,8 +155,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
 function statusMessageFor(status: string): string {
   switch (status) {
-    case 'pending_email_verification':
-      return 'Verify your email address first, then wait for an administrator to approve the request.';
     case 'pending_approval':
       return 'Your request is waiting for administrator approval. You will be notified once a decision is made.';
     case 'rejected':

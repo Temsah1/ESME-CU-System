@@ -47,29 +47,60 @@ insert into esme_committees (name, short_code, description, category, objectives
    true)
 on conflict (name) do nothing;
 
+-- High Board is a committee and nothing more: it appoints nobody, and selecting it on the signup
+-- form grants no office, no access and no role. Guarded rather than plain-inserted so a chapter
+-- that already lists this body under another spelling or short code does not get a second one.
+-- Mirrors section 4 of supabase/migrations/0011_registration_academic_fields.sql.
+insert into esme_committees (name, short_code, description, category, objectives, sub_teams, is_public)
+select 'High Board', 'HB',
+  'The chapter-wide body its officers sit on. Naming it on an application records where the applicant thinks they belong; it appoints nobody and grants no office, no administrative access and no role.',
+  'management',
+  array['Hold the chapter-wide direction the committee objectives serve',
+         'Keep the continuity of decisions across seasons'],
+  array[]::text[], true
+where not exists (
+  select 1 from esme_committees
+  where lower(regexp_replace(name, '[^[:alnum:]]', '', 'g')) in ('highboard', 'thehighboard')
+     or lower(regexp_replace(short_code, '[^[:alnum:]]', '', 'g')) = 'hb'
+);
+
 -- ------------------------------------------------- registration form schema ----
+-- Mirrors REFERENCE_FORM_FIELDS in src/data/referenceContent.ts: the signup asks for a name, an email,
+-- where the student studies, which year they are in, whether they already belong to a committee and
+-- which one, and the agreement. Student ID, Phone, the second preference and the free-text questions
+-- ship present but switched off, so an operator enables them in Registration → Form Schema without a
+-- migration. `committee_membership` sits immediately before the committee it controls. A database
+-- seeded from an earlier version of this file keeps its rows (`on conflict (name) do nothing`), so
+-- re-running the seed is not an upgrade — 0011 section 5 is what moves those rows forward.
 
 insert into esme_registration_fields (name, label, field_type, required, enabled, options, description, sort_order) values
   ('full_name', 'Full name', 'text', true, true, array[]::text[], 'As it appears in university records.', 1),
-  ('university_email', 'University email', 'email', true, true, array[]::text[], 'Used for verification and chapter correspondence.', 2),
-  ('student_id', 'Student ID', 'text', false, true, array[]::text[], null, 3),
-  ('academic_year', 'Academic year', 'select', true, true,
-   array['1', '2', '3', '4', '5'], null, 4),
-  ('department', 'Department', 'select', true, true,
-   array['Mechatronics', 'Biomedical', 'Electrical', 'Mechanical', 'Civil', 'Architecture', 'Other'], null, 5),
-  ('phone', 'Phone', 'tel', true, true, array[]::text[], 'WhatsApp contact for the chapter.', 6),
-  ('preferred_committee', 'Preferred committee', 'select', true, true,
-   array['Technical Committee', 'Media Committee', 'Marketing Committee', 'Design Committee'], null, 7),
-  ('second_committee_preference', 'Second choice committee', 'select', false, true,
-   array['Technical Committee', 'Media Committee', 'Marketing Committee', 'Design Committee'], null, 8),
-  ('technical_skills', 'Technical skills', 'textarea', true, true, array[]::text[],
-   'Tools, languages or lab techniques you already use.', 9),
-  ('previous_experience', 'Previous experience', 'textarea', false, true, array[]::text[], null, 10),
-  ('motivation', 'Why ESME CU?', 'textarea', true, true, array[]::text[], null, 11),
-  ('availability_hours', 'Weekly availability (hours)', 'select', true, true,
-   array['0-3', '4-6', '7-10', '10+'], null, 12),
+  ('university_email', 'University email', 'email', true, true, array[]::text[], 'Used for sign-in and chapter correspondence.', 2),
+  ('student_id', 'Student ID', 'text', false, false, array[]::text[], null, 3),
+  ('academic_year', 'Academic Year / السنة الدراسية', 'select', true, true,
+   array['Freshman', 'Sophomore', 'Junior', 'Senior I', 'Senior II', 'Postgraduate'],
+   'Year of study, not graduation year.', 4),
+  ('department', 'Department / القسم', 'select', true, true,
+   array['Metallurgical & Materials Engineering', 'Mechanical Design & Production',
+         'Mechanical Power Engineering', 'Chemical Engineering', 'Civil Engineering',
+         'Aerospace Engineering', 'Other'], null, 5),
+  ('phone', 'Phone', 'tel', false, false, array[]::text[], 'WhatsApp contact for the chapter.', 6),
+  ('committee_membership', 'Are you a member of a committee? / هل أنت عضو في أي كوميت؟', 'select',
+   true, true, array['yes', 'no'],
+   'Answer no and the committee question below is not asked. Applicant-declared.', 7),
+  ('preferred_committee', 'Preferred committee', 'select', false, true,
+   array['Technical Committee', 'Media Committee', 'Marketing Committee', 'Design Committee', 'High Board'],
+   'Optional: where the applicant fits is discussed when the request is reviewed.', 8),
+  ('second_committee_preference', 'Second choice committee', 'select', false, false,
+   array['Technical Committee', 'Media Committee', 'Marketing Committee', 'Design Committee', 'High Board'], null, 9),
+  ('technical_skills', 'Technical skills', 'textarea', false, false, array[]::text[],
+   'Tools, languages or lab techniques you already use.', 10),
+  ('previous_experience', 'Previous experience', 'textarea', false, false, array[]::text[], null, 11),
+  ('motivation', 'Why ESME CU?', 'textarea', false, false, array[]::text[], null, 12),
+  ('availability_hours', 'Weekly availability (hours)', 'select', false, false,
+   array['0-3', '4-6', '7-10', '10+'], null, 13),
   ('agreed_to_policies', 'I accept the privacy policy and chapter terms', 'checkbox', true, true,
-   array[]::text[], 'Required before the request enters the approval queue.', 13)
+   array[]::text[], 'Required before the request enters the approval queue.', 14)
 on conflict (name) do nothing;
 
 -- --------------------------------------------------------- website content ----
@@ -120,7 +151,7 @@ insert into esme_content_pages (slug, title, nav_label, section_key, body, nav_o
    jsonb_build_object('headline', '2026 - 2027 season', 'supportingMessage', 'Planned activities by quarter. Status shows preparation, not results.'),
    3, true, true),
   ('/committees', 'Committees', 'Committees', 'committees',
-   jsonb_build_object('headline', 'How the chapter works', 'supportingMessage', 'Four committees, each with its own deliverables and review path.'),
+   jsonb_build_object('headline', 'How the chapter works', 'supportingMessage', 'The chapter committees, each with its own deliverables and review path. The list on this page is the committee records themselves, so a committee added here or in the ERP appears without a code change.'),
    4, true, true)
 on conflict (slug) do nothing;
 

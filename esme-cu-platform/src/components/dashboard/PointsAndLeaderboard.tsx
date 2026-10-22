@@ -296,7 +296,7 @@ export const PointsAndLeaderboard: React.FC = () => {
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
               {visibleLedger.map((entry) => (
                 <tr key={entry.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors duration-150">
-                  <td className="py-3 px-4 text-slate-400 text-[11px] whitespace-nowrap">{entry.timestamp}</td>
+                  <td className="py-3 px-4 text-slate-400 text-[11px] whitespace-nowrap">{entry.timestamp.slice(0, 16).replace('T', ' ')}</td>
                   <td className="py-3 px-4 font-bold text-slate-800 dark:text-slate-100">{entry.memberName}</td>
                   <td
                     className={`py-3 px-4 font-bold ${

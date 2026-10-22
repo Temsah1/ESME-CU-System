@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   motion,
   AnimatePresence,
@@ -23,6 +23,10 @@ import {
   Flame,
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
+import type { PublicSectionKey } from '../types';
+import { leaderAccount } from '../domain/committees';
+import { hiddenSections, resolveImage, visibleFooterLinks, visibleNavigation } from '../domain/cms';
+import { seasonCovering, seasonsInOrder } from '../domain/seasons';
 import { HISTORICAL_MILESTONES, APPRECIATION_PROFILES, HISTORICAL_SOCIAL_INSIGHTS } from '../data/historyData';
 import {
   AnimatedNumber,
@@ -158,10 +162,43 @@ export const PublicWebsite: React.FC<PublicWebsiteProps> = ({
   onNavigateToDashboard,
   onNavigateToJoin
 }) => {
-  const { websiteContent, seasonEvents, committees } = useApp();
+  // The live document, not the draft an operator is still editing: publishing is what moves a
+  // page a visitor reads, so this component deliberately never looks at the draft copy.
+  const { publishedContent: content, mediaLibrary, seasonEvents, committees, users, seasons } = useApp();
+  const [today] = useState(() => new Date().toISOString().slice(0, 10));
+  const orderedSeasons = seasonsInOrder(seasons);
+  const activeSeason = seasonCovering(orderedSeasons, today) ?? orderedSeasons.find((s) => s.status === 'active');
+  const activeSeasonLabel = activeSeason?.label;
+  // The calendar below prints what the planner holds. Counts come from those rows, never from a
+  // vision document summary, and the section says so when nobody has written a milestone yet.
+  const majorEvents = seasonEvents.filter((e) => e.category === 'Major Event');
+  const workshopCount = seasonEvents.filter((e) => e.category === 'Workshop').length;
+  const sessionCount = seasonEvents.filter((e) => e.category === 'Professional Session').length;
+  const calendarSummary =
+    seasonEvents.length === 0
+      ? 'The season plan has not been written into this workspace yet, so the calendar below is empty.'
+      : `${majorEvents.length} major event${majorEvents.length === 1 ? '' : 's'}, ${workshopCount} workshop${
+          workshopCount === 1 ? '' : 's'
+        } and ${sessionCount} professional session${sessionCount === 1 ? '' : 's'} recorded in the planner.`;
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [activeHistoryTab, setActiveHistoryTab] = useState(0);
   const premiumMotion = usePremiumMotion();
+
+  /**
+   * Everything below is read off the published document: the links the header offers, the blocks the
+   * operator switched off, and the picture behind each slot — an upload from this device's library if
+   * the slot names one, the asset shipped with the build otherwise.
+   */
+  const assetById = (assetId: string) => mediaLibrary.find((asset) => asset.id === assetId);
+  const image = (slotId: string, fallbackSrc: string, fallbackAlt: string) =>
+    resolveImage(content, slotId, { src: fallbackSrc, alt: fallbackAlt }, assetById);
+  const hidden = new Set(hiddenSections(content));
+  const show = (key: PublicSectionKey) => !hidden.has(key);
+  const footerLinks = visibleFooterLinks(content);
+  const heroImage = image('home.heroCard', '/branding/esme_team_celebration.png', 'ESME CU Student Chapter Celebration');
+  const campusImage = image('about.campus', '/history/xref_585.png', 'Faculty of Engineering, Cairo University');
+  const boardImage = image('history.boardPoster', '/branding/board_poster_2025_2026.png', 'Board of the 2025-2026 academic year');
+  const shareImage = image('sharing.ogImage', '/branding/esme_team_celebration.png', 'ESME CU Student Chapter');
 
   const pointerX = useMotionValue(0);
   const pointerY = useMotionValue(0);
@@ -189,18 +226,42 @@ export const PublicWebsite: React.FC<PublicWebsiteProps> = ({
     pointerY.set(0);
   };
 
-  const navLinks = [
-    { label: 'Home', href: '#home' },
-    { label: 'About Us', href: '#about' },
-    { label: 'Vision 2027', href: '#vision' },
-    { label: 'Our History', href: '#history' },
-    { label: 'Appreciation', href: '#appreciation' },
-    { label: 'Committees', href: '#committees' },
-    { label: 'Events', href: '#events' },
-    { label: 'Magazine', href: '#magazine' },
-    { label: 'Meta Insights', href: '#insights' },
-    { label: 'Contact', href: '#contact' },
-  ];
+  // The header offers what the document lists, in the order the operator left it, minus the blocks
+  // that are switched off. A link the page would not follow is already gone — the validator dropped
+  // it on the way in — so nothing here has to second-guess an address.
+  const navLinks = visibleNavigation(content).filter((link) => {
+    if (!link.href.startsWith('#')) return true;
+    return show(link.href.slice(1) as PublicSectionKey);
+  });
+
+  /**
+   * What a pasted link shows. The wording comes from the published document, not from the build, so
+   * an operator who retitles the page changes the card the next person sees — and an unfinished draft
+   * changes nothing.
+   */
+  useEffect(() => {
+    const previousTitle = document.title;
+    document.title = content.sharing.title;
+    const entries: [attr: string, key: string, value: string][] = [
+      ['name', 'description', content.sharing.description],
+      ['property', 'og:title', content.sharing.title],
+      ['property', 'og:description', content.sharing.description],
+      ['property', 'og:image', shareImage.src],
+    ];
+    for (const [attr, key, value] of entries) {
+      const selector = `meta[${attr}="${key}"]`;
+      let tag = document.head.querySelector<HTMLMetaElement>(selector);
+      if (!tag) {
+        tag = document.createElement('meta');
+        tag.setAttribute(attr, key);
+        document.head.append(tag);
+      }
+      tag.setAttribute('content', value);
+    }
+    return () => {
+      document.title = previousTitle;
+    };
+  }, [content.sharing.title, content.sharing.description, shareImage.src]);
 
   return (
     <div className="min-h-screen bg-[#FDFBF7] text-slate-900 selection:bg-[#F59A16] selection:text-white font-sans">
@@ -374,6 +435,7 @@ export const PublicWebsite: React.FC<PublicWebsiteProps> = ({
       </nav>
 
       {/* Hero Section */}
+      {show('home') && (
       <section
         id="home"
         className="relative overflow-hidden bg-gradient-to-b from-[#123B60] via-[#0E2F4D] to-[#0A2239] text-white pt-16 pb-28"
@@ -407,18 +469,18 @@ export const PublicWebsite: React.FC<PublicWebsiteProps> = ({
                 className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/10 border border-white/20 text-[#F59A16] text-xs font-semibold backdrop-blur-sm"
               >
                 <Sparkles className="w-3.5 h-3.5" />
-                <span>{websiteContent.hero.badge}</span>
+                <span>{content.hero.badge}</span>
               </motion.div>
 
               <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black tracking-tight text-white leading-tight">
-                <WordReveal text={websiteContent.hero.headline} step={0.07} delayChildren={0.25} />
+                <WordReveal text={content.hero.headline} step={0.07} delayChildren={0.25} />
               </h1>
 
               <motion.p
                 variants={heroItem}
                 className="text-lg sm:text-xl text-slate-200 leading-relaxed font-light border-l-4 border-[#F59A16] pl-4"
               >
-                {websiteContent.hero.supportingMessage}
+                {content.hero.supportingMessage}
               </motion.p>
 
               {/* Motto highlight */}
@@ -436,7 +498,7 @@ export const PublicWebsite: React.FC<PublicWebsiteProps> = ({
                   className="px-7 py-3.5 bg-[#F59A16] hover:bg-[#D47F0A] text-white font-bold rounded-xl shadow-xl shadow-[#F59A16]/25 flex items-center gap-2 group text-sm"
                 >
                   <ShieldCheck className="w-4 h-4 transition group-hover:scale-110" />
-                  {websiteContent.hero.ctaPrimary}
+                  {content.hero.ctaPrimary}
                 </MagneticButton>
                 <motion.button
                   onClick={onNavigateToJoin}
@@ -445,7 +507,7 @@ export const PublicWebsite: React.FC<PublicWebsiteProps> = ({
                   whileTap={{ scale: 0.97 }}
                   transition={transitions.micro}
                 >
-                  {websiteContent.hero.ctaSecondary}
+                  {content.hero.ctaSecondary}
                   <ChevronRight className="w-4 h-4" />
                 </motion.button>
               </motion.div>
@@ -477,14 +539,16 @@ export const PublicWebsite: React.FC<PublicWebsiteProps> = ({
             <motion.div className="lg:col-span-5 space-y-4" style={{ x: cardX, y: cardY }} variants={scaleIn}>
               <div className="relative rounded-2xl overflow-hidden border-2 border-white/20 shadow-2xl bg-[#0A2239] group">
                 <img
-                  src="/branding/esme_team_celebration.png"
-                  alt="ESME CU Student Chapter Celebration"
+                  src={heroImage.src}
+                  alt={heroImage.alt}
                   className="w-full h-80 object-cover object-center filter saturate-105 transition-transform duration-700 ease-out group-hover:scale-[1.04]"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-[#0A2239] via-transparent to-transparent"></div>
                 <div className="absolute bottom-4 left-4 right-4 text-white">
                   <span className="px-2.5 py-1 bg-[#F59A16] text-[10px] font-black uppercase rounded tracking-wider">Official 2026-2027 Vision Launch</span>
-                  <p className="text-xs text-slate-200 mt-1">Zerust Presentation & ESME-Cairo University General Assembly</p>
+                  <p className="text-xs text-slate-200 mt-1">
+                    {heroImage.caption ?? 'Zerust Presentation & ESME-Cairo University General Assembly'}
+                  </p>
                 </div>
               </div>
 
@@ -509,13 +573,15 @@ export const PublicWebsite: React.FC<PublicWebsiteProps> = ({
 
         <ScrollIndicator />
       </section>
+      )}
 
       {/* About Section */}
+      {show('about') && (
       <section id="about" className="py-20 bg-white border-b border-slate-200 relative">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <SectionIntro
             eyebrow="Chapter Profile"
-            title={websiteContent.about.title}
+            title={content.about.title}
           />
 
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-start">
@@ -523,19 +589,19 @@ export const PublicWebsite: React.FC<PublicWebsiteProps> = ({
               <Reveal delay={0.05}>
                 <div className="p-6 bg-[#FDFBF7] rounded-2xl border border-slate-200 shadow-sm hover:shadow-md hover:border-[#123B60]/20 transition-all duration-300">
                   <h3 className="text-lg font-bold text-[#123B60] mb-2">Our Origins & Foundations</h3>
-                  <p className="text-sm text-slate-600 mb-3">{websiteContent.about.story}</p>
+                  <p className="text-sm text-slate-600 mb-3">{content.about.story}</p>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 text-xs text-slate-500">
                     <div className="flex items-center gap-2">
                       <CheckCircle2 className="w-4 h-4 text-[#F59A16]" />
-                      <span>Founded: <strong>{websiteContent.about.foundedYear}</strong></span>
+                      <span>Founded: <strong>{content.about.foundedYear}</strong></span>
                     </div>
                     <div className="flex items-center gap-2">
                       <CheckCircle2 className="w-4 h-4 text-[#F59A16]" />
-                      <span>Faculty: <strong>{websiteContent.about.foundingFaculty}</strong></span>
+                      <span>Faculty: <strong>{content.about.foundingFaculty}</strong></span>
                     </div>
                     <div className="flex items-center gap-2">
                       <CheckCircle2 className="w-4 h-4 text-[#F59A16]" />
-                      <span>Branch: <strong>{websiteContent.about.cairoChapterFounded}</strong></span>
+                      <span>Branch: <strong>{content.about.cairoChapterFounded}</strong></span>
                     </div>
                     <div className="flex items-center gap-2">
                       <CheckCircle2 className="w-4 h-4 text-[#F59A16]" />
@@ -548,9 +614,9 @@ export const PublicWebsite: React.FC<PublicWebsiteProps> = ({
               <Reveal delay={0.15}>
                 <div className="p-6 bg-slate-50 rounded-2xl border border-slate-200 hover:border-slate-300 transition-colors duration-300">
                   <h3 className="text-lg font-bold text-[#123B60] mb-2">Chapter Purpose & Objectives</h3>
-                  <p className="text-sm text-slate-600 mb-4">{websiteContent.about.purpose}</p>
+                  <p className="text-sm text-slate-600 mb-4">{content.about.purpose}</p>
                   <StaggerGroup className="space-y-2.5" step={0.07} amount={0.3}>
-                    {websiteContent.about.objectives.map((obj, i) => (
+                    {content.about.objectives.map((obj, i) => (
                       <StaggerItem key={i}>
                         <div className="flex items-start gap-2.5 text-xs text-slate-700">
                           <div className="w-5 h-5 rounded-full bg-[#123B60] text-white flex items-center justify-center shrink-0 text-[10px] font-bold mt-0.5">
@@ -570,7 +636,7 @@ export const PublicWebsite: React.FC<PublicWebsiteProps> = ({
                 <div className="p-6 bg-gradient-to-br from-[#123B60] to-[#0A2239] rounded-2xl text-white shadow-xl hover:shadow-2xl transition-shadow duration-300">
                   <h3 className="text-lg font-bold text-[#F59A16] mb-3">Core Chapter Values</h3>
                   <StaggerGroup className="space-y-3" step={0.08} amount={0.25}>
-                    {websiteContent.about.values.map((val, idx) => (
+                    {content.about.values.map((val, idx) => (
                       <StaggerItem key={idx}>
                         <div className="flex items-center justify-between p-3 rounded-lg bg-white/10 border border-white/10 text-xs font-semibold hover:bg-white/15 hover:translate-x-1 transition-all duration-200">
                           <span>{val}</span>
@@ -586,13 +652,13 @@ export const PublicWebsite: React.FC<PublicWebsiteProps> = ({
               <Reveal delay={0.2}>
                 <div className="rounded-2xl overflow-hidden border border-slate-200 shadow-md relative group">
                   <img
-                    src="/history/xref_585.png"
-                    alt="Faculty of Engineering, Cairo University"
+                    src={campusImage.src}
+                    alt={campusImage.alt}
                     className="w-full h-56 object-cover filter brightness-90 group-hover:scale-105 transition duration-500"
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent flex items-end p-4">
                     <div className="text-white text-xs">
-                      <p className="font-bold text-sm">Faculty of Engineering • Cairo University</p>
+                      <p className="font-bold text-sm">{campusImage.caption ?? 'Faculty of Engineering • Cairo University'}</p>
                       <p className="text-slate-300">Distinguished academic home of ESME CU Chapter</p>
                     </div>
                   </div>
@@ -602,8 +668,10 @@ export const PublicWebsite: React.FC<PublicWebsiteProps> = ({
           </div>
         </div>
       </section>
+      )}
 
       {/* Official Vision 2026-2027 Section */}
+      {show('vision') && (
       <section id="vision" className="py-20 bg-slate-900 text-white relative overflow-hidden">
         <div className="absolute inset-0 bg-grid-pattern-dark opacity-10 pointer-events-none"></div>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
@@ -612,24 +680,24 @@ export const PublicWebsite: React.FC<PublicWebsiteProps> = ({
             <Reveal>
               <span className="text-xs font-extrabold uppercase tracking-widest text-[#F59A16]">Strategic Plan 2026–2027</span>
               <h2 className="text-3xl sm:text-4xl font-black mt-2 tracking-tight">
-                {websiteContent.vision2027.headline}
+                {content.vision2027.headline}
               </h2>
             </Reveal>
             <Reveal delay={0.15}>
               <blockquote className="text-xl sm:text-2xl font-serif italic text-[#F59A16] mt-4 border-y border-white/10 py-4 max-w-3xl mx-auto">
-                {websiteContent.vision2027.quote}
+                {content.vision2027.quote}
               </blockquote>
             </Reveal>
             <Reveal delay={0.25}>
               <p className="text-sm text-slate-300 mt-4 leading-relaxed font-light">
-                {websiteContent.vision2027.description}
+                {content.vision2027.description}
               </p>
             </Reveal>
           </div>
 
           {/* 4 Strategic Focus Areas */}
           <StaggerGroup className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6" step={0.1}>
-            {websiteContent.vision2027.pillars.map((pillar, idx) => (
+            {content.vision2027.pillars.map((pillar, idx) => (
               <StaggerItem key={idx} variants={groupItemScale} className="h-full">
                 <motion.div
                   className="bg-white/5 border border-white/10 rounded-2xl p-6 hover:bg-white/10 backdrop-blur-sm flex flex-col justify-between h-full hover:border-[#F59A16]/40 transition-colors duration-300"
@@ -658,8 +726,10 @@ export const PublicWebsite: React.FC<PublicWebsiteProps> = ({
 
         </div>
       </section>
+      )}
 
       {/* Historical Milestones (2015 - 2023) */}
+      {show('history') && (
       <section id="history" className="py-20 bg-white border-b border-slate-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
 
@@ -776,8 +846,10 @@ export const PublicWebsite: React.FC<PublicWebsiteProps> = ({
 
         </div>
       </section>
+      )}
 
       {/* Academic Appreciation and Alumni Section */}
+      {show('appreciation') && (
       <section id="appreciation" className="py-20 bg-slate-50 border-b border-slate-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
 
@@ -846,8 +918,8 @@ export const PublicWebsite: React.FC<PublicWebsiteProps> = ({
                 <div className="lg:col-span-7">
                   <div className="rounded-xl overflow-hidden border border-white/20 shadow-2xl group">
                     <img
-                      src="/branding/board_poster_2025_2026.png"
-                      alt="Board to Year 25/26"
+                      src={boardImage.src}
+                      alt={boardImage.alt}
                       className="w-full h-auto object-cover transition-transform duration-700 ease-out group-hover:scale-[1.03]"
                     />
                   </div>
@@ -858,8 +930,10 @@ export const PublicWebsite: React.FC<PublicWebsiteProps> = ({
 
         </div>
       </section>
+      )}
 
       {/* Committees Section */}
+      {show('committees') && (
       <section id="committees" className="py-20 bg-white border-b border-slate-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
 
@@ -891,8 +965,8 @@ export const PublicWebsite: React.FC<PublicWebsiteProps> = ({
                     <p className="text-xs text-slate-600 leading-relaxed mb-4">{comm.description}</p>
 
                     <div className="p-4 bg-white rounded-xl border border-slate-200 mb-4 text-xs space-y-1.5">
-                      <div className="text-slate-500">Director: <strong className="text-slate-800">{comm.directorName || 'Assigned by Admin'}</strong></div>
-                      <div className="text-slate-500">Head: <strong className="text-slate-800">{comm.headName || 'Assigned by Admin'}</strong></div>
+                      <div className="text-slate-500">Director: <strong className="text-slate-800">{leaderAccount(comm, 'director', users)?.name ?? 'Assigned by Admin'}</strong></div>
+                      <div className="text-slate-500">Head: <strong className="text-slate-800">{leaderAccount(comm, 'head', users)?.name ?? 'Assigned by Admin'}</strong></div>
                     </div>
 
                     <div className="space-y-2 mb-4">
@@ -925,19 +999,28 @@ export const PublicWebsite: React.FC<PublicWebsiteProps> = ({
 
         </div>
       </section>
+      )}
 
       {/* Events & Season Calendar */}
+      {show('events') && (
       <section id="events" className="py-20 bg-slate-50 border-b border-slate-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
 
           <SectionIntro
             eyebrow="Season Roadmap"
-            title="Master Calendar & Events (2026–2027)"
-            subtitle="Targets transcribed from the official 2026–2027 vision document: 4 major summits, 10 specialized workshops, and 32 professional sessions."
+            title={activeSeasonLabel ? `Master Calendar & Events (${activeSeasonLabel})` : 'Master Calendar & Events'}
+            subtitle={calendarSummary}
           />
 
+          {majorEvents.length === 0 && (
+            <p className="rounded-2xl border border-dashed border-slate-300 bg-white p-8 text-center text-sm text-slate-500">
+              No major events are on the calendar yet. Milestones appear here once the planning committee writes them
+              into the season plan.
+            </p>
+          )}
+
           <StaggerGroup className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6" step={0.09}>
-            {seasonEvents.filter(e => e.category === 'Major Event').map((evt) => (
+            {majorEvents.map((evt) => (
               <StaggerItem key={evt.id} variants={groupItemScale} className="h-full">
                 <motion.div
                   className="bg-white border-2 border-[#123B60]/10 rounded-2xl p-6 shadow-sm hover:shadow-md hover:border-[#F59A16]/40 transition-colors flex flex-col justify-between h-full"
@@ -1000,8 +1083,10 @@ export const PublicWebsite: React.FC<PublicWebsiteProps> = ({
 
         </div>
       </section>
+      )}
 
       {/* Scientific Magazine Section */}
+      {show('magazine') && (
       <section id="magazine" className="py-20 bg-white border-b border-slate-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
 
@@ -1057,8 +1142,10 @@ export const PublicWebsite: React.FC<PublicWebsiteProps> = ({
 
         </div>
       </section>
+      )}
 
       {/* Meta Insights Report Snapshot (October 2026) */}
+      {show('insights') && (
       <section id="insights" className="py-20 bg-slate-900 text-white relative">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
 
@@ -1131,8 +1218,10 @@ export const PublicWebsite: React.FC<PublicWebsiteProps> = ({
 
         </div>
       </section>
+      )}
 
       {/* Contact Section */}
+      {show('contact') && (
       <section id="contact" className="py-20 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
 
@@ -1156,8 +1245,8 @@ export const PublicWebsite: React.FC<PublicWebsiteProps> = ({
                     </div>
                     <div>
                       <div className="text-xs text-slate-500 font-semibold">Email</div>
-                      <a href={`mailto:${websiteContent.contact.email}`} className="text-sm font-bold text-[#123B60] hover:text-[#F59A16] transition-colors">
-                        {websiteContent.contact.email}
+                      <a href={`mailto:${content.contact.email}`} className="text-sm font-bold text-[#123B60] hover:text-[#F59A16] transition-colors">
+                        {content.contact.email}
                       </a>
                     </div>
                   </motion.div>
@@ -1170,8 +1259,8 @@ export const PublicWebsite: React.FC<PublicWebsiteProps> = ({
                     </div>
                     <div>
                       <div className="text-xs text-slate-500 font-semibold">Phone</div>
-                      <a href={`tel:${websiteContent.contact.phone}`} className="text-sm font-bold text-[#123B60] hover:text-[#F59A16] transition-colors">
-                        {websiteContent.contact.phone}
+                      <a href={`tel:${content.contact.phone}`} className="text-sm font-bold text-[#123B60] hover:text-[#F59A16] transition-colors">
+                        {content.contact.phone}
                       </a>
                     </div>
                   </motion.div>
@@ -1185,21 +1274,30 @@ export const PublicWebsite: React.FC<PublicWebsiteProps> = ({
                     <div>
                       <div className="text-xs text-slate-500 font-semibold">Location</div>
                       <div className="text-sm font-bold text-[#123B60]">
-                        {websiteContent.contact.location}
+                        {content.contact.location}
                       </div>
                     </div>
                   </motion.div>
                 </StaggerItem>
               </StaggerGroup>
 
-              <Reveal delay={0.2}>
-                <div className="pt-4 flex items-center gap-3">
-                  <span className="text-xs font-bold text-slate-500 uppercase">Confirmed Social Handle:</span>
-                  <span className="px-3 py-1 bg-slate-100 border border-slate-200 text-[#123B60] font-bold text-xs rounded-md hover:border-[#F59A16] transition-colors">
-                    {websiteContent.contact.socialHandle}
-                  </span>
-                </div>
-              </Reveal>
+              {(content.socials ?? []).filter((social) => social.visible && social.handle !== '').length > 0 && (
+                <Reveal delay={0.2}>
+                  <div className="pt-4 flex flex-wrap items-center gap-3">
+                    <span className="text-xs font-bold text-slate-500 uppercase">Confirmed Social Handle:</span>
+                    {(content.socials ?? [])
+                      .filter((social) => social.visible && social.handle !== '')
+                      .map((social) => (
+                        <span
+                          key={social.id}
+                          className="px-3 py-1 bg-slate-100 border border-slate-200 text-[#123B60] font-bold text-xs rounded-md hover:border-[#F59A16] transition-colors"
+                        >
+                          {social.handle}
+                        </span>
+                      ))}
+                  </div>
+                </Reveal>
+              )}
             </div>
 
             {/* Quick Inquiry / Recruitment CTA Box */}
@@ -1244,6 +1342,7 @@ export const PublicWebsite: React.FC<PublicWebsiteProps> = ({
 
         </div>
       </section>
+      )}
 
       {/* Footer */}
       <footer className="bg-[#0A2239] text-white py-12 border-t border-white/10 text-xs">
@@ -1255,16 +1354,24 @@ export const PublicWebsite: React.FC<PublicWebsiteProps> = ({
                   <img src="/branding/esme_logo.png" alt="ESME" className="h-8 w-auto object-contain" />
                 </div>
                 <div>
-                  <div className="font-bold text-white text-sm">Egyptian Society of Materials Engineers</div>
-                  <div className="text-slate-400 text-xs">Cairo University Student Chapter</div>
+                  <div className="font-bold text-white text-sm">{content.footer.blurb}</div>
+                  {footerLinks.length > 0 && (
+                    <nav aria-label="Footer links" className="mt-2 flex flex-wrap gap-x-4 gap-y-1">
+                      {footerLinks.map((link) => (
+                        <a key={link.id} href={link.href} className="text-slate-300 hover:text-[#F59A16] transition-colors">
+                          {link.label}
+                        </a>
+                      ))}
+                    </nav>
+                  )}
                 </div>
               </div>
 
               <div className="text-center md:text-right text-slate-400 space-y-1">
-                <div>© 2026 ESME CU Chapter. All Rights Reserved.</div>
+                <div>{content.footer.copyright}</div>
                 <div className="text-[11px] text-slate-500">
                   Chapter operations are managed from privileged accounts. If you believe an account needs attention,
-                  contact {websiteContent.contact.email}.
+                  contact {content.contact.email}.
                 </div>
               </div>
             </div>

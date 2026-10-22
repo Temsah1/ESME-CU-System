@@ -12,6 +12,29 @@ export class AuthNotConfiguredError extends Error {
   }
 }
 
+/**
+ * The provider variables are present but cannot describe a working browser client — a URL that
+ * carries a path, or a server-only key in the slot the bundle reads. Raised instead of letting a
+ * misconfiguration surface as "those credentials did not match", which is what a bad Supabase URL
+ * looks like from the sign-in screen.
+ *
+ * The message names the variable and the rule it broke. It never repeats a value: one of the two
+ * failures this catches is a secret key, and this text can reach the screen and the audit trail.
+ */
+export class AuthMisconfiguredError extends Error {
+  readonly problems: string[];
+
+  constructor(problems: string[]) {
+    super(
+      `The configured authentication provider cannot be used from a browser. ${problems.join(
+        ' '
+      )} Correct this in the environment before reading a rejected sign-in as bad credentials.`
+    );
+    this.name = 'AuthMisconfiguredError';
+    this.problems = problems;
+  }
+}
+
 /** Credential or session rejected. Message stays generic to avoid account enumeration. */
 export class AuthFailedError extends Error {
   constructor(message = 'Those credentials did not match an approved account.') {

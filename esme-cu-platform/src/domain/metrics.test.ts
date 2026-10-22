@@ -90,7 +90,6 @@ function member(patch: Partial<User> & Pick<User, 'id'>): User {
     role: 'member',
     committeeId: 'c1',
     status: 'active',
-    emailVerified: true,
     totalPoints: 0,
     approvedTasksCount: 0,
     joinedDate: '2026-09-01',
@@ -335,10 +334,15 @@ describe('evaluation policy and role scores', () => {
   });
 
   it('refuses to invent a score for a role the policy does not cover', () => {
-    const score = roleScore('super_admin', measurable());
-    expect(score.total).toBeNull();
-    expect(score.lines).toEqual([]);
-    expect(score.note).toMatch(/defines no evaluation criteria for super admin/);
+    for (const [role, label] of [
+      ['super_admin', 'Super Administrator'],
+      ['high_board', 'High Board'],
+    ] as const) {
+      const score = roleScore(role, measurable());
+      expect(score.total).toBeNull();
+      expect(score.lines).toEqual([]);
+      expect(score.note).toContain(`defines no evaluation criteria for ${label}`);
+    }
   });
 
   it('keeps every metric definition honest about missing data', () => {

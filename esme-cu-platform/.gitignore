@@ -22,3 +22,11 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Supabase CLI local cache — holds the linked project reference, the pooler host and
+# cached versions. Machine state about *which* project this points at, not source.
+supabase/.temp/
+
+# Supabase CLI local cache — holds the linked project reference, the pooler host and
+# cached versions. Machine state about *which* project this points at, not source.
+supabase/.temp/

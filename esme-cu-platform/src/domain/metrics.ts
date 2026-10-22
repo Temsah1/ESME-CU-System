@@ -1,4 +1,5 @@
-import type { ScoreLedgerEntry, SeasonEvent, Task, TaskSubmission, User } from '../types';
+import type { Role, ScoreLedgerEntry, SeasonEvent, Task, TaskSubmission, User } from '../types';
+import { ROLE_LABELS } from './roles';
 
 /**
  * Every number shown in the executive views is produced here, so a figure can always be
@@ -329,14 +330,14 @@ export type RoleScore = {
  * counts (points, backlogs) cannot lift or sink a score — a documented choice, not an accident.
  */
 export function roleScore(
-  role: 'member' | 'head' | 'director' | 'moderator' | 'super_admin',
+  role: Role,
   values: Partial<Record<MetricId, MetricValue>>,
   version: PolicyVersion = '2026.1'
 ): RoleScore {
   const policy = policyFor(version);
   const criteria = policy.criteria[role as keyof typeof policy.criteria];
   if (!criteria) {
-    return { policyVersion: policy.version, role, lines: [], total: null, note: `Policy ${policy.version} defines no evaluation criteria for ${role.replace('_', ' ')}.` };
+    return { policyVersion: policy.version, role, lines: [], total: null, note: `Policy ${policy.version} defines no evaluation criteria for ${ROLE_LABELS[role]}.` };
   }
   const lines: ScoreLine[] = criteria.map((c) => {
     const metric = values[c.metric];

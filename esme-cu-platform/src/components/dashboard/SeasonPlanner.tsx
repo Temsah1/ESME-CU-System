@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
-import { Plus, X, CalendarDays } from 'lucide-react';
+import { Plus, X, CalendarDays, ClipboardCopy } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
+import { seasonCovering, seasonsInOrder } from '../../domain/seasons';
 import { ModalShell, useToast } from '../../motion';
 import { EmptyState } from '../EmptyState';
 import type { SeasonEvent } from '../../types';
@@ -30,7 +31,7 @@ const BLANK_EVENT = {
 };
 
 export const SeasonPlanner: React.FC = () => {
-  const { seasonEvents, updateSeasonEvent, addSeasonEvent, committees, can } = useApp();
+  const { seasonEvents, updateSeasonEvent, addSeasonEvent, loadReferenceSeasonPlan, seasons, committees, can } = useApp();
   const { toast } = useToast();
 
   const [categoryFilter, setCategoryFilter] = useState('all');
@@ -38,6 +39,13 @@ export const SeasonPlanner: React.FC = () => {
   const [newEvent, setNewEvent] = useState(BLANK_EVENT);
 
   const mayPlan = can('events.write');
+
+  // The plan is named after the season someone recorded, not after a year this screen assumes.
+  const [today] = useState(() => new Date().toISOString().slice(0, 10));
+  const activeSeason = useMemo(() => {
+    const ordered = seasonsInOrder(seasons);
+    return seasonCovering(ordered, today) ?? ordered.find((s) => s.status === 'active') ?? null;
+  }, [seasons, today]);
 
   const filteredEvents = useMemo(
     () => seasonEvents.filter((e) => categoryFilter === 'all' || e.category === categoryFilter),
@@ -77,22 +85,44 @@ export const SeasonPlanner: React.FC = () => {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-xl font-black text-slate-900 dark:text-white">Season 2026–2027 Planner</h1>
+          <h1 className="text-xl font-black text-slate-900 dark:text-white">
+            {activeSeason ? `Season ${activeSeason.label} Planner` : 'Season Planner'}
+          </h1>
           <p className="text-xs text-slate-500">
             {seasonEvents.length} milestone{seasonEvents.length === 1 ? '' : 's'} written into the plan
             {statusSummary ? ` — ${statusSummary}` : ''}. Status changes here are editorial: they record what the
             planning committee decided, and nothing marks an event complete on its own.
+            {!activeSeason && ' No dated season is recorded yet, so this planner is not filed under any season label.'}
           </p>
         </div>
 
         {mayPlan && (
-          <button
-            onClick={() => setIsAddModalOpen(true)}
-            className="px-4 py-2 bg-[#F59A16] hover:bg-[#D47F0A] text-white text-xs font-bold rounded-xl shadow-md transition flex items-center gap-1.5 self-start sm:self-auto"
-          >
-            <Plus className="w-4 h-4" />
-            Add Milestone / Event
-          </button>
+          <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
+            {seasonEvents.length === 0 && (
+              <button
+                onClick={() => {
+                  const added = loadReferenceSeasonPlan();
+                  toast(
+                    added === 0
+                      ? 'Every milestone from the transcribed plan is already written.'
+                      : `${added} milestone(s) copied in from the transcribed 2026–2027 plan as drafts.`,
+                    'success'
+                  );
+                }}
+                className="px-4 py-2 bg-white dark:bg-slate-900 text-[#123B60] dark:text-[#F59A16] text-xs font-bold rounded-xl border border-slate-200 dark:border-slate-700 hover:border-[#F59A16] transition flex items-center gap-1.5"
+              >
+                <ClipboardCopy className="w-4 h-4" />
+                Copy the transcribed plan
+              </button>
+            )}
+            <button
+              onClick={() => setIsAddModalOpen(true)}
+              className="px-4 py-2 bg-[#F59A16] hover:bg-[#D47F0A] text-white text-xs font-bold rounded-xl shadow-md transition flex items-center gap-1.5"
+            >
+              <Plus className="w-4 h-4" />
+              Add Milestone / Event
+            </button>
+          </div>
         )}
       </div>
 
@@ -132,7 +162,7 @@ export const SeasonPlanner: React.FC = () => {
       {seasonEvents.length === 0 ? (
         <EmptyState
           title="The season plan has no milestones yet"
-          description="This planner starts empty. Targets are written by whoever holds the events capability, and they stay as text until someone records a result against them."
+          description="This planner starts empty — no milestones are seeded on first load. Someone holding the events capability writes them here, or copies the transcribed vision list in with the button above; either way they stay as written targets until a result is recorded against them."
           icon={CalendarDays}
           action={
             mayPlan ? (

@@ -1,6 +1,9 @@
 -- ESME CU ERP — schema
 -- Target: Supabase Postgres (pgcrypto + auth schema available).
--- Apply with: supabase db push   (or psql -f supabase/migrations/0001_schema.sql)
+-- Apply with: node scripts/apply-migrations.mjs --plan, then --apply against a staging project.
+-- Do not apply this file with `supabase db push`: it cannot be pointed at one named project, and it
+-- may wrap a whole file in one transaction, which 0006's enum step does not survive. psql -f works
+-- only after `supabase migration list` has proved this project holds none of these versions yet.
 --
 -- Design notes
 --   * Operational tables start EMPTY. Nothing here seeds fictional members,

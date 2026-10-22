@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import {
   Users,
-  Search,
   UserPlus,
   Mail,
   X,
@@ -12,9 +11,10 @@ import {
 } from 'lucide-react';
 import { useApp, useActor } from '../../context/AppContext';
 import { useStickyNonNull, ModalShell, useToast } from '../../motion';
-import { EmptyState } from '../EmptyState';
+import { DataTable, type DataTableAction } from './DataTable';
 import { ALL_ROLES, ROLE_LABELS } from '../../domain/roles';
 import { ACCOUNT_STATUS_LABELS, ACCOUNT_STATUSES, canTransition, type AccountStatus } from '../../domain/accountState';
+import { ACADEMIC_YEAR_OPTIONS, DEPARTMENT_OPTIONS } from '../../data/referenceContent';
 import type { Role, User } from '../../types';
 
 const inputClass =
@@ -23,7 +23,6 @@ const inputClass =
 const labelClass = 'block font-bold text-slate-700 dark:text-slate-300 mb-1';
 
 const STATUS_STYLES: Record<AccountStatus, string> = {
-  pending_email_verification: 'bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-950/30 dark:text-amber-300 dark:border-amber-900',
   pending_approval: 'bg-sky-50 text-sky-700 border border-sky-200 dark:bg-sky-950/30 dark:text-sky-300 dark:border-sky-900',
   active: 'bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/30 dark:text-emerald-300 dark:border-emerald-900',
   rejected: 'bg-rose-50 text-rose-700 border border-rose-200 dark:bg-rose-950/30 dark:text-rose-300 dark:border-rose-900',
@@ -36,10 +35,19 @@ const BLANK_MEMBER = {
   username: '',
   committeeId: '',
   subTeam: '',
-  department: 'Metallurgical & Materials Engineering',
-  academicYear: 'Sophomore',
+  department: '',
+  academicYear: '',
   phone: '',
 };
+
+/**
+ * The same two lists the signup form offers, so a profile and an application cannot store the same
+ * fact two different ways. A value an older account already carries is appended rather than
+ * dropped: opening a profile has to leave it selected, and saving it must not rewrite history
+ * because the chapter's list moved on.
+ */
+const optionsFor = (list: string[], current: string | undefined): string[] =>
+  current && !list.includes(current) ? [...list, current] : list;
 
 export const MemberManagement: React.FC = () => {
   const {
@@ -55,7 +63,6 @@ export const MemberManagement: React.FC = () => {
   const currentUser = useActor();
   const { toast } = useToast();
 
-  const [searchTerm, setSearchTerm] = useState('');
   const [selectedCommitteeFilter, setSelectedCommitteeFilter] = useState('all');
   const [selectedRoleFilter, setSelectedRoleFilter] = useState<'all' | Role>('all');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -71,14 +78,11 @@ export const MemberManagement: React.FC = () => {
   const maySuspend = can('users.suspend');
   const mayDelete = can('users.delete');
 
+  // Free-text search is the table's own; these two selects are the scope the caller controls.
   const filteredUsers = users.filter((u) => {
-    const matchesSearch =
-      u.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      u.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      u.username.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesCommittee = selectedCommitteeFilter === 'all' || u.committeeId === selectedCommitteeFilter;
     const matchesRole = selectedRoleFilter === 'all' || u.role === selectedRoleFilter;
-    return matchesSearch && matchesCommittee && matchesRole;
+    return matchesCommittee && matchesRole;
   });
 
   const openEdit = (user: User) => {
@@ -187,39 +191,33 @@ export const MemberManagement: React.FC = () => {
         )}
       </div>
 
-      {users.length === 0 && (
-        <EmptyState
-          icon={Users}
-          title="No member accounts yet"
-          description="This directory reads from your authentication provider. Until that provider is configured and returns profiles, there is nothing to list — no sample members are inserted to fill the space."
-          action={mayCreate ? (
+      {/* An empty directory, a filtered-empty directory and a populated one are all states of the table. */}
+      <DataTable
+        rows={filteredUsers}
+        rowKey={(u) => u.id}
+        searchText={(u) => `${u.name} ${u.email} ${u.username}`}
+        searchPlaceholder="Search by name, email, or username..."
+        noMatchesLabel="No accounts match this search and these filters."
+        empty={{
+          title: 'No member accounts yet',
+          description:
+            "This directory reads from your authentication provider. Until that provider is configured and returns profiles, there is nothing to list — no sample members are inserted to fill the space.",
+          icon: Users,
+          action: mayCreate ? (
             <button
               onClick={() => setIsAddModalOpen(true)}
               className="px-4 py-2 bg-[#123B60] text-white text-xs font-bold rounded-xl"
             >
               Provision the first account
             </button>
-          ) : undefined}
-        />
-      )}
-
-      {users.length > 0 && (
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 flex flex-wrap items-center justify-between gap-4">
-          <div className="relative flex-1 min-w-[240px]">
-            <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
-            <input
-              type="text"
-              placeholder="Search by name, email, or username..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-9 pr-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-xs bg-slate-50 dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-[#123B60]"
-            />
-          </div>
-
+          ) : undefined,
+        }}
+        toolbar={
           <div className="flex items-center gap-2">
             <select
               value={selectedCommitteeFilter}
               onChange={(e) => setSelectedCommitteeFilter(e.target.value)}
+              aria-label="Filter by committee"
               className="px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-xs bg-slate-50 dark:bg-slate-800 font-medium outline-none"
             >
               <option value="all">All Committees</option>
@@ -231,6 +229,7 @@ export const MemberManagement: React.FC = () => {
             <select
               value={selectedRoleFilter}
               onChange={(e) => setSelectedRoleFilter(e.target.value as 'all' | Role)}
+              aria-label="Filter by role"
               className="px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-xs bg-slate-50 dark:bg-slate-800 font-medium outline-none"
             >
               <option value="all">All Roles</option>
@@ -239,115 +238,121 @@ export const MemberManagement: React.FC = () => {
               ))}
             </select>
           </div>
-        </div>
-      )}
-
-      {filteredUsers.length === 0 && users.length > 0 && (
-        <p className="text-xs text-slate-500 rounded-2xl border border-dashed border-slate-300 dark:border-slate-700 px-4 py-6 text-center">
-          No accounts match this search and these filters.
-        </p>
-      )}
-
-      {/* Members Table */}
-      {filteredUsers.length > 0 && (
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-sm">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead className="bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800 text-slate-500 font-semibold uppercase tracking-wider text-[10px]">
-                <tr>
-                  <th className="py-3 px-4">Member Name</th>
-                  <th className="py-3 px-4">Role</th>
-                  <th className="py-3 px-4">Committee & Sub-team</th>
-                  <th className="py-3 px-4">Academic Year</th>
-                  <th className="py-3 px-4 text-center">Points</th>
-                  <th className="py-3 px-4 text-center">Approved Tasks</th>
-                  <th className="py-3 px-4">Account State</th>
-                  {(mayUpdate || mayDelete) && <th className="py-3 px-4 text-right">Actions</th>}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                {filteredUsers.map((u) => {
-                  const comm = committees.find((c) => c.id === u.committeeId);
-                  return (
-                    <tr key={u.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition">
-                      <td className="py-3.5 px-4">
-                        <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 rounded-full bg-[#123B60] text-white flex items-center justify-center font-bold text-xs shrink-0">
-                            {u.name.split(' ').map((n) => n[0]).join('')}
-                          </div>
-                          <div>
-                            <div className="font-bold text-slate-800 dark:text-slate-100">{u.name}</div>
-                            <div className="text-[11px] text-slate-400">{u.email}</div>
-                          </div>
-                        </div>
-                      </td>
-
-                      <td className="py-3.5 px-4">
-                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300">
-                          {ROLE_LABELS[u.role] ?? u.role}
-                        </span>
-                      </td>
-
-                      <td className="py-3.5 px-4">
-                        <div className="font-medium text-slate-700 dark:text-slate-300">{comm ? comm.name : '—'}</div>
-                        {u.subTeam && <div className="text-[10px] text-slate-400">{u.subTeam}</div>}
-                      </td>
-
-                      <td className="py-3.5 px-4 text-slate-600 dark:text-slate-400">
-                        <div>{u.academicYear || '—'}</div>
-                        <div className="text-[10px] text-slate-400 truncate max-w-[120px]">{u.department}</div>
-                      </td>
-
-                      <td className="py-3.5 px-4 text-center font-bold text-[#F59A16]">
-                        {u.totalPoints}
-                      </td>
-
-                      <td className="py-3.5 px-4 text-center font-semibold text-slate-700 dark:text-slate-300">
-                        {u.approvedTasksCount}
-                      </td>
-
-                      <td className="py-3.5 px-4">
-                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${STATUS_STYLES[u.status]}`}>
-                          {ACCOUNT_STATUS_LABELS[u.status]}
-                        </span>
-                      </td>
-
-                      {(mayUpdate || mayDelete) && (
-                        <td className="py-3.5 px-4 text-right">
-                          <div className="flex items-center justify-end gap-1.5">
-                            {mayUpdate && (
-                              <button
-                                onClick={() => openEdit(u)}
-                                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800"
-                                title="Open record"
-                              >
-                                <Edit3 className="w-3.5 h-3.5" />
-                              </button>
-                            )}
-                            {mayDelete && u.id !== currentUser.id && u.role !== 'super_admin' && (
-                              <button
-                                onClick={() => {
-                                  if (confirm(`Remove ${u.name} from this device's directory? Deleting an identity is done on the provider.`)) {
-                                    runPrivileged('Removed from the local directory.', () => deleteUser(u.id));
-                                  }
-                                }}
-                                className="p-1.5 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/20"
-                                title="Remove from directory"
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </button>
-                            )}
-                          </div>
-                        </td>
-                      )}
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
+        }
+        columns={[
+          {
+            key: 'member',
+            label: 'Member Name',
+            cardTitle: true,
+            sortValue: (u) => u.name,
+            render: (u) => (
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-full bg-[#123B60] text-white flex items-center justify-center font-bold text-xs shrink-0">
+                  {u.name.split(' ').map((n) => n[0]).join('')}
+                </div>
+                <div className="min-w-0">
+                  <div className="font-bold text-slate-800 dark:text-slate-100">{u.name}</div>
+                  <div className="text-[11px] text-slate-400 truncate">{u.email}</div>
+                </div>
+              </div>
+            ),
+          },
+          {
+            key: 'role',
+            label: 'Role',
+            sortValue: (u) => ROLE_LABELS[u.role] ?? u.role,
+            render: (u) => (
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300">
+                {ROLE_LABELS[u.role] ?? u.role}
+              </span>
+            ),
+          },
+          {
+            key: 'committee',
+            label: 'Committee & Sub-team',
+            sortValue: (u) => committees.find((c) => c.id === u.committeeId)?.name ?? '',
+            render: (u) => {
+              const comm = committees.find((c) => c.id === u.committeeId);
+              return (
+                <>
+                  <div className="font-medium text-slate-700 dark:text-slate-300">{comm ? comm.name : '—'}</div>
+                  {u.subTeam && <div className="text-[10px] text-slate-400">{u.subTeam}</div>}
+                </>
+              );
+            },
+          },
+          {
+            key: 'year',
+            label: 'Academic Year',
+            sortValue: (u) => u.academicYear ?? '',
+            render: (u) => (
+              <>
+                <div className="text-slate-600 dark:text-slate-400">{u.academicYear || '—'}</div>
+                <div className="text-[10px] text-slate-400 truncate max-w-[120px]">{u.department || '—'}</div>
+              </>
+            ),
+          },
+          {
+            key: 'points',
+            label: 'Points',
+            align: 'center',
+            sortValue: (u) => u.totalPoints,
+            render: (u) => <span className="font-bold text-[#F59A16]">{u.totalPoints}</span>,
+          },
+          {
+            key: 'approved',
+            label: 'Approved Tasks',
+            align: 'center',
+            sortValue: (u) => u.approvedTasksCount,
+            render: (u) => (
+              <span className="font-semibold text-slate-700 dark:text-slate-300">{u.approvedTasksCount}</span>
+            ),
+          },
+          {
+            key: 'state',
+            label: 'Account State',
+            sortValue: (u) => ACCOUNT_STATUS_LABELS[u.status],
+            render: (u) => (
+              <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${STATUS_STYLES[u.status]}`}>
+                {ACCOUNT_STATUS_LABELS[u.status]}
+              </span>
+            ),
+          },
+        ]}
+        actions={[
+          ...(mayUpdate
+            ? [
+                {
+                  key: 'open',
+                  label: 'Open record',
+                  icon: Edit3,
+                  onClick: openEdit,
+                } as DataTableAction<User>,
+              ]
+            : []),
+          ...(mayDelete
+            ? [
+                {
+                  key: 'remove',
+                  label: 'Remove from directory',
+                  icon: Trash2,
+                  danger: true,
+                  hidden: (u: User) => u.id === currentUser.id,
+                  // The store refuses this write for a Super Admin regardless of what the row allows.
+                  disabled: (u: User) => u.role === 'super_admin',
+                  confirm: {
+                    title: 'Remove this account from the directory?',
+                    confirmLabel: 'Remove',
+                    body: (u: User) =>
+                      `This drops ${u.name} from this device's directory and releases any leadership seat held by that account. Deleting the identity itself is done on the authentication provider, and the audit trail keeps this action.`,
+                  },
+                  onClick: (u: User) =>
+                    runPrivileged('Removed from the local directory.', () => deleteUser(u.id)),
+                } as DataTableAction<User>,
+              ]
+            : []),
+        ]}
+      />
 
       {/* Provision Member Modal */}
       <ModalShell open={isAddModalOpen} onClose={() => setIsAddModalOpen(false)} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 max-w-lg w-full shadow-2xl">
@@ -431,13 +436,31 @@ export const MemberManagement: React.FC = () => {
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className={labelClass} htmlFor="member-year">Academic Year</label>
-              <input
+              <select
                 id="member-year"
-                type="text"
                 value={newUser.academicYear}
                 onChange={(e) => setNewUser({ ...newUser, academicYear: e.target.value })}
                 className={inputClass}
-              />
+              >
+                <option value="">Not recorded</option>
+                {ACADEMIC_YEAR_OPTIONS.map((year) => (
+                  <option key={year} value={year}>{year}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className={labelClass} htmlFor="member-department">Department</label>
+              <select
+                id="member-department"
+                value={newUser.department}
+                onChange={(e) => setNewUser({ ...newUser, department: e.target.value })}
+                className={inputClass}
+              >
+                <option value="">Not recorded</option>
+                {DEPARTMENT_OPTIONS.map((department) => (
+                  <option key={department} value={department}>{department}</option>
+                ))}
+              </select>
             </div>
             <div>
               <label className={labelClass} htmlFor="member-phone">Phone</label>
@@ -512,13 +535,6 @@ export const MemberManagement: React.FC = () => {
               <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${STATUS_STYLES[viewUser.status]}`}>
                 {ACCOUNT_STATUS_LABELS[viewUser.status]}
               </span>
-              {viewUser.emailVerified ? (
-                <span className="inline-flex items-center gap-1 text-emerald-600 font-semibold">
-                  <ShieldCheck className="w-3 h-3" aria-hidden /> email verified
-                </span>
-              ) : (
-                <span className="font-semibold">email not verified</span>
-              )}
             </div>
 
             {/* Profile fields */}
@@ -564,25 +580,33 @@ export const MemberManagement: React.FC = () => {
                 </div>
                 <div>
                   <label className={labelClass} htmlFor="edit-year">Academic Year</label>
-                  <input
+                  <select
                     id="edit-year"
-                    type="text"
                     value={viewUser.academicYear || ''}
                     onChange={(e) => patchUser({ academicYear: e.target.value })}
                     className={inputClass}
-                  />
+                  >
+                    <option value="">Not recorded</option>
+                    {optionsFor(ACADEMIC_YEAR_OPTIONS, viewUser.academicYear).map((year) => (
+                      <option key={year} value={year}>{year}</option>
+                    ))}
+                  </select>
                 </div>
               </div>
 
               <div>
                 <label className={labelClass} htmlFor="edit-department">Department</label>
-                <input
+                <select
                   id="edit-department"
-                  type="text"
                   value={viewUser.department || ''}
                   onChange={(e) => patchUser({ department: e.target.value })}
                   className={inputClass}
-                />
+                >
+                  <option value="">Not recorded</option>
+                  {optionsFor(DEPARTMENT_OPTIONS, viewUser.department).map((department) => (
+                    <option key={department} value={department}>{department}</option>
+                  ))}
+                </select>
               </div>
 
               <div className="flex justify-end pt-1">
@@ -602,6 +626,14 @@ export const MemberManagement: React.FC = () => {
                 {mayAssignRoles && (
                   <div className="p-4 space-y-2">
                     <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Change role</p>
+                    {viewUser.id === currentUser.id ? (
+                      // The store refuses a self-targeted grant whatever this panel shows; this only keeps
+                      // the screen from inviting a click that cannot succeed.
+                      <p className="text-xs font-bold text-slate-500">
+                        A role change is decided by another Super Admin, so this control is not offered on your own
+                        record.
+                      </p>
+                    ) : (
                     <div className="flex items-center gap-2">
                       <select
                         value={roleDraft}
@@ -621,6 +653,7 @@ export const MemberManagement: React.FC = () => {
                         Apply
                       </button>
                     </div>
+                    )}
                   </div>
                 )}
 

@@ -126,7 +126,11 @@ begin
     encode(gen_random_bytes(32), 'hex'),
     now(), now(),
     '{"provider":"email","providers":["email"]}'::jsonb,
-    jsonb_build_object('full_name', btrim(p_full_name), 'username', username_norm)
+    -- accepted_policies is not optional for the queue row: esme_handle_new_auth_user() copies it
+    -- into esme_registration_requests, where `check (agreed_to_policies)` refuses false. Without
+    -- this key the trigger would abort the insert and the bootstrap could never complete.
+    jsonb_build_object('full_name', btrim(p_full_name), 'username', username_norm,
+                       'accepted_policies', 'true')
   );
 
   -- The signup trigger creates a pending profile; an administrator is activated here.

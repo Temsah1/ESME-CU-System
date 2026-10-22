@@ -1,21 +1,9 @@
-/** Server-enforced account lifecycle. The client may display these; it may never set them. */
-export type AccountStatus =
-  | 'pending_email_verification'
-  | 'pending_approval'
-  | 'active'
-  | 'rejected'
-  | 'suspended';
+/** Server-enforced account lifecycle. The client may display these; it never sets them. */
+export type AccountStatus = 'pending_approval' | 'active' | 'rejected' | 'suspended';
 
-export const ACCOUNT_STATUSES: AccountStatus[] = [
-  'pending_email_verification',
-  'pending_approval',
-  'active',
-  'rejected',
-  'suspended',
-];
+export const ACCOUNT_STATUSES: AccountStatus[] = ['pending_approval', 'active', 'rejected', 'suspended'];
 
 export const ACCOUNT_STATUS_LABELS: Record<AccountStatus, string> = {
-  pending_email_verification: 'Pending email verification',
   pending_approval: 'Pending approval',
   active: 'Active',
   rejected: 'Rejected',
@@ -27,7 +15,6 @@ export const ACCOUNT_STATUS_LABELS: Record<AccountStatus, string> = {
  * replaying a stale session or posting a role/status directly — is rejected.
  */
 const TRANSITIONS: Record<AccountStatus, AccountStatus[]> = {
-  pending_email_verification: ['pending_approval', 'rejected'],
   pending_approval: ['active', 'rejected'],
   active: ['suspended'],
   rejected: ['pending_approval'],
@@ -51,17 +38,26 @@ export class InvalidStatusTransitionError extends Error {
   }
 }
 
-/** Verified email is a precondition for approval, not a grant of access. */
-export function isEligibleForApproval(
-  status: AccountStatus,
-  emailVerified: boolean
-): boolean {
-  return status === 'pending_approval' && emailVerified;
+/**
+ * A submitted request is reviewable the moment it exists: nothing an applicant does on
+ * their own — clicking a link, waiting for a mail — moves it forward. Only a decision does.
+ */
+export function isDecidable(status: AccountStatus): boolean {
+  return status === 'pending_approval';
 }
 
 /** The only status that may reach protected ERP surfaces or APIs. */
 export function canAccessErp(status: AccountStatus): boolean {
   return status === 'active';
+}
+
+/**
+ * The stage this platform removed (`pending_email_verification`) can still be sitting in browser
+ * storage, and a vault row or cached profile holding it would be undecidable forever. Readers
+ * repair it onto the queue instead of acting on a status the state machine no longer has.
+ */
+export function repairStoredStatus(status: string): AccountStatus {
+  return status === 'pending_email_verification' ? 'pending_approval' : (status as AccountStatus);
 }
 
 /**
@@ -72,8 +68,6 @@ export function applicationStageFor(
   status: AccountStatus
 ): 'pending' | 'under_review' | 'accepted' | 'rejected' {
   switch (status) {
-    case 'pending_email_verification':
-      return 'pending';
     case 'pending_approval':
       return 'under_review';
     case 'active':
@@ -85,23 +79,13 @@ export function applicationStageFor(
 }
 
 /**
- * Credential verification is separate from authorization: a pending or suspended
+ * Proving the credential is separate from authorization: a pending or suspended
  * applicant may be shown a status screen, never dashboard content.
  */
-export function describeLoginOutcome(
-  status: AccountStatus,
-  emailVerified: boolean
-): { kind: 'granted' | 'blocked'; message: string } {
+export function describeLoginOutcome(status: AccountStatus): { kind: 'granted' | 'blocked'; message: string } {
   switch (status) {
     case 'active':
       return { kind: 'granted', message: '' };
-    case 'pending_email_verification':
-      return {
-        kind: 'blocked',
-        message: emailVerified
-          ? 'Your email is verified. An administrator still needs to approve your account.'
-          : 'Check your inbox to verify your email address, then wait for approval.',
-      };
     case 'pending_approval':
       return {
         kind: 'blocked',

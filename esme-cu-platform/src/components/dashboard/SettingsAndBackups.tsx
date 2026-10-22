@@ -11,6 +11,7 @@ import {
   AlertTriangle
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
+import { ModalShell } from '../../motion';
 
 export const SettingsAndBackups: React.FC = () => {
   const {
@@ -29,6 +30,7 @@ export const SettingsAndBackups: React.FC = () => {
   const [importText, setImportText] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
+  const [confirmReset, setConfirmReset] = useState(false);
 
   const handleExport = () => {
     try {
@@ -66,13 +68,14 @@ export const SettingsAndBackups: React.FC = () => {
   };
 
   const handleReset = () => {
-    const confirmed = window.confirm(
-      'This clears the data this browser cached for the chapter workspace and reloads the official reference content. Records stored by the provider are untouched. Continue?'
-    );
-    if (confirmed) {
+    setConfirmReset(false);
+    try {
       resetLocalCache();
       setSuccessMsg('Local cache cleared. Reference content reloaded.');
       setTimeout(() => setSuccessMsg(''), 4000);
+    } catch (error) {
+      setErrorMsg(error instanceof Error ? error.message : 'This browser’s cache was not cleared.');
+      setTimeout(() => setErrorMsg(''), 4000);
     }
   };
 
@@ -239,16 +242,53 @@ export const SettingsAndBackups: React.FC = () => {
 
           <div className="text-[11px] text-slate-400">Storage schema: {storageVersion}</div>
 
-          <button
-            onClick={handleReset}
-            className="px-5 py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold transition flex items-center gap-2 shadow-sm"
-          >
-            <RotateCcw className="w-4 h-4" />
-            Clear Local Cache
-          </button>
+          {mayManageBackups ? (
+            <button
+              onClick={() => setConfirmReset(true)}
+              className="px-5 py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold transition flex items-center gap-2 shadow-sm"
+            >
+              <RotateCcw className="w-4 h-4" />
+              Clear Local Cache
+            </button>
+          ) : (
+            <p className="text-[11px] text-slate-400">
+              Clearing the cache throws away this browser's copy of every operational table, so the store
+              refuses the write for an account without the backup capability.
+            </p>
+          )}
         </div>
 
       </div>
+
+      {/* The confirmation states what the write does before it happens, in the page rather than in a browser dialog. */}
+      <ModalShell open={confirmReset} onClose={() => setConfirmReset(false)} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 max-w-md w-full shadow-2xl space-y-4">
+        <div className="flex items-center gap-2.5">
+          <div className="p-2 rounded-xl bg-rose-50 dark:bg-rose-950/30 text-rose-600">
+            <ShieldAlert className="w-5 h-5" aria-hidden />
+          </div>
+          <h2 className="text-base font-bold text-slate-900 dark:text-white">Clear this browser's cache?</h2>
+        </div>
+        <p className="text-xs text-slate-500 leading-relaxed">
+          Cached edits to committees, form fields, the season plan and website content are replaced with the
+          reference set, and this browser's copies of the operational tables empty until the provider returns
+          them. Records stored by the authentication provider or the database are untouched, and any account
+          created there stays there.
+        </p>
+        <div className="flex items-center justify-end gap-2">
+          <button
+            onClick={() => setConfirmReset(false)}
+            className="px-4 py-2 rounded-xl border border-slate-200 text-xs font-semibold hover:bg-slate-100 dark:hover:bg-slate-800"
+          >
+            Keep the cache
+          </button>
+          <button
+            onClick={handleReset}
+            className="px-5 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold transition"
+          >
+            Clear Local Cache
+          </button>
+        </div>
+      </ModalShell>
 
     </div>
   );

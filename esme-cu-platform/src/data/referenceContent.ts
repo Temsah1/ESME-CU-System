@@ -1,9 +1,12 @@
 import type {
   Committee,
+  ContentLink,
   RegistrationFieldConfig,
   SeasonEvent,
   WebsiteContentConfig
 } from '../types';
+import { DOCUMENT_VERSION, SECTION_KEYS } from '../domain/cms';
+import type { CommitteeMembershipAnswer } from '../domain/registration';
 
 /**
  * OFFICIAL CHAPTER REFERENCE CONTENT — not demo data.
@@ -23,6 +26,72 @@ import type {
  * These values seed the CMS on a fresh install. Once an authorized editor publishes,
  * the stored content is authoritative and this file is no longer read.
  */
+
+/**
+ * The academic answer lists. One source each, so the signup form, the reviewer's copy of an
+ * application and the member profile read the same words, and a chapter that adds a department
+ * edits this list instead of hunting for a second copy.
+ *
+ * The last department is deliberately "Other": `esme_profiles.department` stores text, so a student
+ * studying something not listed here is recorded as having said so rather than forced into the
+ * nearest wrong choice. These are the chapter's own option labels — no official department names
+ * were invented to fill the list.
+ */
+export const DEPARTMENT_OPTIONS: string[] = [
+  'Metallurgical & Materials Engineering',
+  'Mechanical Design & Production',
+  'Mechanical Power Engineering',
+  'Chemical Engineering',
+  'Civil Engineering',
+  'Aerospace Engineering',
+  'Other',
+];
+
+/** Year of study, not graduation year — the two are different questions and the ERP keeps them apart. */
+export const ACADEMIC_YEAR_OPTIONS: string[] = [
+  'Freshman',
+  'Sophomore',
+  'Junior',
+  'Senior I',
+  'Senior II',
+  'Postgraduate',
+];
+
+/** Stored as `yes`/`no`, shown in both languages. */
+export const COMMITTEE_MEMBERSHIP_CHOICES: { value: CommitteeMembershipAnswer; label: string }[] = [
+  { value: 'yes', label: 'Yes / أيوه' },
+  { value: 'no', label: 'No / لا' },
+];
+
+const highBoardCommittee: Committee = {
+  id: 'comm_high_board',
+  name: 'High Board',
+  shortCode: 'HB',
+  description: 'The chapter-wide body its officers sit on. Naming it on an application records where the applicant thinks they belong; it appoints nobody and grants no office, no administrative access and no role.',
+  objectives: [
+    'Hold the chapter-wide direction the committee objectives serve',
+    'Keep the continuity of decisions across seasons'
+  ],
+  subTeams: [],
+  isPublic: true,
+  status: 'active',
+  category: 'management'
+};
+
+/**
+ * High Board is a committee here and nothing more. The chapter also has a `high_board` *role*,
+ * which carries real authority; the two are separate records and choosing this one on the signup
+ * form changes neither. A new account is always `member` with no capabilities until an
+ * administrator with the approval capability decides otherwise, and leadership seats are
+ * appointed from Committee Management, never requested here.
+ */
+export const HIGH_BOARD_COMMITTEE: Committee = highBoardCommittee;
+
+/**
+ * The committees this file shipped before High Board. A cached list holding exactly these ids is a
+ * list nobody edited, which is the only list the storage migration is allowed to append to.
+ */
+export const PREVIOUS_REFERENCE_COMMITTEE_IDS: string[] = ['comm_te', 'comm_mc', 'comm_marketing', 'comm_design'];
 
 export const REFERENCE_COMMITTEES: Committee[] = [
   {
@@ -88,24 +157,62 @@ export const REFERENCE_COMMITTEES: Committee[] = [
     isPublic: true,
     status: 'active',
     category: 'operations'
-  }
+  },
+  highBoardCommittee
 ];
+
+/**
+ * The signup the portal asks for: a name, an email, where the student studies, whether they already
+ * belong to a committee and which one, a password twice, and the agreement. The rest of what the
+ * questionnaire once insisted on stays in this list — switched off, still editable from
+ * Registration → Form Schema, so a chapter that wants Student ID back turns it on without a code
+ * change.
+ *
+ * The committee question sits right after the membership answer that controls it, and asks no
+ * answer of its own: `required` is off because an applicant who is not a member has no committee to
+ * name. The rule that a member must name one lives in `validateRegistration`, so it also runs on
+ * the trusted side.
+ */
+const academicYearField: RegistrationFieldConfig = {
+  id: 'f4', label: 'Academic Year / السنة الدراسية', name: 'academicYear', type: 'select',
+  required: true, enabled: true, options: ACADEMIC_YEAR_OPTIONS, order: 4,
+};
+const departmentField: RegistrationFieldConfig = {
+  id: 'f5', label: 'Department / القسم', name: 'department', type: 'select',
+  required: true, enabled: true, options: DEPARTMENT_OPTIONS, order: 5,
+};
+const committeeMembershipField: RegistrationFieldConfig = {
+  id: 'f14', label: 'Are you a member of a committee? / هل أنت عضو في أي كوميت؟', name: 'committeeMembership',
+  type: 'select', required: true, enabled: true,
+  options: COMMITTEE_MEMBERSHIP_CHOICES.map((c) => c.value), order: 7,
+};
 
 export const REFERENCE_FORM_FIELDS: RegistrationFieldConfig[] = [
   { id: 'f1', label: 'Full Name', name: 'fullName', type: 'text', required: true, enabled: true, order: 1 },
   { id: 'f2', label: 'University Email', name: 'universityEmail', type: 'email', required: true, enabled: true, order: 2 },
-  { id: 'f3', label: 'Student ID', name: 'studentId', type: 'text', required: true, enabled: true, order: 3 },
-  { id: 'f4', label: 'Academic Year', name: 'academicYear', type: 'select', required: true, enabled: true, options: ['Freshman', 'Sophomore', 'Junior', 'Senior I', 'Senior II', 'Postgraduate'], order: 4 },
-  { id: 'f5', label: 'Department / Major', name: 'department', type: 'select', required: true, enabled: true, options: ['Metallurgical & Materials Engineering', 'Mechanical Design & Production', 'Mechanical Power Engineering', 'Chemical Engineering', 'Civil Engineering', 'Aerospace Engineering', 'Other'], order: 5 },
-  { id: 'f6', label: 'Phone Number (WhatsApp)', name: 'phone', type: 'tel', required: true, enabled: true, order: 6 },
-  { id: 'f7', label: 'Primary Committee Preference', name: 'preferredCommitteeId', type: 'select', required: true, enabled: true, order: 7 },
-  { id: 'f8', label: 'Secondary Committee Preference (Optional)', name: 'secondCommitteePreferenceId', type: 'select', required: false, enabled: true, order: 8 },
-  { id: 'f9', label: 'Technical & Professional Skills', name: 'technicalSkills', type: 'textarea', required: true, enabled: true, description: 'List engineering software, laboratory skills, writing, design, or project management capabilities.', order: 9 },
-  { id: 'f10', label: 'Previous Experience & Projects', name: 'previousExperience', type: 'textarea', required: false, enabled: true, order: 10 },
-  { id: 'f11', label: 'Motivation for Joining ESME CU', name: 'motivation', type: 'textarea', required: true, enabled: true, description: 'What do you aim to learn and contribute to our 2026-2027 vision?', order: 11 },
-  { id: 'f12', label: 'Weekly Availability', name: 'availabilityHours', type: 'select', required: true, enabled: true, options: ['5-8 hours/week', '9-12 hours/week', '13-16 hours/week', '16+ hours/week'], order: 12 },
-  { id: 'f13', label: 'Agreement to Chapter Policies & Code of Conduct', name: 'agreedToPolicies', type: 'checkbox', required: true, enabled: true, order: 13 }
+  { id: 'f3', label: 'Student ID', name: 'studentId', type: 'text', required: false, enabled: false, order: 3 },
+  academicYearField,
+  departmentField,
+  { id: 'f6', label: 'Phone Number (WhatsApp)', name: 'phone', type: 'tel', required: false, enabled: false, order: 6 },
+  committeeMembershipField,
+  { id: 'f7', label: 'Primary Committee Preference', name: 'preferredCommitteeId', type: 'select', required: false, enabled: true, order: 8 },
+  { id: 'f8', label: 'Secondary Committee Preference (Optional)', name: 'secondCommitteePreferenceId', type: 'select', required: false, enabled: false, order: 9 },
+  { id: 'f9', label: 'Technical & Professional Skills', name: 'technicalSkills', type: 'textarea', required: false, enabled: false, description: 'List engineering software, laboratory skills, writing, design, or project management capabilities.', order: 10 },
+  { id: 'f10', label: 'Previous Experience & Projects', name: 'previousExperience', type: 'textarea', required: false, enabled: false, order: 11 },
+  { id: 'f11', label: 'Motivation for Joining ESME CU', name: 'motivation', type: 'textarea', required: false, enabled: false, description: 'What do you aim to learn and contribute to our 2026-2027 vision?', order: 12 },
+  { id: 'f12', label: 'Weekly Availability', name: 'availabilityHours', type: 'select', required: false, enabled: false, options: ['5-8 hours/week', '9-12 hours/week', '13-16 hours/week', '16+ hours/week'], order: 13 },
+  { id: 'f13', label: 'Agreement to Chapter Policies & Code of Conduct', name: 'agreedToPolicies', type: 'checkbox', required: true, enabled: true, order: 14 }
 ];
+
+/**
+ * What the storage migration puts back on a returning device, keyed by the answer name. Held here
+ * rather than re-typed in the migration so a device and a fresh install are read from one list.
+ */
+export const ACADEMIC_SIGNUP_SCHEMA_ROWS: Record<string, RegistrationFieldConfig> = {
+  academicYear: academicYearField,
+  department: departmentField,
+  committeeMembership: committeeMembershipField,
+};
 
 export const REFERENCE_SEASON_EVENTS: SeasonEvent[] = [
   // 4 Major Events
@@ -265,7 +372,25 @@ export const REFERENCE_SEASON_EVENTS: SeasonEvent[] = [
   }
 ];
 
+/**
+ * The navbar as content: ten anchors that scroll the page to its own blocks. A fragment is the
+ * only kind of address these can hold, and the validator refuses anything else.
+ */
+const REFERENCE_NAVIGATION: ContentLink[] = [
+  { id: 'nav_home', label: 'Home', href: '#home', visible: true },
+  { id: 'nav_about', label: 'About Us', href: '#about', visible: true },
+  { id: 'nav_vision', label: 'Vision 2027', href: '#vision', visible: true },
+  { id: 'nav_history', label: 'Our History', href: '#history', visible: true },
+  { id: 'nav_appreciation', label: 'Appreciation', href: '#appreciation', visible: true },
+  { id: 'nav_committees', label: 'Committees', href: '#committees', visible: true },
+  { id: 'nav_events', label: 'Events', href: '#events', visible: true },
+  { id: 'nav_magazine', label: 'Magazine', href: '#magazine', visible: true },
+  { id: 'nav_insights', label: 'Meta Insights', href: '#insights', visible: true },
+  { id: 'nav_contact', label: 'Contact', href: '#contact', visible: true }
+];
+
 export const REFERENCE_WEBSITE_CONTENT: WebsiteContentConfig = {
+  documentVersion: DOCUMENT_VERSION,
   hero: {
     badge: 'Official Student Chapter • Cairo University',
     headline: 'Welcome to ESME CU Chapter',
@@ -334,9 +459,26 @@ export const REFERENCE_WEBSITE_CONTENT: WebsiteContentConfig = {
   contact: {
     email: 'esme.cairostudentchapter@gmail.com',
     phone: '+201223441144',
-    website: 'https://www.ESMECairo.com',
-    socialHandle: '@ESME_Cairo',
+    website: 'https://www.esmecairo.com/',
     location: 'Faculty of Engineering, Cairo University, Giza, Egypt'
-  }
+  },
+  sharing: {
+    title: 'ESME CU Chapter — Egyptian Society of Materials Engineers',
+    description:
+      'Empowering Engineering Students. Bridging Academia and Industry. Building the Future.'
+  },
+  // Every section of the page is published in source order; an operator switches one off from the CMS.
+  sections: SECTION_KEYS.map((key, order) => ({ key, visible: true, order })),
+  // The addresses the navbar has always carried, now editable instead of hardcoded.
+  navigation: REFERENCE_NAVIGATION,
+  footer: {
+    blurb: 'Egyptian Society of Materials Engineers — Cairo University Student Chapter',
+    copyright: '© 2026 ESME CU Chapter. All Rights Reserved.',
+    links: []
+  },
+  // The chapter's public handle is confirmed; the profile URL behind it is not, so none is invented.
+  socials: [{ id: 'social_primary', network: '', handle: '@ESME_Cairo', url: '', visible: true }],
+  // No media asset is chosen, so each image slot draws the asset bundled with this build.
+  images: {}
 };
 
