@@ -30,8 +30,12 @@ jobs:
   verify:
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    # One working-directory for every run step: the app lives in esme-cu-platform/, while checkout and
+    # setup-node must stay at the repository root — `defaults.run` covers the run steps only, which is
+    # exactly the split this needs.
     defaults:
       run:
+        shell: bash
         working-directory: esme-cu-platform
     env:
       # Belt and braces beside the vite.config.ts pin: no provider is reachable from this run, so no
@@ -41,25 +45,36 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Node 22, not 20: vitest 5.0.5 declares engines "^22.12.0 || ^24.0.0 || >=26.0.0" and vite 8.3.4
+      # declares "^20.19.0 || >=22.12.0". A 20.x runner satisfies Vite at best and is outside Vitest's
+      # supported range, so the test step would become the thing that fails.
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
           cache: npm
           cache-dependency-path: esme-cu-platform/package-lock.json
 
+      # Versions are echoed here because a run that dies in its first seconds otherwise reports only
+      # a bare exit code. --no-audit/--no-fund keep the install output to the part that matters.
       - name: Install (lockfile only)
-        run: npm ci
+        run: |
+          node --version
+          npm --version
+          npm ci --no-audit --no-fund
 
       - name: Typecheck
         run: npx tsc -b --force
 
-      # Warnings are reported and do not fail the run: 13 pre-existing react-hooks/react-compiler
+      # Warnings are reported and do not fail the run: the pre-existing react-hooks/react-compiler
       # notices are on record in PROJECT_MASTER_GUIDE.md §11. Errors fail, as they always have.
       - name: Lint
-        run: npx oxlint .
+        run: npm run lint
 
+      # ubuntu-latest is 2 vCPU. Vitest defaults its worker count to the core count it detects, and on
+      # a shared runner that over-subscribes memory; --maxWorkers=2 pins it to the runner's real size.
+      # (Vitest 5 has no --threads CLI flag any more; the pool is selected with --pool, default forks.)
       - name: Unit and integration tests
-        run: npx vitest run
+        run: npx vitest run --maxWorkers=2
 
       - name: Production build
         run: npm run build
