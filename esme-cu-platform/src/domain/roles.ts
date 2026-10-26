@@ -134,6 +134,8 @@ const MATRIX: Matrix = {
     'submissions.review': 'all',
     'scores.read': 'all',
     'events.read': 'all',
+    // Season Planner management (0013). Scoped to the plan: it buys no users/cms/settings capability.
+    'events.write': 'all',
     'skills.read': 'all',
     'analytics.configure': 'all',
     'notifications.manage': 'all',
@@ -151,6 +153,8 @@ const MATRIX: Matrix = {
     'submissions.review': 'all',
     'scores.read': 'all',
     'events.read': 'all',
+    // Season Planner management (0013), as high_board: the plan only, no other write capability.
+    'events.write': 'all',
     'cms.settings.global': 'all',
     'cms.content.write': 'all',
     'cms.content.publish': 'all',

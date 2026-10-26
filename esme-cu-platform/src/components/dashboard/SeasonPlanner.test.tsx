@@ -126,6 +126,11 @@ async function snapshot(): Promise<Store> {
   const motion = await import('../../motion');
   const { MotionConfig } = await import('motion/react');
 
+  // A store captured before the session finishes restoring would guard against no role at all,
+  // and the test would then be reporting a refusal it never intended to check.
+  const Gate: React.FC<{ children: React.ReactNode }> = ({ children }) =>
+    auth.useAuth().status === 'signed_in' ? <>{children}</> : null;
+
   TL.cleanup();
   captured = null;
   TL.render(
@@ -133,7 +138,9 @@ async function snapshot(): Promise<Store> {
       <auth.AuthProvider>
         <motion.ToastProvider>
           <AppProvider>
-            <Probe />
+            <Gate>
+              <Probe />
+            </Gate>
           </AppProvider>
         </motion.ToastProvider>
       </auth.AuthProvider>
@@ -153,13 +160,20 @@ async function mount() {
   const motion = await import('../../motion');
   const { MotionConfig } = await import('motion/react');
 
+  // Render only once the session has resolved, so a test never reads the controls of a
+  // half-restored role and calls it the read-only view.
+  const Gate: React.FC<{ children: React.ReactNode }> = ({ children }) =>
+    auth.useAuth().status === 'signed_in' ? <>{children}</> : null;
+
   TL.cleanup();
   TL.render(
     <MotionConfig reducedMotion="never">
       <auth.AuthProvider>
         <motion.ToastProvider>
           <AppProvider>
-            <SeasonPlanner />
+            <Gate>
+              <SeasonPlanner />
+            </Gate>
           </AppProvider>
         </motion.ToastProvider>
       </auth.AuthProvider>
@@ -217,7 +231,9 @@ async function fillMilestone(
   await user.type(box.getByLabelText('Target to write down'), '150 attendees');
 }
 
-describe('the three planning roles hold the plan end to end', () => {
+// Each role test drives four modal round-trips on top of a fresh account, so it follows the
+// timeout convention the other heavy jsdom suites set for themselves.
+describe('the three planning roles hold the plan end to end', { timeout: 30_000 }, () => {
   it.each([
     ['super_admin', 'sa'],
     ['moderator', 'mod'],
@@ -289,7 +305,7 @@ describe('the three planning roles hold the plan end to end', () => {
   });
 });
 
-describe('deletion is confirmed, named, and scoped to one row', () => {
+describe('deletion is confirmed, named, and scoped to one row', { timeout: 30_000 }, () => {
   it('keeps the milestone when the confirmation is dismissed', async () => {
     seedPlan([seededEvent({ id: 'evt_1', title: 'Graduate Bootcamp' })]);
     const { user } = await mount();

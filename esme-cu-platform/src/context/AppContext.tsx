@@ -289,6 +289,7 @@ interface AppContextType {
   seasonEvents: SeasonEvent[];
   addSeasonEvent: (event: Omit<SeasonEvent, 'id'>) => void;
   updateSeasonEvent: (id: string, updates: Partial<SeasonEvent>) => void;
+  deleteSeasonEvent: (id: string) => void;
   /** Copies the transcribed vision-document milestones in as drafts. Returns how many were new. */
   loadReferenceSeasonPlan: () => number;
 
@@ -1972,6 +1973,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   /**
+   * A hard delete, because esme_season_events has no inbound key anywhere in the schema — removing a
+   * milestone cannot orphan a submission, a task or a ledger row. What it does destroy is the record
+   * that the milestone was planned, which is why the screen confirms first and why an unknown id
+   * raises instead of resolving quietly: a delete that reported success on a row nobody had would be
+   * the false confirmation this whole flow is built to avoid.
+   */
+  const deleteSeasonEvent: AppContextType['deleteSeasonEvent'] = (id) => {
+    guard('events.write');
+    const existing = seasonEvents.find((e) => e.id === id);
+    if (!existing) throw new Error('That milestone is no longer in the plan — nothing was deleted.');
+    setSeasonEvents((prev) => prev.filter((e) => e.id !== id));
+    logAction('Deleted Season Event', 'system', id, `Deleted season event: ${existing.title}`);
+  };
+
+  /**
    * The 2026–2027 plan was transcribed from a vision document, so it exists as a draft someone
    * can start from — but it is never loaded by itself. A planner that arrives full of milestones
    * the chapter never wrote would hand every progress figure below it a fictional denominator.
@@ -2764,6 +2780,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     seasonEvents,
     addSeasonEvent,
     updateSeasonEvent,
+    deleteSeasonEvent,
     loadReferenceSeasonPlan,
     skillMatrix,
     updateMemberSkill,

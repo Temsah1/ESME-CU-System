@@ -54,8 +54,10 @@ describe('migration order', () => {
       '0009_security_hardening.sql',
       '0010_privilege_hardening.sql',
       '0011_registration_academic_fields.sql',
+      '0012_self_service_registration.sql',
+      '0013_season_planner_management.sql',
     ]);
-    expect(files[files.length - 1].split(/[\\/]/).pop()).toBe('0011_registration_academic_fields.sql');
+    expect(files[files.length - 1].split(/[\\/]/).pop()).toBe('0013_season_planner_management.sql');
   });
 });
 
