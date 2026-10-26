@@ -219,8 +219,9 @@ export function createLocalDevAdapter(): AuthAdapter {
         return null;
       }
       const account = readVault().accounts.find((a) => a.id === session.userId);
-      // Status is re-read from the vault on every restore: a suspension or rejection
-      // takes effect on the next navigation, and a refresh cannot resurrect access.
+      // Status is re-read from the vault on every restore, so a suspension or a rejection takes
+      // effect on the next navigation and a refresh cannot resurrect it. A status that only says
+      // "no committee placement recorded yet" is not one of those two and keeps the session.
       if (!account || !canAccessErp(account.status)) {
         localStorage.removeItem(SESSION_KEY);
         return null;
@@ -234,7 +235,9 @@ export function createLocalDevAdapter(): AuthAdapter {
 
   const requireCapability = (capability: Parameters<typeof hasCapability>[1]): AuthIdentity => {
     const session = currentSession();
-    if (!session) throw new AccessRevokedError('pending_approval');
+    // Nothing here implies a reviewer owes the caller an approval: the caller simply has no
+    // session, which is a different fact and gets a different sentence.
+    if (!session) throw new AuthFailedError('No session is open, so this action has no authorized caller. Sign in first.');
     // Mirrors the RLS policy in supabase/migrations/0002_rls_policies.sql.
     if (!hasCapability(session.identity.role, capability)) {
       throw new AuthFailedError('Your role is not permitted to perform this action.');
@@ -426,7 +429,10 @@ export function createLocalDevAdapter(): AuthAdapter {
       writeVault(vault);
       return {
         ok: true,
-        receipt: { reference: account.id, status: account.status },
+        // This vault has no mail transport, so nothing waits on a confirmation link. No session is
+        // opened either: the browser already holds one for whoever is using it, and a signup must
+        // not switch the account under them.
+        receipt: { reference: account.id, status: account.status, emailVerificationRequired: false },
       };
     },
 
@@ -623,6 +629,10 @@ export function createLocalDevAdapter(): AuthAdapter {
      * A directory row with no credential. Sign-in can never match it (the salt and hash are empty),
      * but an activation or role change addresses a real vault row instead of answering
      * "No such account." — which is what a provisioned profile was before this existed.
+     *
+     * An invitation grants nothing by itself, and it does not have to: what keeps it out of the
+     * workspace is the missing credential, not the `pending_approval` status, which no longer
+     * closes a session an ordinary member has already proven.
      */
     async provisionAccount(input) {
       const actor = requirePrivilege('users.create', { action: 'provision_denied', targetId: input.id });

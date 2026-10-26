@@ -2,7 +2,7 @@ import { capabilitiesFor } from '../domain/roles';
 import { canAccessErp, repairStoredStatus } from '../domain/accountState';
 import { normalizeEmail, normalizeUsername, validatePassword, DUPLICATE_IDENTITY_MESSAGE } from '../domain/registration';
 import { emptyTestAccountReport, testAccountSeedRefusal } from '../domain/testAccounts';
-import { AccessRevokedError, AuthFailedError, AuthMisconfiguredError, AuthNotConfiguredError, RateLimitedError } from './errors';
+import { AccessRevokedError, AuthFailedError, AuthMisconfiguredError, AuthNotConfiguredError, ProfileResolutionError, RateLimitedError } from './errors';
 import type {
   AuthAccount,
   AuthAdapter,
@@ -115,25 +115,106 @@ function toSession(identity: AuthIdentity): AuthSession {
 }
 
 /**
+ * Why `esme_identity` did not answer, decided from the reply the provider actually gave.
+ *
+ * Collapsing these is what turned a network hiccup into "you have no profile" and a missing
+ * migration into a password problem. Each reason has one job: tell the reader whether to retry,
+ * tell the operator which object to look at, or tell both that the row genuinely is not there.
+ */
+function profileFailureOf(error: unknown): ProfileResolutionError {
+  const detail = messageOf(error);
+  const code = errorCodeOf(error);
+
+  if (code === '42501' || /permission denied|insufficient privilege|row-level security/i.test(detail)) {
+    return new ProfileResolutionError('access_denied', detail);
+  }
+  if (code === 'PGRST202' || /could not find the function|does not exist\b/i.test(detail)) {
+    return new ProfileResolutionError('not_migrated', detail);
+  }
+  if (
+    /fetch failed|failed to fetch|network|timeout|timed out|ECONNRESET|ECONNREFUSED|temporarily unavailable|service unavailable/i.test(detail)
+  ) {
+    return new ProfileResolutionError('provider_unavailable', detail);
+  }
+  // Anything else is the database answering with a fault this build has no name for. It still
+  // gets the retryable reading, because a profile row is never invented from an unknown error.
+  return new ProfileResolutionError('provider_unavailable', detail || `code ${code || 'unknown'}`);
+}
+
+/**
+ * Runs a PostgREST call and returns its reply instead of throwing.
+ *
+ * The client reports a fault two ways — as the `error` field of the result and, for a transport
+ * failure, as a rejection — and both have to reach the same classifier. Nothing here decides what
+ * the failure *means*; that is `profileFailureOf`'s job.
+ */
+async function attempt<T>(run: () => PromiseLike<{ data?: T; error?: unknown }>): Promise<{ data: T | null; error: unknown }> {
+  try {
+    const result = await run();
+    return { data: result.data ?? null, error: result.error ?? null };
+  } catch (error) {
+    return { data: null, error };
+  }
+}
+
+function errorCodeOf(error: unknown): string {
+  return error && typeof error === 'object' && 'code' in error ? String((error as { code: unknown }).code ?? '') : '';
+}
+
+/**
  * `esme_identity` is a SECURITY DEFINER function: role and account status come from
  * the database, never from anything the browser sends.
+ *
+ * An empty answer means the profile row is absent, and one idempotent recovery is tried before
+ * that is reported: `esme_ensure_own_profile()` (0019) inserts the *caller's own* row as a member,
+ * keyed to the auth uid the provider already issued, so a signup whose trigger failed can sign in
+ * without anybody typing SQL. A client cannot name the role, the status or another id, which is
+ * why this is recovery rather than privilege. If the function is missing, or the retry still
+ * answers nothing, the reason is reported instead of a fabricated session.
  */
 async function loadIdentity(sb: SupabaseClient, userId: string): Promise<AuthIdentity> {
-  const { data, error } = await sb.rpc('esme_identity', { p_user_id: userId });
-  if (error) throw new AuthFailedError('The chapter could not read your account profile. Try again shortly.');
-  const row = Array.isArray(data) ? data[0] : data;
-  if (!row) throw new AuthFailedError('This sign-in has no chapter profile yet. Ask an administrator to complete it.');
-  return {
-    id: row.id,
-    email: row.email,
-    username: row.username,
-    displayName: row.display_name,
-    role: row.role,
+  const read = async (): Promise<{ row: Record<string, unknown> | null; error: unknown }> => {
+    const { data, error } = await attempt(() => sb.rpc('esme_identity', { p_user_id: userId }));
+    // PostgREST answers "no rows" with this code. To this caller it is an absent profile, not an
+    // outage: the recovery step below has to run, and reporting it as a fault would hide the one
+    // case where creating the row is the correct fix.
+    if (error && errorCodeOf(error) === 'PGRST116') return { row: null, error: null };
+    const row = Array.isArray(data) ? data[0] : data;
+    return { row: (row as Record<string, unknown> | null) ?? null, error };
+  };
+
+  const first = await read();
+  if (first.error) throw profileFailureOf(first.error);
+  let row = first.row;
+
+  if (!row) {
+    const ensured = await attempt(() => sb.rpc('esme_ensure_own_profile'));
+    if (ensured.error) {
+      const failure = profileFailureOf(ensured.error);
+      // The recovery step is not installed here: say which migration is missing rather than
+      // reporting a profile that may exist and simply cannot be reached yet.
+      throw failure.reason === 'not_migrated'
+        ? failure
+        : new ProfileResolutionError('missing_profile', messageOf(ensured.error));
+    }
+    const again = await read();
+    if (again.error) throw profileFailureOf(again.error);
+    row = again.row;
+    if (!row) throw new ProfileResolutionError('missing_profile');
+  }
+
+  const identity: AuthIdentity = {
+    id: String(row.id),
+    email: String(row.email ?? ''),
+    username: String(row.username ?? ''),
+    displayName: String(row.display_name ?? ''),
+    role: row.role as AuthIdentity['role'],
     // A project that has not applied 0007 yet can still answer with the retired stage.
-    status: repairStoredStatus(row.status),
-    committeeId: row.committee_id ?? undefined,
-    capabilities: capabilitiesFor(row.role),
-  } as AuthIdentity;
+    status: repairStoredStatus(String(row.status ?? '')),
+    committeeId: typeof row.committee_id === 'string' && row.committee_id.length > 0 ? row.committee_id : undefined,
+    capabilities: capabilitiesFor(row.role as AuthIdentity['role']),
+  };
+  return identity;
 }
 
 function messageOf(error: unknown): string {
@@ -205,6 +286,14 @@ export function createSupabaseAdapter(): AuthAdapter {
     kind: 'supabase',
     warningBanner: '',
 
+    /**
+     * Re-opens a persisted provider session.
+     *
+     * Only a profile whose *database status is a sanction* is torn down. When the profile read fails
+     * for another reason, the provider session is left in place and the reason is thrown: dropping it
+     * would convert an outage or an unapplied migration into a logout, and the user would lose a
+     * credential that is still valid.
+     */
     async restore() {
       const sb = await client();
       const {
@@ -277,6 +366,17 @@ export function createSupabaseAdapter(): AuthAdapter {
       return { ok: true };
     },
 
+    /**
+     * The provider's own auth events drive this: INITIAL_SESSION, SIGNED_IN, TOKEN_REFRESHED and
+     * SIGNED_OUT all arrive here, so a session that outlives the page is re-verified rather than
+     * trusted.
+     *
+     * A profile read that fails is not a logout. Sign-out is reserved for the one case where the
+     * database actually said this account is under a sanction; anything else — unreachable database,
+     * refused read, missing migration — keeps the provider session and hands the listener the error so
+     * the screen can name it. Reporting those as `listener(null)` is what made a transient fault look
+     * like the user had been signed out or never signed in.
+     */
     subscribe(listener) {
       let unsubscribe: (() => void) | undefined;
       let cancelled = false;
@@ -295,8 +395,14 @@ export function createSupabaseAdapter(): AuthAdapter {
               return;
             }
             listener(toSession(identity));
-          } catch {
-            listener(null);
+          } catch (problem) {
+            // A sanctioned-status sign-out above reaches the listener with no problem; this is the
+            // other branch — the session stands and the caller is told why it has no profile yet.
+            if (event === 'SIGNED_OUT') {
+              listener(null);
+              return;
+            }
+            listener(null, problem instanceof Error ? problem : new Error(String(problem)));
           }
         });
         unsubscribe = () => data.subscription.unsubscribe();
@@ -307,6 +413,12 @@ export function createSupabaseAdapter(): AuthAdapter {
       };
     },
 
+    /**
+     * A rejected credential is the only thing reported as a sign-in failure here. A profile that
+     * cannot be resolved throws its own classified error with the provider session kept, because
+     * "the password was right and the chapter database would not answer" is a different problem
+     * for both the reader and the operator.
+     */
     async signIn(identifier, password) {
       const sb = await client();
       const email = identifier.includes('@') ? normalizeEmail(identifier) : identifier;
@@ -385,6 +497,11 @@ export function createSupabaseAdapter(): AuthAdapter {
           // 0012 makes the profile active at signup; the registration request row is the
           // committee-placement queue and does not gate access.
           status: 'active',
+          // The provider decides this, not this client: with "Confirm email" on, signUp hands back
+          // a user with no session, and a browser cannot enter the chapter until the link is used.
+          // Reporting that as a granted sign-in is what made the verification step look like an
+          // approval step someone inside the chapter owed the applicant.
+          emailVerificationRequired: !data.session,
         },
       };
     },

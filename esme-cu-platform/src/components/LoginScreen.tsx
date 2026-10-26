@@ -324,7 +324,9 @@ select esme_bootstrap_primary_admin(
 
           <p className="mt-4 text-center text-[11px] text-slate-500 dark:text-slate-400 inline-flex items-center justify-center gap-1.5">
             <ShieldCheck className="w-3.5 h-3.5" aria-hidden />
-            Access follows the account status recorded by the provider, never this browser.
+            Signing in is the only step: no account inside the chapter has to approve you. Entry follows
+            the status the provider holds — only a suspension or a rejection keeps you out — and what you
+            may do follows your role. Neither is decided by this browser.
           </p>
         </motion.div>
       </main>

@@ -22,4 +22,11 @@ export function resolveAdapter(): AdapterResolution {
 }
 
 export * from './types';
-export { AuthNotConfiguredError, AuthFailedError, AccessRevokedError, RateLimitedError } from './errors';
+export {
+  AuthNotConfiguredError,
+  AuthMisconfiguredError,
+  AuthFailedError,
+  AccessRevokedError,
+  ProfileResolutionError,
+  RateLimitedError,
+} from './errors';

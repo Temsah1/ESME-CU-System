@@ -61,8 +61,9 @@ describe('migration order', () => {
       '0016_high_board_bonus_guard.sql',
       '0017_social_insights.sql',
       '0018_chat.sql',
+      '0019_status_grants_access.sql',
     ]);
-    expect(files[files.length - 1].split(/[\\/]/).pop()).toBe('0018_chat.sql');
+    expect(files[files.length - 1].split(/[\\/]/).pop()).toBe('0019_status_grants_access.sql');
   });
 });
 

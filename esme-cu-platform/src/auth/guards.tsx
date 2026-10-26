@@ -1,6 +1,6 @@
 import React from 'react';
 import { useAuth } from './AuthProvider';
-import { canAccessErp } from '../domain/accountState';
+import { describeLoginOutcome } from '../domain/accountState';
 import { hasCapability } from '../domain/roles';
 import type { Capability } from '../domain/roles';
 
@@ -45,14 +45,20 @@ export const RequireAuth: React.FC<{ children: React.ReactNode; onExit?: () => v
   if (status === 'unavailable') {
     return <AccessDenied title="Authentication is not configured" detail="This deployment has no authentication provider configured." />;
   }
-  if (!session || !identity || !canAccessErp(identity.status)) {
+  if (!session || !identity) {
     return (
       <AccessDenied
         title="Sign-in required"
-        detail="Only an approved, active account may open the chapter workspace."
+        detail="Sign in to open the chapter workspace. Creating an account is enough — nobody inside the chapter has to approve it."
         onExit={onExit}
       />
     );
+  }
+  // Only a sanction closes the door. A member whose committee placement is still unrecorded
+  // belongs here; what they may reach is the role's capability scope, not this status.
+  const outcome = describeLoginOutcome(identity.status);
+  if (outcome.kind === 'blocked') {
+    return <AccessDenied title="Access restricted" detail={outcome.message} onExit={onExit} />;
   }
   return <>{children}</>;
 };

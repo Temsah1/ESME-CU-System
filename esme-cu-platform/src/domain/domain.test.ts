@@ -223,10 +223,13 @@ describe('account state machine', () => {
     expect(canTransition('rejected', 'pending_approval')).toBe(true);
   });
 
-  it('grants ERP access to active accounts only', () => {
-    for (const status of ACCOUNT_STATUSES) {
-      expect(canAccessErp(status)).toBe(status === 'active');
-    }
+  it('opens the chapter to active accounts and to ones whose placement is unrecorded', () => {
+    expect(canAccessErp('active')).toBe(true);
+    expect(canAccessErp('pending_approval')).toBe(true);
+    // Only a sanction keeps an account out. Nothing here decides authority — that is the role's
+    // capability scope, so a pending member enters as a member and not as anything more.
+    expect(canAccessErp('rejected')).toBe(false);
+    expect(canAccessErp('suspended')).toBe(false);
   });
 
   it('has no stage before the review: a submission is decidable the moment it exists', () => {
@@ -260,11 +263,17 @@ describe('account state machine', () => {
     expect(() => assertTransition('rejected', 'active')).toThrow(InvalidStatusTransitionError);
   });
 
-  it('blocks login for every non-active status without leaking details', () => {
-    for (const status of ACCOUNT_STATUSES.filter((s) => s !== 'active')) {
-      expect(describeLoginOutcome(status).kind).toBe('blocked');
-    }
+  it('grants entry to an unplaced account and blocks only the two sanctions', () => {
     expect(describeLoginOutcome('active').kind).toBe('granted');
+    expect(describeLoginOutcome('pending_approval').kind).toBe('granted');
+    expect(describeLoginOutcome('rejected').kind).toBe('blocked');
+    expect(describeLoginOutcome('suspended').kind).toBe('blocked');
+
+    // The wording is part of the policy: a granted sign-in must not read like a decision somebody
+    // inside the chapter still owes the applicant, and a block must name the sanction it is.
+    expect(describeLoginOutcome('pending_approval').message).toMatch(/signed in/i);
+    expect(describeLoginOutcome('pending_approval').message).not.toMatch(/await(ing)? approval|needs? approval|must be approved|activation required/i);
+    expect(describeLoginOutcome('suspended').message).toMatch(/suspended/i);
   });
 });
 

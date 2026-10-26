@@ -72,7 +72,7 @@ async function renderPortal(
       <auth.AuthProvider>
         <motion.ToastProvider>
           <AppProvider>
-            <RegistrationPortal onBackToHome={() => {}} onNavigateToLogin={() => {}} />
+            <RegistrationPortal onBackToHome={() => {}} onNavigateToLogin={() => {}} onEnterWorkspace={() => {}} />
           </AppProvider>
         </motion.ToastProvider>
       </auth.AuthProvider>

@@ -4,7 +4,9 @@ export type AccountStatus = 'pending_approval' | 'active' | 'rejected' | 'suspen
 export const ACCOUNT_STATUSES: AccountStatus[] = ['pending_approval', 'active', 'rejected', 'suspended'];
 
 export const ACCOUNT_STATUS_LABELS: Record<AccountStatus, string> = {
-  pending_approval: 'Pending approval',
+  // The value is the historical name; what it now means is a committee placement nobody has
+  // recorded yet. No status in this list gates entry to the chapter — see canAccessErp().
+  pending_approval: 'Pending placement',
   active: 'Active',
   rejected: 'Rejected',
   suspended: 'Suspended',
@@ -39,23 +41,38 @@ export class InvalidStatusTransitionError extends Error {
 }
 
 /**
- * A submitted request is reviewable the moment it exists: nothing an applicant does on
- * their own — clicking a link, waiting for a mail — moves it forward. Only a decision does.
+ * A submitted request is still reviewable the moment it exists: the queue records the committee
+ * placement an applicant asked for, and only a reviewer's decision writes it.
  */
 export function isDecidable(status: AccountStatus): boolean {
   return status === 'pending_approval';
 }
 
-/** The only status that may reach protected ERP surfaces or APIs. */
+/**
+ * Authentication and directory status are separate questions.
+ *
+ * Signing up is enough to open the chapter: a member whose placement nobody has recorded yet is
+ * still a signed-in member. The two statuses that speak here are sanctions — `rejected` and
+ * `suspended` — and an account carrying one is turned away until a reviewer lifts it.
+ *
+ * This decides *entry*, never authority: what a session may read or write is the role's capability
+ * scope (src/domain/roles.ts, mirrored by `esme_has_capability()`), so admitting a pending member
+ * cannot widen what an administrator-only operation accepts.
+ */
 export function canAccessErp(status: AccountStatus): boolean {
-  return status === 'active';
+  return status === 'active' || status === 'pending_approval';
 }
 
 /**
  * Browser storage outlives the state machine that wrote it: the removed
  * `pending_email_verification` stage, a blank value a stale form left behind, or anything a build
- * this one does not know introduced. A row holding any of them can neither sign in nor be
- * decided, so readers repair it onto the queue rather than acting on a status with no transition.
+ * this one does not know introduced. A reader cannot act on a status with no transition, so it
+ * repairs the value onto the placement queue — where the account still signs in and a reviewer can
+ * still set it right by name.
+ *
+ * Repairing is deliberately not a lock-out. A sanction has to be one of the two named values; an
+ * unrecognised string is not evidence that anybody revoked this account, and inventing one would
+ * turn a schema change into a silent denial of service against every older row.
  */
 export function repairStoredStatus(status: string | undefined): AccountStatus {
   return ACCOUNT_STATUSES.includes(status as AccountStatus) ? (status as AccountStatus) : 'pending_approval';
@@ -80,8 +97,9 @@ export function applicationStageFor(
 }
 
 /**
- * Proving the credential is separate from authorization: a pending or suspended
- * applicant may be shown a status screen, never dashboard content.
+ * Proving the credential is what opens the workspace; the directory status only closes it again.
+ * So a pending placement is a granted sign-in with a note, and the two sanctions are the only
+ * answers that keep a correct password out.
  */
 export function describeLoginOutcome(status: AccountStatus): { kind: 'granted' | 'blocked'; message: string } {
   switch (status) {
@@ -89,13 +107,13 @@ export function describeLoginOutcome(status: AccountStatus): { kind: 'granted' |
       return { kind: 'granted', message: '' };
     case 'pending_approval':
       return {
-        kind: 'blocked',
-        message: 'Your account is waiting for an administrator to review it. You will be notified once a decision is made.',
+        kind: 'granted',
+        message: 'You are signed in. A reviewer still has to record your committee placement.',
       };
     case 'rejected':
       return {
         kind: 'blocked',
-        message: 'This registration request was not approved. Contact the chapter if you believe this is a mistake.',
+        message: 'An authorized reviewer marked this account as not accepted. Contact the chapter if you believe this is a mistake.',
       };
     case 'suspended':
       return {

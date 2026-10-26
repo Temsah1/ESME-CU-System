@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { motion } from 'motion/react';
-import { CheckCircle2, ArrowLeft, Send, Loader2, ShieldCheck } from 'lucide-react';
+import { CheckCircle2, ArrowLeft, Send, Loader2, ShieldCheck, MailCheck, LogIn } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { useToast } from '../motion';
 import { useAuth } from '../auth/AuthProvider';
@@ -19,6 +19,8 @@ import {
 interface RegistrationPortalProps {
   onBackToHome: () => void;
   onNavigateToLogin: () => void;
+  /** Opens the workspace. Offered only when a valid session already exists. */
+  onEnterWorkspace: () => void;
 }
 
 type FieldErrorKey = keyof RegistrationInput;
@@ -33,14 +35,15 @@ const FieldErrorNote: React.FC<{ id: string; message?: string }> = ({ id, messag
 
 export const RegistrationPortal: React.FC<RegistrationPortalProps> = ({
   onBackToHome,
-  onNavigateToLogin
+  onNavigateToLogin,
+  onEnterWorkspace
 }) => {
   const { committees, formFields, submitApplication } = useApp();
   const { toast } = useToast();
-  const { register } = useAuth();
+  const { register, status, identity } = useAuth();
 
   const [submitted, setSubmitted] = useState(false);
-  const [receipt, setReceipt] = useState<{ reference: string } | null>(null);
+  const [receipt, setReceipt] = useState<{ reference: string; emailVerificationRequired: boolean } | null>(null);
   const [busy, setBusy] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [account, setAccount] = useState({ username: '', password: '', confirmPassword: '' });
@@ -200,12 +203,24 @@ export const RegistrationPortal: React.FC<RegistrationPortalProps> = ({
       authUserId: outcome.receipt.reference,
     });
 
-    setReceipt({ reference: outcome.receipt.reference });
+    setReceipt({
+      reference: outcome.receipt.reference,
+      emailVerificationRequired: Boolean(outcome.receipt.emailVerificationRequired),
+    });
     setSubmitted(true);
-    toast('Account created — you can sign in now');
+    toast(
+      outcome.receipt.emailVerificationRequired
+        ? 'Account created — confirm your email address, then sign in'
+        : 'Account created — you can sign in now'
+    );
   };
 
   if (submitted) {
+    const needsVerification = Boolean(receipt?.emailVerificationRequired);
+    // True only when the open session belongs to *this* new account. A Super Admin who registers
+    // somebody else from the same device must not be offered a button that would carry them into
+    // the workspace on their own, unchanged session.
+    const alreadySignedIn = status === 'signed_in' && identity?.id === receipt?.reference;
     return (
       <div className="min-h-screen bg-[#FDFBF7] flex flex-col justify-center items-center px-4 py-12">
         <motion.div
@@ -215,22 +230,47 @@ export const RegistrationPortal: React.FC<RegistrationPortalProps> = ({
           className="max-w-md w-full bg-white rounded-3xl border border-slate-200 shadow-xl p-8 text-center"
         >
           <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
-            <CheckCircle2 className="w-10 h-10" />
+            {needsVerification ? <MailCheck className="w-10 h-10" /> : <CheckCircle2 className="w-10 h-10" />}
           </div>
-          <h2 className="text-2xl font-bold text-[#123B60]">Account created</h2>
+          <h2 className="text-2xl font-bold text-[#123B60]">
+            {needsVerification ? 'One step left: confirm your email' : 'Account created'}
+          </h2>
           <p className="text-sm text-slate-600 mt-2 leading-relaxed">
-            Your account is ready. Sign in with <strong>{formData.universityEmail}</strong> and the password you chose —
-            no administrator has to approve you first.
+            {needsVerification ? (
+              <>
+                We sent a confirmation link to <strong>{formData.universityEmail}</strong>. Open it, then sign in
+                with the password you chose. This is your email provider checking the address — nobody inside the
+                chapter has to approve you.
+              </>
+            ) : (
+              <>
+                Your account is ready. Sign in with <strong>{formData.universityEmail}</strong> and the password you
+                chose — no administrator has to approve you first.
+              </>
+            )}
           </p>
           <div className="mt-6 p-4 bg-slate-50 rounded-xl border border-slate-200 text-xs text-slate-600 text-left space-y-2">
             <div><strong>Reference:</strong> <span className="font-mono">{receipt?.reference || formData.universityEmail}</span></div>
             <div><strong>Preferred Committee:</strong> {formData.committeeMembership === 'no' ? 'None — you told us you do not belong to one yet' : (committees.find(c => c.id === formData.preferredCommitteeId)?.name ?? 'Not recorded')}</div>
             <div><strong>Department:</strong> {formData.department || 'Not recorded'} · <strong>Year:</strong> {formData.academicYear || 'Not recorded'}</div>
             <div><strong>Email:</strong> {formData.universityEmail}</div>
-            <div><strong>Status:</strong> <span className="text-emerald-600 font-bold">Active</span></div>
+            {needsVerification ? (
+              <div>
+                <strong>Status:</strong> <span className="text-amber-600 font-bold">Awaiting email confirmation</span>
+                <p className="mt-1 text-slate-500">
+                  Nothing is pending from a person. The address check is the only step between you and the workspace.
+                </p>
+              </div>
+            ) : (
+              <div><strong>Status:</strong> <span className="text-emerald-600 font-bold">Active</span></div>
+            )}
             <ol className="pt-1 pl-4 list-decimal space-y-1 text-slate-500">
-              <li>Sign in now; the member workspace opens straight away.</li>
-              <li>An officer will place you in a committee. Placement is a roster change, not a condition of access.</li>
+              {needsVerification ? (
+                <li>Open the confirmation link in your inbox — check the spam folder if it is not there within a few minutes.</li>
+              ) : (
+                <li>Sign in now; the member workspace opens straight away.</li>
+              )}
+              <li>Later, an officer records which committee you sit on. Placement is a roster change, not a condition of access.</li>
             </ol>
           </div>
           <p className="mt-4 text-[11px] text-slate-400 inline-flex items-start gap-1.5 text-left">
@@ -239,17 +279,28 @@ export const RegistrationPortal: React.FC<RegistrationPortalProps> = ({
             change that afterwards.
           </p>
           <div className="mt-8 space-y-3">
+            {alreadySignedIn && (
+              <button
+                onClick={onEnterWorkspace}
+                className="w-full py-3 bg-emerald-600 text-white font-bold rounded-xl text-xs hover:bg-emerald-700 transition inline-flex items-center justify-center gap-2"
+              >
+                <LogIn className="w-4 h-4" aria-hidden />
+                Enter the workspace
+              </button>
+            )}
+            {!alreadySignedIn && (
+              <button
+                onClick={onNavigateToLogin}
+                className="w-full py-3 bg-[#123B60] text-white font-bold rounded-xl text-xs hover:bg-[#0A2239] transition"
+              >
+                {needsVerification ? 'I have confirmed — sign in' : 'Sign into Member Portal'}
+              </button>
+            )}
             <button
               onClick={onBackToHome}
-              className="w-full py-3 bg-[#123B60] text-white font-bold rounded-xl text-xs hover:bg-[#0A2239] transition"
-            >
-              Return to Official Website
-            </button>
-            <button
-              onClick={onNavigateToLogin}
               className="w-full py-2.5 text-xs text-[#123B60] font-semibold hover:underline"
             >
-              Sign into Member Portal
+              Return to Official Website
             </button>
           </div>
         </motion.div>

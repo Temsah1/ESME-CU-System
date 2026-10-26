@@ -858,6 +858,394 @@ end
 $p$;
 rollback;
 
+-- ---------------------------------------------------------------------------
+-- P47..P52  0019_status_grants_access.sql — directory status versus entry.
+--
+-- Why the numbering jumps. P24-P46 are the blocks 0012 through 0017 promise in their
+-- operator notes (P25-P29, P30-P34, P35-P38, P39-P42, P43-P46). Those migrations were
+-- written without the probes being appended to this file, so the numbers are reserved by
+-- them and are still to be authored — a gap in this repository, not in 0019. These five
+-- keep their promised numbers so the migration file points at rows that exist.
+--
+-- Each block builds its own account inside the transaction and rolls back. Nothing here
+-- touches the identities a real project holds.
+-- ---------------------------------------------------------------------------
+
+-- P47  A 'pending_approval' member is admitted, and admitted as a member.
+--      0019 changes *when a grant is honoured*, so this is the whole requirement in one
+--      probe: the entry rule true for the legacy status, the member's own grants live,
+--      and every privileged grant still closed. If any of the last four lines reports a
+--      capability, the matrix was widened rather than the gate moved — that is a
+--      privilege escalation, not a policy change.
+--      EXPECTED RESULT with 0019 applied: PASS, caps>0 and all four privileged reads false.
+begin;
+do $p$
+declare
+  v_uid uuid := gen_random_uuid();
+  v_caps text[];
+  v_entry boolean;
+  v_tasks boolean;
+  v_users boolean;
+  v_decide boolean;
+  v_audit boolean;
+begin
+  insert into auth.users (id, aud, role, email, encrypted_password, email_confirmed_at,
+                          raw_app_meta_data, raw_user_meta_data)
+  values (v_uid, 'authenticated', 'authenticated', 'probe-0019-pending@example.invalid',
+          '$2a$10$probeRowNotARealHashNotARealHashNotARealHashNotA1', now(),
+          jsonb_build_object('provider', 'email'),
+          jsonb_build_object('full_name', 'Probe Pending', 'username', 'probe_0019_p'));
+
+  -- The 0012 trigger has already made this account active, which is the normal case and not
+  -- the one under test. active -> pending_approval is not a transition any status trigger
+  -- allows — it must not be, or a reviewer could demote a member into a queue — so the legacy
+  -- row is written directly as the database owner, the way a project migrated before 0012
+  -- would already hold it.
+  delete from esme_profiles where id = v_uid;
+  insert into esme_profiles (id, email, username, display_name, role, status, email_verified)
+  values (v_uid, 'probe-0019-pending@example.invalid', 'probe_0019_p', 'Probe Pending',
+          'member', 'pending_approval', true);
+
+  execute 'set local role authenticated';
+  perform set_config('request.jwt.claims',
+    json_build_object('sub', v_uid, 'role', 'authenticated')::text, true);
+
+  select esme_status_grants_access(status), esme_has_capability('tasks.read'),
+         esme_has_capability('users.read'), esme_has_capability('registrations.decide'),
+         esme_has_capability('audit.read')
+    into v_entry, v_tasks, v_users, v_decide, v_audit
+  from esme_profiles where id = v_uid;
+
+  select capabilities into v_caps from esme_identity(v_uid);
+
+  if not v_entry then
+    raise notice 'P47 FAIL: esme_status_grants_access(pending_approval) is false — 0019 not applied';
+  elsif not v_tasks then
+    raise notice 'P47 FAIL: an admitted member cannot reach tasks.read, so it enters an empty workspace';
+  elsif v_users or v_decide or v_audit then
+    raise notice 'P47 FAIL: the pending status carried a privileged grant (users %/decide %/audit %)',
+      v_users, v_decide, v_audit;
+  elsif coalesce(array_length(v_caps, 1), 0) = 0 then
+    raise notice 'P47 FAIL: esme_identity() still answers an empty capability array for this status';
+  else
+    raise notice 'P47 PASS: admitted as a member with % capability(s) and no privileged grant',
+      array_length(v_caps, 1);
+  end if;
+
+  execute 'reset role';
+  delete from auth.users where id = v_uid;
+exception when insufficient_privilege then
+  raise notice 'P47 SKIP: this session may not write auth.users (%) — run it as the database owner', sqlerrm;
+when others then
+  raise notice 'P47 FAIL: unexpected code %: %', sqlstate, sqlerrm;
+end
+$p$;
+rollback;
+
+-- P48  Being admitted is not being entrusted. The same pending member attempts two officer
+--      decisions. 0019 leaves esme_decide_registration (0007:159) and esme_assign_leader
+--      (0004:264) demanding an active actor, so a never-reviewed account can read its own
+--      tasks but cannot place anybody, change a status, or grant a role. Both refusals must
+--      be ESME_UNAUTHORIZED from the actor check — a different SQL error means the call
+--      travelled past the gate and failed on the data, which is the wrong reason.
+--      EXPECTED RESULT: PASS, both reporting ESME_UNAUTHORIZED.
+begin;
+do $p$
+declare
+  v_uid uuid := gen_random_uuid();
+  v_leader text;
+  v_decide text;
+begin
+  insert into auth.users (id, aud, role, email, encrypted_password, email_confirmed_at,
+                          raw_app_meta_data, raw_user_meta_data)
+  values (v_uid, 'authenticated', 'authenticated', 'probe-0019-officer@example.invalid',
+          '$2a$10$probeRowNotARealHashNotARealHashNotARealHashNotA1', now(),
+          jsonb_build_object('provider', 'email'),
+          jsonb_build_object('full_name', 'Probe Officer', 'username', 'probe_0019_o'));
+  delete from esme_profiles where id = v_uid;
+  -- A moderator at pending_approval: the matrix grants registrations.decide, so only the
+  -- actor's own status check can be what refuses. This is the case the residual covers.
+  insert into esme_profiles (id, email, username, display_name, role, status, email_verified)
+  values (v_uid, 'probe-0019-officer@example.invalid', 'probe_0019_o', 'Probe Officer',
+          'moderator', 'pending_approval', true);
+
+  execute 'set local role authenticated';
+  perform set_config('request.jwt.claims',
+    json_build_object('sub', v_uid, 'role', 'authenticated')::text, true);
+
+  begin
+    perform esme_decide_registration(gen_random_uuid(), 'approve', null, null);
+    v_decide := 'ACCEPTED';
+  exception when raise_exception then v_decide := sqlerrm;
+  end;
+
+  begin
+    perform esme_assign_leader('comm_te', 'head', v_uid);
+    v_leader := 'ACCEPTED';
+  exception when raise_exception then v_leader := sqlerrm;
+  end;
+
+  execute 'reset role';
+  delete from auth.users where id = v_uid;
+
+  if v_decide = 'ACCEPTED' or v_leader = 'ACCEPTED' then
+    raise notice 'P48 FAIL: an unreviewed account performed an officer action';
+  elsif v_decide not like '%ESME_UNAUTHORIZED%' or v_leader not like '%ESME_UNAUTHORIZED%' then
+    raise notice 'P48 FAIL: refused for the wrong reason — decide said %, leader said %', v_decide, v_leader;
+  else
+    raise notice 'P48 PASS: both officer paths still require an active actor';
+  end if;
+exception when insufficient_privilege then
+  raise notice 'P48 SKIP: this session may not write auth.users (%) — run it as the database owner', sqlerrm;
+when others then
+  raise notice 'P48 FAIL: unexpected code %: %', sqlstate, sqlerrm;
+end
+$p$;
+rollback;
+
+-- P49  The two sanctions still mean what they say. A 'rejected' and a 'suspended' row must
+--      answer false from the entry helper, return no capabilities from esme_identity(), and
+--      be refused by a capability-scoped read. If either sanction opens, 0019 has replaced an
+--      approval gate with no gate at all.
+--      EXPECTED RESULT: PASS, both sanctions closed on all three checks.
+begin;
+do $p$
+declare
+  v_uid uuid := gen_random_uuid();
+  v_rejected_entry boolean;
+  v_suspended_entry boolean;
+  v_rejected_caps text[];
+  v_suspended_caps text[];
+  v_rejected_read boolean;
+  v_suspended_read boolean;
+begin
+  insert into auth.users (id, aud, role, email, encrypted_password, email_confirmed_at,
+                          raw_app_meta_data, raw_user_meta_data)
+  values (v_uid, 'authenticated', 'authenticated', 'probe-0019-sanction@example.invalid',
+          '$2a$10$probeRowNotARealHashNotARealHashNotARealHashNotA1', now(),
+          jsonb_build_object('provider', 'email'),
+          jsonb_build_object('full_name', 'Probe Sanction', 'username', 'probe_0019_s'));
+
+  -- rejected
+  delete from esme_profiles where id = v_uid;
+  insert into esme_profiles (id, email, username, display_name, role, status, email_verified)
+  values (v_uid, 'probe-0019-sanction@example.invalid', 'probe_0019_s', 'Probe Sanction',
+          'member', 'rejected', true);
+  execute 'set local role authenticated';
+  perform set_config('request.jwt.claims',
+    json_build_object('sub', v_uid, 'role', 'authenticated')::text, true);
+  select esme_status_grants_access(status), esme_has_capability('tasks.read')
+    into v_rejected_entry, v_rejected_read
+  from esme_profiles where id = v_uid;
+  select capabilities into v_rejected_caps from esme_identity(v_uid);
+  execute 'reset role';
+
+  -- suspended
+  delete from esme_profiles where id = v_uid;
+  insert into esme_profiles (id, email, username, display_name, role, status, email_verified)
+  values (v_uid, 'probe-0019-sanction@example.invalid', 'probe_0019_s2', 'Probe Sanction',
+          'member', 'suspended', true);
+  execute 'set local role authenticated';
+  perform set_config('request.jwt.claims',
+    json_build_object('sub', v_uid, 'role', 'authenticated')::text, true);
+  select esme_status_grants_access(status), esme_has_capability('tasks.read')
+    into v_suspended_entry, v_suspended_read
+  from esme_profiles where id = v_uid;
+  select capabilities into v_suspended_caps from esme_identity(v_uid);
+  execute 'reset role';
+
+  delete from auth.users where id = v_uid;
+
+  if v_rejected_entry or v_suspended_entry then
+    raise notice 'P49 FAIL: the entry helper admitted a sanction (rejected %, suspended %)',
+      v_rejected_entry, v_suspended_entry;
+  elsif coalesce(array_length(v_rejected_caps, 1), 0) > 0 or coalesce(array_length(v_suspended_caps, 1), 0) > 0 then
+    raise notice 'P49 FAIL: esme_identity() granted capabilities to a sanctioned account';
+  elsif v_rejected_read or v_suspended_read then
+    raise notice 'P49 FAIL: a sanction still reached a capability-scoped read';
+  else
+    raise notice 'P49 PASS: rejected and suspended are refused on the helper, the identity and RLS';
+  end if;
+exception when insufficient_privilege then
+  raise notice 'P49 SKIP: this session may not write auth.users (%) — run it as the database owner', sqlerrm;
+when others then
+  raise notice 'P49 FAIL: unexpected code %: %', sqlstate, sqlerrm;
+end
+$p$;
+rollback;
+
+-- P50  esme_ensure_own_profile() has no argument to forge and no session to borrow.
+--      Anonymous gets ESME_NO_SESSION rather than a row; a session whose profile already
+--      exists is answered true and changes nothing at all — same updated_at, no second audit
+--      line. That second half is what makes the client safe to call it on every retry.
+--      EXPECTED RESULT: PASS with both halves green.
+begin;
+do $p$
+declare
+  v_before timestamptz;
+  v_after timestamptz;
+  v_audit integer;
+  v_result boolean;
+  v_anon text;
+begin
+  execute 'set local role authenticated';
+  perform set_config('request.jwt.claims', '{"role":"anon"}'::text, true);
+  begin
+    perform esme_ensure_own_profile();
+    v_anon := 'ACCEPTED';
+  exception when raise_exception then v_anon := sqlerrm;
+  end;
+  execute 'reset role';
+
+  if v_anon = 'ACCEPTED' or v_anon not like '%ESME_NO_SESSION%' then
+    raise notice 'P50 FAIL: a call with no auth.uid() answered %', v_anon;
+    return;
+  end if;
+
+  if not exists (select 1 from esme_profiles where id = :'member_id'::uuid) then
+    raise notice 'P50 SKIP: :member_id has no profile row to recover';
+    return;
+  end if;
+
+  select updated_at into v_before from esme_profiles where id = :'member_id'::uuid;
+  select count(*) into v_audit from esme_audit_log where action = 'PROFILE_RECOVERED';
+
+  execute 'set local role authenticated';
+  perform set_config('request.jwt.claims',
+    json_build_object('sub', :'member_id', 'role', 'authenticated')::text, true);
+  v_result := esme_ensure_own_profile();
+  execute 'reset role';
+
+  select updated_at into v_after from esme_profiles where id = :'member_id'::uuid;
+
+  if not v_result then
+    raise notice 'P50 FAIL: an existing profile was reported as not recovered';
+  elsif v_before is distinct from v_after then
+    raise notice 'P50 FAIL: recovery overwrote a row that already existed (updated_at moved)';
+  else
+    select count(*) into v_audit from esme_audit_log where action = 'PROFILE_RECOVERED';
+    raise notice 'P50 PASS: no session refused, existing profile untouched (% audit rows total)', v_audit;
+  end if;
+exception when others then
+  raise notice 'P50 FAIL: unexpected code %: %', sqlstate, sqlerrm;
+end
+$p$;
+rollback;
+
+-- P51  The recovery writes the row signup should have written, and nothing more: role
+--      'member' as a constant, status 'active', committee_id NULL, and the caller's own id —
+--      never another account's. The username branch matters because esme_profiles_username_fmt
+--      and the UNIQUE column are exactly what made the signup trigger abort in the first
+--      place; a recovery that raises is the same defect wearing a different hat.
+--      EXPECTED RESULT: PASS, with the handle reported as whatever the dedupe settled on.
+begin;
+do $p$
+declare
+  v_uid uuid := gen_random_uuid();
+  v_row record;
+begin
+  insert into auth.users (id, aud, role, email, encrypted_password,
+                          raw_app_meta_data, raw_user_meta_data)
+  values (v_uid, 'authenticated', 'authenticated', 'probe-0019-recovery@example.invalid',
+          '$2a$10$probeRowNotARealHashNotARealHashNotARealHashNotA1',
+          jsonb_build_object('provider', 'email'),
+          jsonb_build_object('full_name', 'Probe Recovered', 'username', 'Bad Name'));
+
+  -- A handle with a space and an empty display name: both would have aborted 0011's trigger.
+  delete from esme_profiles where id = v_uid;
+
+  execute 'set local role authenticated';
+  perform set_config('request.jwt.claims',
+    json_build_object('sub', v_uid, 'role', 'authenticated')::text, true);
+  perform esme_ensure_own_profile();
+  -- Called twice: the client retries when a read fails, so the second call must be a no-op.
+  perform esme_ensure_own_profile();
+  execute 'reset role';
+
+  select * into v_row from esme_profiles where id = v_uid;
+
+  if v_row.id is null then
+    raise notice 'P51 FAIL: recovery created no profile for a session with no profile';
+  elsif v_row.role <> 'member' then
+    raise notice 'P51 FAIL: recovery wrote role % — the caller cannot name a role', v_row.role;
+  elsif v_row.status <> 'active' then
+    raise notice 'P51 FAIL: recovery wrote status %', v_row.status;
+  elsif v_row.committee_id is not null then
+    raise notice 'P51 FAIL: recovery recorded a committee nobody decided';
+  elsif v_row.username !~ '^[a-zA-Z0-9][a-zA-Z0-9._-]{2,29}$' then
+    raise notice 'P51 FAIL: recovered handle % breaks esme_profiles_username_fmt', v_row.username;
+  elsif (select count(*) from esme_profiles where id = v_uid) <> 1 then
+    raise notice 'P51 FAIL: the second call created a second row';
+  elsif (select count(*) from esme_audit_log where action = 'PROFILE_RECOVERED' and target_id = v_uid::text) <> 1 then
+    raise notice 'P51 FAIL: a retried recovery filed more than one audit line';
+  else
+    raise notice 'P51 PASS: member/active/no committee, handle %, one row, one audit line', v_row.username;
+  end if;
+
+  delete from auth.users where id = v_uid;
+exception when insufficient_privilege then
+  raise notice 'P51 SKIP: this session may not write auth.users (%) — run it as the database owner', sqlerrm;
+when others then
+  raise notice 'P51 FAIL: unexpected code %: %', sqlstate, sqlerrm;
+end
+$p$;
+rollback;
+
+-- P52  Recovery is not a second door into the table. A direct REST insert into esme_profiles
+--      must still be refused — the table has no INSERT policy, which is what 0009 and 0012 both
+--      rely on — and one account calling the definer function must create only its own row.
+--      EXPECTED RESULT: PASS, direct insert refused and no foreign row created.
+begin;
+do $p$
+declare
+  v_uid uuid := gen_random_uuid();
+  v_direct text;
+  v_foreign integer;
+begin
+  insert into auth.users (id, aud, role, email, encrypted_password,
+                          raw_app_meta_data, raw_user_meta_data)
+  values (v_uid, 'authenticated', 'authenticated', 'probe-0019-channel@example.invalid',
+          '$2a$10$probeRowNotARealHashNotARealHashNotARealHashNotA1',
+          jsonb_build_object('provider', 'email'),
+          jsonb_build_object('full_name', 'Probe Channel', 'username', 'probe_0019_c'));
+  delete from esme_profiles where id = v_uid;
+
+  execute 'set local role authenticated';
+  perform set_config('request.jwt.claims',
+    json_build_object('sub', v_uid, 'role', 'authenticated')::text, true);
+
+  begin
+    insert into esme_profiles (id, email, username, display_name, role, status)
+    values (:'alien_id'::uuid, 'probe-0019-forger@example.invalid', 'probe_0019_forger',
+            'Probe Forger', 'super_admin', 'active');
+    v_direct := 'ACCEPTED';
+  exception when others then
+    -- RLS answers 42501 (no INSERT policy), the 0009 channel guard answers a raised exception;
+    -- either refusal is a pass, only an accepted write is not.
+    v_direct := 'REFUSED: ' || sqlerrm;
+  end;
+
+  perform esme_ensure_own_profile();
+  execute 'reset role';
+
+  select count(*) into v_foreign from esme_profiles
+   where id = :'alien_id'::uuid or username = 'probe_0019_forger';
+
+  delete from auth.users where id = v_uid;
+
+  if v_direct = 'ACCEPTED' then
+    raise notice 'P52 FAIL: a direct insert into esme_profiles was accepted from authenticated';
+  elsif v_foreign > 0 then
+    raise notice 'P52 FAIL: an account created or left a row that is not its own';
+  else
+    raise notice 'P52 PASS: direct write refused (%), recovery wrote only its own row', v_direct;
+  end if;
+exception when others then
+  raise notice 'P52 FAIL: unexpected code %: %', sqlstate, sqlerrm;
+end
+$p$;
+rollback;
+
 -- What this file cannot prove.
 --   These probes exercise the database layer only. The PostgREST surface is a different one: a
 --   function revoked from anon answers 401/404, a missing function answers PGRST202, and a raised

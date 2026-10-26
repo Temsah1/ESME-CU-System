@@ -66,8 +66,8 @@ export const EMAIL_EVENTS: EmailEvent[] = [
 ];
 
 export const EMAIL_EVENT_LABELS: Record<EmailEvent, string> = {
-  account_created: 'Application received',
-  account_approved: 'Account approved',
+  account_created: 'Account created',
+  account_approved: 'Committee placement recorded',
   account_rejected: 'Application rejected',
   login_security_alert: 'New sign-in',
   task_assigned: 'Task assigned',
@@ -129,24 +129,35 @@ function copyFor(p: EmailPayload, ar: boolean): Copy {
   switch (p.event) {
     case 'account_created':
       return {
-        subject: ar ? 'تم استلام طلبك — في انتظار الموافقة' : 'Application received — pending approval',
-        preheader: ar ? 'لن تحصل على صلاحية قبل مراجعة طلبك.' : 'No access is granted before your request is reviewed.',
+        subject: ar ? 'تم إنشاء حسابك — يمكنك تسجيل الدخول الآن' : 'Account created — you can sign in now',
+        preheader: ar
+          ? 'لا ينتظر حسابك موافقة أحد: لوحة الأعضاء مفتوحة لك.'
+          : 'Nothing inside the chapter has to approve you before you sign in.',
         greeting: ar ? `أهلاً ${p.fullName}،` : `Hello ${p.fullName},`,
         lines: [
-          ar ? `تم استلام طلب انضمامك إلى شعبة طلاب كلية الهندسة جامعة القاهرة برقم مرجعي ${p.reference}.` : `Your request to join the ESME CU student chapter is recorded under reference ${p.reference}.`,
           ar
-            ? 'سيقوم المشرف أو مسؤول النظام بمراجعة طلبك والموافقة عليه أو رفضه. لن يتم منحك أي صلاحية قبل هذه الخطوة.'
-            : 'A moderator or the administrator will review the request and either approve or reject it. No access is granted before that step.',
+            ? `تم استلام طلب انضمامك إلى شعبة طلاب كلية الهندسة جامعة القاهرة برقم مرجعي ${p.reference}.`
+            : `Your request to join the ESME CU student chapter is recorded under reference ${p.reference}.`,
+          ar
+            ? 'سجّل دخولك بالبريد الإلكتروني وكلمة المرور اللذين اخترتهما؛ فلوحة الأعضاء تُفتح لك مباشرة. لا يحتاج حسابك إلى موافقة أي شخص داخل الشعبة قبل ذلك.'
+            : 'Sign in with the email and password you chose — the member workspace opens straight away. Nobody inside the chapter has to approve your account first.',
+          ar
+            ? 'سيسجّل أحد الأعضاء المسؤولين لاحقًا في أي لجنة ستعمل. هذا تعديل في السجل، وليس شرطًا للحصول على الدخول.'
+            : 'Later, an officer records which committee you join. That placement is a roster change, not a condition of access.',
           ...(p.reviewNote ? [p.reviewNote] : []),
         ],
       };
     case 'account_approved':
       return {
-        subject: ar ? 'تمت الموافقة على حسابك — يمكنك تسجيل الدخول الآن' : 'Approved — you can sign in now',
-        preheader: ar ? 'افتح لوحة الأعضاء ببياناتك.' : 'Your member workspace is ready.',
+        subject: ar ? 'تم تسجيل لجنتك — بيانات حسابك محدّثة' : 'Your committee placement is recorded',
+        preheader: ar
+          ? 'كان دخولك متاحًا منذ إنشاء الحساب؛ هذه الرسالة تسجّل عضويتك فقط.'
+          : 'Your access never depended on this message — it records your committee.',
         greeting: ar ? `مبروك ${p.fullName}،` : `Welcome aboard, ${p.fullName},`,
         lines: [
-          ar ? 'تمت الموافقة على حسابك، ويمكنك الآن تسجيل الدخول إلى لوحة الأعضاء.' : 'Your account has been approved and you can now sign in to the member workspace.',
+          ar
+            ? 'تم تسجيل عضويتك في الشعبة، ويمكنك تسجيل الدخول إلى لوحة الأعضاء في أي وقت.'
+            : 'Your placement in the chapter is recorded, and you can sign in to the member workspace at any time.',
           ...(p.committeeName ? [ar ? `لجنتك: ${p.committeeName}.` : `Your committee: ${p.committeeName}.`] : []),
         ],
         cta: ar ? 'تسجيل الدخول' : 'Sign in',

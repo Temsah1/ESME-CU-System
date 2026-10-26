@@ -1,8 +1,8 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
-import { canAccessErp } from '../domain/accountState';
+import { canAccessErp, describeLoginOutcome } from '../domain/accountState';
 import { hasCapability, type Capability, type Role } from '../domain/roles';
 import { resolveAdapter } from './index';
-import { AccessRevokedError, AuthNotConfiguredError } from './errors';
+import { AccessRevokedError, AuthNotConfiguredError, ProfileResolutionError } from './errors';
 import type { AuthAdapter, AuthIdentity, AuthSession, RegistrationDraft, RegistrationOutcome } from './types';
 
 export type AuthStatus = 'checking' | 'signed_out' | 'signed_in' | 'unavailable';
@@ -46,6 +46,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [needsBootstrap, setNeedsBootstrap] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const generation = useRef(0);
+  // Read-only mirror of `session`, so a retryable profile failure can be answered without the
+  // current session becoming a dependency of `probe` — re-creating probe would re-subscribe to the
+  // provider on every sign-in.
+  const sessionRef = useRef<AuthSession | null>(null);
+  const applySession = useCallback((next: AuthSession | null) => {
+    sessionRef.current = next;
+    setSession(next);
+  }, []);
 
   const probe = useCallback(async () => {
     if (!adapter) return;
@@ -53,14 +61,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       const restored = await adapter.restore();
       if (attempt !== generation.current) return;
-      setSession(restored);
+      applySession(restored);
       setStatus(restored ? 'signed_in' : 'signed_out');
     } catch (error) {
       if (attempt !== generation.current) return;
-      setSession(null);
+      if (worthRidingOut(error, sessionRef.current !== null)) {
+        setNotice(error.message);
+        return;
+      }
+      applySession(null);
       setStatus('signed_out');
       if (error instanceof AccessRevokedError) {
-        setNotice('Your access was revoked by an administrator. Please sign in again.');
+        setNotice(statusMessageFor(error.status));
+      } else if (error instanceof ProfileResolutionError) {
+        // The provider session is real and still held. Saying "your session expired" here would
+        // send the reader to retype a password that already worked.
+        setNotice(error.message);
       } else if (error instanceof AuthNotConfiguredError) {
         setStatus('unavailable');
         setConfigurationError(error.message);
@@ -70,23 +86,40 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
     if (attempt !== generation.current) return;
     setNeedsBootstrap(await adapter.requiresPrimaryAdminBootstrap());
-  }, [adapter]);
+  }, [adapter, applySession]);
 
   useEffect(() => {
     if (!adapter) return;
     void probe();
-    return adapter.subscribe((next) => {
-      setSession(next);
-      setStatus(next && canAccessErp(next.identity.status) ? 'signed_in' : 'signed_out');
+    return adapter.subscribe((next, problem) => {
+      // Defence in depth: an adapter that reports a sanctioned account is not allowed to leave it
+      // signed in, even though every adapter already refuses to emit one.
+      const granted = next && canAccessErp(next.identity.status) ? next : null;
+      if (granted) {
+        applySession(granted);
+        setNotice(null);
+        setStatus('signed_in');
+        return;
+      }
+      if (worthRidingOut(problem, sessionRef.current !== null)) {
+        // A refresh that could not read the profile leaves the last good identity in place and says
+        // so. This is the path that used to look like the session had expired.
+        setNotice(problem.message);
+        return;
+      }
+      applySession(null);
+      setStatus('signed_out');
+      // A profile read that failed is reported as what it was, not as a logout the user caused.
+      if (problem instanceof ProfileResolutionError) setNotice(problem.message);
     });
-  }, [adapter, probe]);
+  }, [adapter, probe, applySession]);
 
   const signIn = useCallback<AuthActions['signIn']>(
     async (identifier, password) => {
       if (!adapter) return { ok: false, message: configurationError ?? 'Authentication is unavailable.' };
       try {
         const next = await adapter.signIn(identifier, password);
-        setSession(next);
+        applySession(next);
         setStatus('signed_in');
         setNeedsBootstrap(false);
         return { ok: true, message: '' };
@@ -98,15 +131,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return { ok: false, message: error instanceof Error ? error.message : 'Sign-in failed.' };
       }
     },
-    [adapter, configurationError, probe]
+    [adapter, applySession, configurationError, probe]
   );
 
   const signOut = useCallback(async () => {
     if (!adapter) return;
     await adapter.signOut();
-    setSession(null);
+    applySession(null);
     setStatus('signed_out');
-  }, [adapter]);
+  }, [adapter, applySession]);
 
   const register = useCallback<AuthActions['register']>(
     async (draft) => {
@@ -153,17 +186,28 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
 
+/**
+ * Whether a failed profile read may be ridden out.
+ *
+ * The provider still holds a session that a valid credential opened, so a database that is
+ * unreachable, refusing a read, or not migrated yet is a reason to warn — not a reason to throw
+ * away a workspace somebody is already standing in. Two conditions make the difference: the read
+ * has to be one a retry could fix, and there has to be a good identity to keep. A missing profile
+ * after recovery was tried has neither, and correctly closes the session.
+ */
+function worthRidingOut(problem: unknown, hasSession: boolean): problem is ProfileResolutionError {
+  return problem instanceof ProfileResolutionError && problem.retryable && hasSession;
+}
+
+/**
+ * Only the two sanctions close a session, and their wording comes from the same place the guard
+ * reads it. There is no "waiting for approval" answer any more: an account that proved its
+ * credential is signed in, and a placement nobody has recorded yet says so in the workspace.
+ */
 function statusMessageFor(status: string): string {
-  switch (status) {
-    case 'pending_approval':
-      return 'Your request is waiting for administrator approval. You will be notified once a decision is made.';
-    case 'rejected':
-      return 'This registration request was not approved.';
-    case 'suspended':
-      return 'This account is suspended. Access to the platform has been revoked.';
-    default:
-      return 'Access denied.';
-  }
+  return status === 'rejected' || status === 'suspended'
+    ? describeLoginOutcome(status).message
+    : 'Your session could not be opened. Sign in again.';
 }
 
 export function useAuth(): AuthState & AuthActions {

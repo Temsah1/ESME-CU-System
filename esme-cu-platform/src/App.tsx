@@ -74,6 +74,7 @@ const MainAppContent: React.FC = () => {
           <RegistrationPortal
             onBackToHome={() => setMode('website')}
             onNavigateToLogin={() => setMode('login')}
+            onEnterWorkspace={() => setMode('dashboard')}
           />
         );
       case 'login':
@@ -103,7 +104,10 @@ const MainAppContent: React.FC = () => {
       default:
         return (
           <PublicWebsite
-            onNavigateToDashboard={() => setMode('login')}
+            // A session that was restored on this visit makes the sign-in form a detour, not a
+            // doorway: someone already inside the chapter is taken in rather than asked to prove it
+            // again. The dashboard branch still re-checks the session through RequireAuth.
+            onNavigateToDashboard={() => setMode(status === 'signed_in' ? 'dashboard' : 'login')}
             onNavigateToJoin={() => setMode('join')}
           />
         );

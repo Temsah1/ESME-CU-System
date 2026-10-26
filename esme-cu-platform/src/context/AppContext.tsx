@@ -915,15 +915,31 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (username && users.some((u) => u.username.trim().toLowerCase() === username)) {
       throw new Error(`An account already uses the username “${userData.username}”. Assign that account instead of creating a second one.`);
     }
-    // A row the provider cannot hold would be a directory entry that vanishes on the next sync
-    // and an account nobody can activate. Refuse it here instead of showing it briefly.
+    // Why this exists: `esme_profiles.id` is declared
+    // `uuid primary key references auth.users (id) on delete cascade`, so a chapter profile can only
+    // ever be a row whose id is an auth uid that already exists. Inserting one with an anonymous key
+    // is refused by that foreign key, and creating the auth user first is not a browser call —
+    // `POST /auth/admin/users` needs a service-role key, which must never reach this bundle.
+    // This build ships no server endpoint, so there is genuinely nowhere to put the row. Saying that
+    // is the fix for "the profile could not be stored": the message used to be a guess, and the two
+    // real remedies are named below.
     if (auth.adapter && !auth.adapter.provisionAccount) {
-      throw new Error('This provider has no way to store a provisioned profile in this build, so no account was created.');
+      throw new Error(
+        'Provisioning needs an auth identity before the chapter profile can exist, and this build has no way to ' +
+          'create one from a browser: esme_profiles.id is a foreign key to auth.users(id), and the Supabase Admin API ' +
+          'that would satisfy it only accepts a service-role key, which never ships in frontend code. ' +
+          'Use either path: (a) have this person register themselves at /join — the profile is created by the signup ' +
+          'trigger and an invitation is not required; or (b) give the deployment a server endpoint that calls ' +
+          'admin.createUser() with the service-role key, then wire it as an adapter.provisionAccount().'
+      );
     }
     const newUser: User = {
       ...userData,
       id: `usr_${Date.now()}`,
-      // A provisioned account still starts unapproved; activation is an explicit decision.
+      // Provisioned means "a profile exists for someone who has not signed up yet". The status is a
+      // placement marker for the directory, not a permission: what keeps this account out of the
+      // workspace is that it has no credential, and it enters on its own first sign-in with no
+      // decision from anybody inside the chapter.
       status: 'pending_approval',
       totalPoints: 0,
       approvedTasksCount: 0,

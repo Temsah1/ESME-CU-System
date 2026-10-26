@@ -56,6 +56,13 @@ export type RegistrationDraft = {
 export type RegistrationReceipt = {
   reference: string;
   status: AccountStatus;
+  /**
+   * True when the provider created the account but will not issue a session until the address is
+   * confirmed. "Confirm email" is a project setting, so the screen cannot know it any other way
+   * than by what the sign-up call actually returned — claiming the workspace is open while no
+   * session exists is the failure this flag exists to prevent.
+   */
+  emailVerificationRequired?: boolean;
 };
 
 /** Field-keyed so a rejected request cannot be used to probe which accounts exist. */
@@ -200,7 +207,13 @@ export interface AuthAdapter {
   readonly warningBanner: string;
 
   restore(): Promise<AuthSession | null>;
-  subscribe(listener: (session: AuthSession | null) => void): () => void;
+  /**
+   * Fires for every provider auth event. A `null` session means "nobody is signed in", and the
+   * optional `problem` says why when the reason is not a plain sign-out: a profile the database
+   * refused to read, or a database that was not reachable, must reach the screen as itself instead
+   * of as an expired session the reader has to retype a password for.
+   */
+  subscribe(listener: (session: AuthSession | null, problem?: Error) => void): () => void;
 
   /**
    * Tell the provider a session opened, so it can decide whether the member gets a sign-in

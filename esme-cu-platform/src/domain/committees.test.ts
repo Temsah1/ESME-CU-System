@@ -152,7 +152,7 @@ describe('leadership assignment', () => {
   });
 
   it.each([
-    ['u_pending', 'pending approval'],
+    ['u_pending', 'pending placement'],
     ['u_suspended', 'suspended'],
   ])('refuses the ineligible account %s (%s)', (userId, label) => {
     const verdict = assign({ committeeId: 'comm_te', position: 'head', userId, actor: SUPER });

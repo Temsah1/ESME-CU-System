@@ -32,7 +32,8 @@ export const AuthPendingScreen: React.FC<Props> = ({ reason, onBackToHome }) => 
               </li>
               <li>
                 Apply the migrations in <code className="font-mono">supabase/migrations</code> in order — they define
-                the roles, account states, approval workflow and row-level security policies.
+                the roles, account states, the self-registration and committee-placement queue, and the row-level
+                security policies.
               </li>
               <li>
                 Arm the one-time administrator window from the database console with{" "}

@@ -10,9 +10,10 @@ import type { AuthAdapter, RegistrationDraft } from './types';
 
 /**
  * These suites exercise the *rules* the auth layer must enforce: nothing is privileged at
- * registration, a submitted request is reviewable at once with no click in between, only an
- * approved account opens the ERP, the queue refuses a burst of submissions, and every admin
- * action re-reads the caller's capability.
+ * registration, a submitted request is reviewable at once with no click in between, a registrant
+ * opens the member workspace without anybody inside the chapter approving them (only a sanction —
+ * `rejected` or `suspended` — keeps an account out), the queue refuses a burst of submissions, and
+ * every admin action re-reads the caller's capability.
  *
  * They run against the local development adapter, which simulates those rules in browser
  * storage. It is the only adapter reachable without provider credentials, so passing here
@@ -387,7 +388,7 @@ describe('account status gates access', () => {
     expect(await adapter.decideRegistration(admin.identity.id, 'reject', { reason: 'no' })).toEqual({ ok: false, error: { code: 'protected', message: expect.any(String) } });
 
     await adapter.signOut();
-    await expect(adapter.setAccountStatus(admin.identity.id, 'suspended')).rejects.toBeInstanceOf(AccessRevokedError);
+    await expect(adapter.setAccountStatus(admin.identity.id, 'suspended')).rejects.toBeInstanceOf(AuthFailedError);
   });
 });
 
@@ -421,8 +422,10 @@ describe('capability enforcement inside the adapter', () => {
     await bootstrapSuperAdmin();
     await adapter.signOut();
     expect(await adapter.restore()).toBeNull();
-    await expect(adapter.listRegistrations()).rejects.toBeInstanceOf(AccessRevokedError);
-    await expect(adapter.decideRegistration('whatever', 'approve')).rejects.toBeInstanceOf(AccessRevokedError);
+    // An absent session is a credential problem, not a revocation: `AccessRevokedError` now means the
+    // database put this account under a sanction, which is a different thing to tell an operator.
+    await expect(adapter.listRegistrations()).rejects.toBeInstanceOf(AuthFailedError);
+    await expect(adapter.decideRegistration('whatever', 'approve')).rejects.toBeInstanceOf(AuthFailedError);
   });
 
   it('never accepts a hand-made session key that outlives the token window', async () => {
