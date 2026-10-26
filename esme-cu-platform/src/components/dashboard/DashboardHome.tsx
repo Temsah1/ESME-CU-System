@@ -202,14 +202,14 @@ const StatGrid: React.FC<{ stats: Stat[]; onNavigate: (view: DashboardView) => v
 
 /** Leadership whose read scope reaches a whole committee — Directors and Team Heads. */
 const CommitteeHome: React.FC<{ actor: User; onNavigate: (view: DashboardView) => void }> = ({ actor, onNavigate }) => {
-  const { committees, users, tasks, submissions, scoreLedger, rewardEntries, applications, actionQueue, can } = useApp();
+  const { committees, users, tasks, submissions, scoreLedger, rewardEntries, actionQueue, can } = useApp();
   const clock = useOpenClock();
   const queue = useMemo(() => actionQueue().slice(0, 6), [actionQueue]);
   const committee = committees.find((c) => c.id === actor.committeeId);
   const roster = useMemo(() => (committee ? rosterOf(committee.id, users) : []), [committee, users]);
   const rosterIds = useMemo(() => new Set(roster.map((m) => m.id)), [roster]);
 
-  const committeeTasks = tasks.filter((t) => t.committeeId === committee?.id);
+  const committeeTasks = tasks.filter((t) => t.committeeId === committee?.id && !t.archivedAt);
   const openTasks = committeeTasks.filter((t) => t.status === 'assigned' || t.status === 'in_progress');
   const lateTasks = committeeTasks.filter(
     (t) => t.status === 'overdue' || (t.status !== 'approved' && Date.parse(t.deadline) < clock.ms)
@@ -222,12 +222,8 @@ const CommitteeHome: React.FC<{ actor: User; onNavigate: (view: DashboardView) =
   const openWarnings = rewardEntries.filter(
     (e) => e.committeeId === committee?.id && e.kind === 'warning' && e.status === 'active'
   );
-  const incoming = applications.filter(
-    (a) => a.status === 'pending' && (a.preferredCommitteeId === committee?.id || a.secondCommitteePreferenceId === committee?.id)
-  );
 
   const mayReadRewards = can('rewards.read', { committeeId: actor.committeeId });
-  const mayReadApplications = can('registrations.read', { committeeId: actor.committeeId });
   const mayReadScores = can('scores.read', { committeeId: actor.committeeId });
 
   const stats: Stat[] = [
@@ -285,16 +281,6 @@ const CommitteeHome: React.FC<{ actor: User; onNavigate: (view: DashboardView) =
       tone: 'bg-rose-500/10 text-rose-600',
     });
   }
-  if (mayReadApplications) {
-    stats.push({
-      label: 'Applications naming this committee',
-      value: committee ? incoming.length : null,
-      hint: `${applications.length} recruitment entry(ies) in the queue`,
-      icon: Inbox,
-      view: 'applications',
-      tone: 'bg-emerald-500/10 text-emerald-600',
-    });
-  }
 
   return (
     <div className="space-y-6">
@@ -347,7 +333,7 @@ const MemberHome: React.FC<{ actor: User; onNavigate: (view: DashboardView) => v
   const clock = useOpenClock();
   const committee = committees.find((c) => c.id === actor.committeeId);
 
-  const myTasks = tasks.filter((t) => t.assigneeIds.includes(actor.id));
+  const myTasks = tasks.filter((t) => t.assigneeIds.includes(actor.id) && !t.archivedAt);
   const openMyTasks = myTasks.filter((t) => t.status === 'assigned' || t.status === 'in_progress');
   const lateMyTasks = openMyTasks.filter((t) => Date.parse(t.deadline) < clock.ms);
   const mine = submissions.filter((s) => s.memberId === actor.id);

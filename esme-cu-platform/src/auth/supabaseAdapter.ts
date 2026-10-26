@@ -175,6 +175,14 @@ function rewardReceiptOf(row: Record<string, unknown>): RewardWriteReceipt {
  */
 function rewardFailureOf(error: unknown): AdminActionFailure {
   const message = messageOf(error);
+  // This one has a sentence of its own: the code alone reads like a bug, while the rule is a policy
+  // decision an officer has to understand before trying another route.
+  if (/ESME_HIGH_BOARD_TARGET/.test(message)) {
+    return {
+      code: 'high_board_target',
+      message: 'Bonus points are not awarded to a High Board seat. A warning can still be recorded against that account.',
+    };
+  }
   const raised = /ESME_[A-Z_]+/.exec(message);
   if (raised) return { code: raised[0].toLowerCase(), message };
   const code = error && typeof error === 'object' && 'code' in error ? String((error as { code: unknown }).code) : '';
@@ -323,9 +331,9 @@ export function createSupabaseAdapter(): AuthAdapter {
     /**
      * Registration runs through the provider's own sign-up endpoint: GoTrue hashes the
      * password (bcrypt) and enforces the per-IP rate limit, and the `esme_on_auth_user_created`
-     * trigger forces role=member / status=pending_approval regardless of anything this client
-     * sends. No confirmation mail is part of the flow, so the project must have
-     * Auth → Providers → Email → "Confirm email" switched off — see supabase/README.md.
+     * trigger forces role=member and, since 0012, status=active regardless of anything this
+     * client sends. Requirement: "Confirm email" may be switched on or off; the account row is
+     * created either way. See supabase/README.md.
      */
     async register(draft) {
       const sb = await client();
@@ -374,7 +382,9 @@ export function createSupabaseAdapter(): AuthAdapter {
         ok: true,
         receipt: {
           reference: data.user?.id ?? '',
-          status: 'pending_approval',
+          // 0012 makes the profile active at signup; the registration request row is the
+          // committee-placement queue and does not gate access.
+          status: 'active',
         },
       };
     },
@@ -413,6 +423,7 @@ export function createSupabaseAdapter(): AuthAdapter {
         (row: Record<string, unknown>) =>
           ({
             id: String(row.id),
+            profileId: (row.profile_id as string | null) ?? undefined,
             fullName: String(row.full_name),
             email: String(row.email),
             username: String(row.username),
@@ -467,7 +478,23 @@ export function createSupabaseAdapter(): AuthAdapter {
       );
     },
 
+    /**
+     * `id` is the `esme_registration_requests.id`. The function locks that row and raises
+     * `ESME_NOT_FOUND: registration request` when no such row exists — which is what a caller
+     * that passed the profile id used to trigger. The two refusals a reviewer can actually
+     * meet (the row vanished, or another reviewer decided it first) are translated into a
+     * message that tells them to refresh, so `ESME_NOT_FOUND` never reaches a toast verbatim.
+     */
     async decideRegistration(id, decision, options) {
+      if (!id) {
+        return {
+          ok: false,
+          error: {
+            code: 'not_found',
+            message: 'This request has no queue record on the server yet. Refresh the queue before deciding it.',
+          },
+        };
+      }
       const sb = await client();
       const { error } = await sb.rpc('esme_decide_registration', {
         p_request_id: id,
@@ -475,8 +502,28 @@ export function createSupabaseAdapter(): AuthAdapter {
         p_reason: options?.reason ?? null,
         p_committee_id: options?.committeeId ?? null,
       });
-      if (error) return { ok: false, error: { code: 'decision_denied', message: messageOf(error) } };
-      return { ok: true };
+      if (!error) return { ok: true };
+      const message = messageOf(error);
+      if (/ESME_NOT_FOUND/.test(message)) {
+        return {
+          ok: false,
+          error: {
+            code: 'not_found',
+            message:
+              'That registration request is no longer in the queue. Another reviewer may have decided it; refresh to see the latest state.',
+          },
+        };
+      }
+      if (/ESME_ALREADY_DECIDED/.test(message)) {
+        return {
+          ok: false,
+          error: {
+            code: 'already_decided',
+            message: 'This request was already decided by another reviewer. Refresh to see the outcome.',
+          },
+        };
+      }
+      return { ok: false, error: { code: 'decision_denied', message } };
     },
 
     async setAccountStatus(id, status) {

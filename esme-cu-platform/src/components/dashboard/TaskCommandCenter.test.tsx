@@ -216,6 +216,41 @@ describe('the task table', () => {
     expect(rows()[0]).toMatchObject({ title: expect.stringContaining('Ultrasonic Testing Lab'), points: '120 pts' });
   });
 
+  it('edits a task from its own row and shows the saved value', async () => {
+    const user = await renderTable();
+    const row = await rowFor('Ultrasonic Testing Lab');
+    await user.click(rowAction(row, 'Edit task') as HTMLButtonElement);
+
+    const dialog = await TL.screen.findByRole('dialog');
+    const title = TL.within(dialog).getByLabelText('Task Title') as HTMLInputElement;
+    await user.clear(title);
+    await user.type(title, 'Ultrasonic Testing Lab — revised');
+    await user.click(TL.within(dialog).getByRole('button', { name: /Save changes/i }));
+
+    await TL.waitFor(() =>
+      expect(storedTasks().find((t) => t.id === 'tsk_review')?.title).toBe('Ultrasonic Testing Lab — revised')
+    );
+    expect(await TL.screen.findByText('Ultrasonic Testing Lab — revised')).toBeTruthy();
+    // Editing the brief is not a status change: the row is still waiting for its review.
+    expect(storedTasks().find((t) => t.id === 'tsk_review')?.status).toBe('submitted');
+  });
+
+  it('archives only after confirmation and lists the row again under archived', async () => {
+    const user = await renderTable();
+    const row = await rowFor('Recruitment Poster Wave');
+    await user.click(rowAction(row, 'Archive task') as HTMLButtonElement);
+
+    const dialog = await TL.screen.findByRole('dialog');
+    expect(dialog.textContent).toContain('assignments, submissions and score history are kept');
+    await user.click(TL.within(dialog).getByRole('button', { name: 'Archive task' }));
+
+    await TL.waitFor(() => expect(TL.screen.queryByText('Recruitment Poster Wave')).toBeNull());
+    expect(storedTasks().find((t) => t.id === 'tsk_mine')?.archivedAt).toBeTruthy();
+
+    await user.click(TL.screen.getByRole('button', { name: /Show archived/ }));
+    expect(await TL.screen.findByText('Recruitment Poster Wave')).toBeTruthy();
+  });
+
   it('turns the same two tasks into cards on a narrow screen', async () => {
     stubViewport(false);
     await renderTable();

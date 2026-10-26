@@ -52,12 +52,13 @@ export function canAccessErp(status: AccountStatus): boolean {
 }
 
 /**
- * The stage this platform removed (`pending_email_verification`) can still be sitting in browser
- * storage, and a vault row or cached profile holding it would be undecidable forever. Readers
- * repair it onto the queue instead of acting on a status the state machine no longer has.
+ * Browser storage outlives the state machine that wrote it: the removed
+ * `pending_email_verification` stage, a blank value a stale form left behind, or anything a build
+ * this one does not know introduced. A row holding any of them can neither sign in nor be
+ * decided, so readers repair it onto the queue rather than acting on a status with no transition.
  */
-export function repairStoredStatus(status: string): AccountStatus {
-  return status === 'pending_email_verification' ? 'pending_approval' : (status as AccountStatus);
+export function repairStoredStatus(status: string | undefined): AccountStatus {
+  return ACCOUNT_STATUSES.includes(status as AccountStatus) ? (status as AccountStatus) : 'pending_approval';
 }
 
 /**

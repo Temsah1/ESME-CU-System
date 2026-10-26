@@ -1,4 +1,4 @@
-import type { AuditLogItem, Committee, RegistrationApplication, ScoreLedgerEntry, SeasonEvent, Task, TaskSubmission, User } from '../types';
+import type { AuditLogItem, Committee, ScoreLedgerEntry, SeasonEvent, Task, TaskSubmission, User } from '../types';
 import {
   METRIC_DEFINITIONS,
   approvalRate,
@@ -7,7 +7,6 @@ import {
   netPoints,
   onTimeDelivery,
   overdueWork,
-  queueBacklog,
   workloadSpread,
   type MetricValue,
   type Period,
@@ -30,7 +29,6 @@ export type SignalKind = 'confirmed' | 'alert' | 'trend';
 export type SignalView =
   | 'tasks'
   | 'submissions'
-  | 'applications'
   | 'scoring'
   | 'committees'
   | 'season_planner'
@@ -62,8 +60,6 @@ export type Suggestion = {
 export const DECISION_RULES = {
   /** A deliverable nobody has touched for this many days is called out. */
   reviewStallDays: 7,
-  /** A registration nobody has answered for this many days is called out. */
-  recruitmentStallDays: 7,
   /** One member holding more than this share of a committee's open work is called out. */
   imbalanceShare: 0.5,
 } as const;
@@ -94,7 +90,6 @@ const daysBetween = (fromIso: string, toIso: string) =>
 export type DecisionInput = {
   tasks: Task[];
   submissions: TaskSubmission[];
-  applications: RegistrationApplication[];
   ledger: ScoreLedgerEntry[];
   users: User[];
   committees: Committee[];
@@ -129,7 +124,6 @@ export function deriveConfirmed(input: DecisionInput): Signal[] {
     reading('on_time_delivery', onTimeDelivery(input.submissions, input.tasks, period), period.label),
     reading('net_points', netPoints(input.ledger, period), period.label),
     reading('overdue_work', overdueWork(input.tasks, period, input.asOf), period.label),
-    reading('queue_backlog', queueBacklog(input.applications.map((a) => ({ id: a.id, status: a.status }))), period.label),
     reading('audit_coverage', auditCoverage(input.audit, period), period.label),
     // Milestones are counted as written; `dateOrQuarter` is free text, so no window is claimed.
     reading('milestone_progress', milestoneProgress(input.events), 'as written for this season'),
@@ -142,7 +136,11 @@ export function deriveAlerts(input: DecisionInput): Signal[] {
   const label = `${input.period.from} to ${input.period.to}`;
 
   const overdue = input.tasks.filter(
-    (t) => t.deadline && t.deadline < input.asOf.slice(0, 10) && !['approved', 'rejected', 'cancelled'].includes(t.status)
+    (t) =>
+      !t.archivedAt &&
+      t.deadline &&
+      t.deadline < input.asOf.slice(0, 10) &&
+      !['approved', 'rejected', 'cancelled'].includes(t.status)
   );
   if (overdue.length > 0) {
     signals.push({
@@ -174,23 +172,6 @@ export function deriveAlerts(input: DecisionInput): Signal[] {
       method: `Rule: still submitted or under review and filed ${DECISION_RULES.reviewStallDays} or more days before ${input.asOf.slice(0, 10)}.`,
       recordIds: stalled.map((s) => s.id),
       view: 'submissions',
-    });
-  }
-
-  const waitingApps = input.applications.filter(
-    (a) => (a.status === 'pending' || a.status === 'under_review') && daysBetween(a.appliedDate, input.asOf) >= DECISION_RULES.recruitmentStallDays
-  );
-  if (waitingApps.length > 0) {
-    signals.push({
-      id: 'alert-stalled-recruitment',
-      kind: 'alert',
-      severity: 'watch',
-      title: `${waitingApps.length} application${waitingApps.length === 1 ? '' : 's'} unanswered`,
-      detail: waitingApps.map((a) => `${a.fullName} (${daysBetween(a.appliedDate, input.asOf)} days)`).join('; '),
-      period: label,
-      method: `Rule: still pending or under review ${DECISION_RULES.recruitmentStallDays} or more days after the applied date.`,
-      recordIds: waitingApps.map((a) => a.id),
-      view: 'applications',
     });
   }
 
@@ -270,8 +251,6 @@ export function deriveSuggestions(signals: Signal[]): Suggestion[] {
       out.push({ signalId: signal.id, action: 'Re-date or close the tasks named, then re-check the committee queue.', origin: 'rule' });
     if (signal.id === 'alert-stalled-reviews')
       out.push({ signalId: signal.id, action: 'Assign each deliverable to a reviewer who is not its author and take it into review.', origin: 'rule' });
-    if (signal.id === 'alert-stalled-recruitment')
-      out.push({ signalId: signal.id, action: 'Decide the waiting applications, or record why each one is still open.', origin: 'rule' });
     if (signal.id === 'alert-workload-imbalance')
       out.push({ signalId: signal.id, action: 'Move open work from the named member to a committee member holding none.', origin: 'rule' });
   });

@@ -55,9 +55,18 @@ your project and the results are recorded.
 | `migrations/0009_security_hardening.sql` | Closes the two 2026-10-22 review findings: `esme_assert_privilege_channel()` keeps `role` and `status` off any direct `esme_profiles` write, and the three aggregate views become `security_invoker` with the base-table `SELECT` grants that makes necessary. Forward-only — nothing earlier was rewritten. |
 | `migrations/0010_privilege_hardening.sql` | Closes the three findings the same review left open on the RPC side: `esme_assign_role()` refuses a self-targeted change, defines a privileged grant as "not `member`" (so `high_board` is covered, which 0002's literal list missed), and writes both role values to the audit row; `esme_set_account_status()` records `previous → new` the same way. Forward-only restatement with `create or replace function` — nothing earlier was rewritten. |
 | `migrations/0011_registration_academic_fields.sql` | Gives the approval queue somewhere to put the answers the signup now asks: `student_id`, `academic_year`, `department`, `phone`, `committee_membership` and `second_committee_preference_id`, all nullable so a request filed before the question exists still reads correctly. Restates `esme_handle_new_auth_user()` to store them, to resolve a committee reference through the new `esme_committee_reference()` (which answers NULL where 0007's `::uuid` cast would raise and abort the signup), and to clear both committee references when the applicant answers `no`. Seeds the High Board *committee* — the `high_board` role is a different record and is untouched. Forward-only: no drop, no rewrite, `esme_decide_registration()` unchanged. |
+| `migrations/0012_self_service_registration.sql` | A signup now enters as `active`/`member`, so registration opens the workspace without waiting for an administrator. The application queue row is still `pending_approval`, and committee placement is still the reviewer's decision. |
+| `migrations/0013_season_planner_management.sql` | Adds `events.write` to the High Board and IT Moderator rows of `esme_role_capabilities`; the existing `esme_events_write` policy already covers insert, update and delete. No new gate. |
+| `migrations/0014_task_management.sql` | Task editing and archival: `archived_at` / `archived_by`, a committee-aware delete policy, and `esme_guard_task_delete()` so a task with submissions or ledger rows cannot be hard-deleted. |
+| `migrations/0015_high_board_content.sql` | Four `high_board` capability rows: `cms.content.write`, `cms.content.publish`, `cms.media.manage` and `cms.settings.global`. The last is what the CMS save path actually calls. |
+| `migrations/0016_high_board_bonus_guard.sql` | A trigger on `esme_reward_entries` refuses a bonus whose frozen target role is `high_board` (`ESME_HIGH_BOARD_TARGET`). Warnings are unaffected. |
+| `migrations/0017_social_insights.sql` | Two read-mostly tables for the Meta Graph sync: `esme_social_sync_runs` (one row per attempt, including `blocked`) and `esme_social_posts` (nullable metrics, unique `(platform, external_id)`). RLS is on; `authenticated` may read with `cms.content.write` and has no write policy. No token column and no cron entry. |
+| `migrations/0018_chat.sql` | Internal chat: `esme_chat_conversations`, `esme_chat_members` and `esme_chat_messages`, all with RLS and **no write policy** for browser roles. Membership is the only key to a thread; committee channels and direct threads are opened, read and written only through the seven SECURITY DEFINER RPCs. Adds `esme_chat_messages` to the realtime publication. No browser-local message store. |
 | `functions/send-email/index.ts` | The sender. Drains the queue, calls the provider, records what the provider answered. |
-| `probes/authorization_probes.sql` | Twenty-four transactional probes (P00–P23) that switch role locally, assert one authorization rule each, and roll back. Prints PASS/FAIL/SKIP; has never been run. |
+| `functions/sync-meta-insights/index.ts` | The social sync. Invoked by the daily schedule or by a session holding `integrations.manage`; writes runs and post rows with the service role. Missing Meta configuration produces a `blocked` run and no provider call. |
 | `functions/_shared/email.ts` | Server copy of the templates in `src/domain/email.ts`; a test compares the two on every event. |
+| `functions/_shared/metaGraph.ts` | Pure Graph helpers: environment validation, post/insight parsing, age-bracket aggregation, error scrubbing. Unit-tested without a network. |
+| `probes/authorization_probes.sql` | Twenty-four transactional probes (P00–P23) that switch role locally, assert one authorization rule each, and roll back. Prints PASS/FAIL/SKIP; has never been run. |
 | `dev_seed_reference.sql` | Reference content for a first install: committee structure, registration form schema, season plan, website copy. Inserts **no people, tasks, submissions, scores, applications or audit rows**. |
 
 ## Setup
@@ -97,7 +106,16 @@ your project and the results are recorded.
    nothing for the new answers rather than failing — and a project that applies it without the browser
    build that sends the metadata files requests with those columns NULL, which is the same read as
    "this applicant never asked".
-   Then run `psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 --no-psqlrc -v head_id=<uuid> -v member_id=<uuid> -v alien_id=<uuid> -v page_id=<uuid> -f supabase/probes/authorization_probes.sql`
+   **0012 opens the workspace at signup** — a new profile is `active`/`member`, while its application
+   stays `pending_approval` for a reviewer. **0013–0014** give the season plan and task screens their
+   write paths (capability rows plus archived tasks and a guarded delete). **0015–0016** extend the
+   High Board's CMS capabilities and refuse a bonus aimed at a High Board seat. **0017 is the social
+   insight pair**: two read-mostly tables with no token column and no write policy for browser roles.
+   Apply it after 0016; the daily sync stays blocked until its Edge Function secrets exist.
+   **0018 is internal chat**: three tables, membership-only `SELECT` policies, no browser write
+   policy and seven RPCs. Apply it after 0017; the Messages screen stays blocked until the project
+   URL and anon key are configured, and realtime requires the publication block in this file to
+   have run. Then run `psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 --no-psqlrc -v head_id=<uuid> -v member_id=<uuid> -v alien_id=<uuid> -v page_id=<uuid> -f supabase/probes/authorization_probes.sql`
    and record every PASS/FAIL/SKIP notice — P15–P19 are 0009's, P20–P21 are 0010's, P22–P23 are 0011's,
    and four
    identities from rows that already exist are what they need to mean anything. The probes switch
@@ -407,6 +425,160 @@ delivery happened. Development builds keep using the labelled local outbox (`src
 renders the same templates and stores them on the device — the Alerts & Email screen marks those
 rows `simulated — not delivered`.
 
+## Social insight sync
+
+The Social Media Analysis screen reads `esme_social_posts` and `esme_social_sync_runs`. It never
+calls `graph.facebook.com` and never holds a Page access token: the browser has the project URL and
+the publishable key, and invokes `sync-meta-insights` when a Super Administrator asks for a run.
+The schedule invokes the same function.
+
+### 1. Apply 0017
+
+`migrations/0017_social_insights.sql` after 0016. It creates the two tables, enables RLS, and adds
+one `SELECT` policy per table for `cms.content.write`. There is deliberately no insert, update or
+delete policy for `authenticated`, and no column can hold a credential.
+
+### 2. Obtain a Page token
+
+Create a Meta app, add the Page, and generate a **Page** access token with `pages_read_engagement`
+and `read_insights`. A user token is not a substitute: the endpoint reads the Page's own posts.
+Keep the token in the Edge Function secret store, never in `.env.local`, and never under a `VITE_`
+name — that prefix is compiled into the public bundle.
+
+### 3. Deploy and set the secrets
+
+```bash
+supabase functions deploy sync-meta-insights --no-verify-jwt
+
+supabase secrets set \
+  META_PAGE_ID=<the Page id> \
+  META_GRAPH_TOKEN=<the Page access token> \
+  META_SYNC_CRON_SECRET=<a long random string only the scheduler knows> \
+  META_GRAPH_VERSION=v21.0
+```
+
+`--no-verify-jwt` is required because pg_cron calls the function without a user token. The
+function itself then decides who is calling: a scheduler request must present
+`x-esme-cron-secret` matching `META_SYNC_CRON_SECRET` in constant time, and a browser request must
+carry a Bearer token whose profile holds `integrations.manage` (checked through
+`esme_has_capability`). A missing or wrong caller is refused before any Meta request.
+
+`META_GRAPH_VERSION` is optional (default `v21.0`); `META_POST_LIMIT` is optional (default 25,
+maximum 50). `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` already exist for every function; the
+service role is what writes the two tables.
+
+### 4. Schedule it
+
+```sql
+create extension if not exists pg_cron;
+create extension if not exists pg_net;
+
+select cron.schedule('esme-meta-sync', '15 6 * * *', $$
+  select net.http_post(
+    url := 'https://<project>.supabase.co/functions/v1/sync-meta-insights',
+    headers := jsonb_build_object(
+      'x-esme-cron-secret', '<META_SYNC_CRON_SECRET>',
+      'Content-Type', 'application/json'
+    ),
+    body := '{}'::jsonb
+  );
+$$);
+```
+
+The Supabase dashboard's Jobs scheduler does the same entry. The function is idempotent enough to
+run twice: a post is keyed by `(platform, external_id)`, so a second run updates the same row rather
+than inserting a duplicate.
+
+### 5. Read what actually happened
+
+```sql
+select started_at, finished_at, status, rows_written, detail
+  from esme_social_sync_runs order by started_at desc limit 10;
+
+select platform, title, impressions, interactions, shares, reach, published_at, fetched_at
+  from esme_social_posts order by published_at desc;
+```
+
+`impressions`, `interactions`, `shares` and `reach` are nullable. A null means the provider did not
+return the figure for that post; zero means it returned zero. The screen prints “—” for null and
+never substitutes an estimate.
+
+### 6. With no Meta configuration
+
+The function answers 503 `{ code: 'META_NOT_CONFIGURED', missing: [...], live: false }`, records a
+`blocked` run row naming the missing variable **names**, and makes no request to Meta. The screen
+reads that run and prints BLOCKED. The variable names are a deliberate part of the message; their
+values are never logged, and provider errors are scrubbed before they are stored.
+
+### What this has not proved
+
+0017 has never been applied to Postgres, and `sync-meta-insights` has never run in Deno. No Page
+token or Meta app existed in the environment where this was written, so the only evidence today is
+static review plus unit tests of the pure helpers (`supabase/functions/_shared/metaGraph.test.ts`)
+and the browser mapping (`src/domain/socialInsights.test.ts`, `src/social/metaSync.test.ts`). Live
+figures are **blocked**, not zero and not estimated.
+
+## Internal chat
+
+The Messages screen (`src/components/dashboard/MessagesView.tsx`, client in `src/chat/chatClient.ts`)
+reads and writes through `0018_chat.sql`. The three chat tables have `SELECT` policies based on
+membership and **no insert, update or delete policy** for `authenticated`; every write is an RPC.
+The browser holds no copy of a message. With `VITE_SUPABASE_URL` or `VITE_SUPABASE_ANON_KEY` absent,
+the screen prints “Chat is blocked in this build” and renders no thread or composer — a local list
+would be a demonstration, not an internal conversation.
+
+### 1. Apply 0018
+
+`migrations/0018_chat.sql` after 0017. It creates:
+
+| Table | Holds |
+| --- | --- |
+| `esme_chat_conversations` | One committee channel per committee (`kind = 'committee'`, unique `committee_id`) or one direct thread per pair (`kind = 'direct'`, unique `direct_key` built from the two profile ids in sorted order). |
+| `esme_chat_members` | `(conversation_id, profile_id)`, `joined_at` and `last_read_at`. Membership is the only thing a message policy reads. |
+| `esme_chat_messages` | `sender_id`, `body` (trimmed 1–4,000 characters), `created_at`. There is no edit or delete column. |
+
+The migration adds `esme_chat_messages` to the `supabase_realtime` publication when that publication
+exists, and is re-run safe. If your project has Realtime disabled, enable it in the dashboard and
+re-run the migration (or `alter publication supabase_realtime add table esme_chat_messages` once);
+without it the screen still sends and reads, but only refreshes when reopened.
+
+### 2. What the RPCs decide
+
+| RPC | Rule |
+| --- | --- |
+| `esme_chat_contacts()` | A profile the caller's `users.read` reaches, or a profile in the caller's own committee. A member does not acquire the chapter directory by opening the contact list. |
+| `esme_ensure_committee_channels()` | Creates a channel for each committee the caller's `tasks.read` reaches and adds every active member of that committee. |
+| `esme_chat_conversations_for_me()` | The caller's threads, with the other person's name on a direct thread, the unread count (messages after `last_read_at`, excluding the caller's own) and the member count. |
+| `esme_start_direct_conversation(p_other)` | Refuses self (`ESME_SELF_TARGET`), an inactive account (`ESME_INACTIVE_ACCOUNT`) and a profile outside the caller's reach (`ESME_OUTSIDE_COMMITTEE`). Idempotent: the same pair gets the same thread. |
+| `esme_chat_messages_page(p_conversation, p_before, p_limit)` | Membership required; `p_limit` is clamped to 1–100 and pages newest-first by `(created_at, id)`. The screen reverses one page into ascending order and deduplicates by id when loading earlier. |
+| `esme_send_chat_message(p_conversation, p_body)` | Membership required; trims, refuses an empty or over-long body (`ESME_BAD_MESSAGE`), inserts, bumps `last_message_at`, marks the sender read and returns the stored row. The screen refuses to claim “sent” if that row cannot be read back. |
+| `esme_mark_chat_read(p_conversation)` | Membership required; moves the caller's `last_read_at` forward. |
+
+### 3. Realtime is a signal, not a source
+
+The client subscribes to `INSERT` on `public.esme_chat_messages` and, on an event, re-reads the
+thread and the conversation list through the same RPCs as the first load. It never renders the
+realtime payload. Realtime authorization is the table's `SELECT` policy, so a row the subscriber may
+not read cannot reach the screen through this path either.
+
+### 4. Deploy and verify
+
+No Edge Function or secret is involved: the browser uses the project URL and the publishable key it
+already has. Apply 0018, reload the app, open **Messages**, and confirm:
+
+```sql
+select id, kind, title, committee_id, last_message_at from esme_chat_conversations;
+select conversation_id, profile_id, last_read_at from esme_chat_members;
+select conversation_id, sender_id, left(body, 60), created_at from esme_chat_messages
+  order by created_at desc limit 20;
+```
+
+The operator probes in the footer of `0018_chat.sql` cover membership reads, direct-table inserts,
+a cross-committee send, a cross-committee direct start, channel creation and cursor paging. They are
+copied into the checklist below as lines 62–68. **None has been run.** Until they are, the chat RLS,
+RPC behaviour and realtime delivery are **unverified**, not “secured”; the migration has been read
+and unit-tested at the domain and client layers, never applied to Postgres.
+
 ## Authorization model
 
 - Roles: `super_admin`, `high_board`, `moderator`, `director`, `head`, `member`. Account
@@ -683,6 +855,46 @@ probes here that write through `auth.users` so the trigger itself runs:
     lower(regexp_replace(name, '[^[:alnum:]]', '', 'g')) = 'highboard'` → exactly one row. A second
     spelling is the failure mode 0011's guard exists to prevent: two High Board committees means an
     approval can seat someone in the copy nobody means.
+
+Social insight sync (0017). None of these has been run. P47–P51 in the operator notes at the end of
+`0017_social_insights.sql` cover the first four if they are added to `authorization_probes.sql`:
+
+57. As a `member` token: `select * from esme_social_posts` → 0 rows. As a `high_board` or
+    `moderator` token (which holds `cms.content.write`) → the stored rows, or 0 before a sync writes.
+58. As any `authenticated` token: `insert into esme_social_sync_runs (status) values ('ok')` →
+    refused. The two tables have no write policy; the service role is the only writer.
+59. `select column_name from information_schema.columns where table_name = 'esme_social_posts'` →
+    no column can hold a token, a secret or a raw provider payload.
+60. Invoke `sync-meta-insights` with the `META_*` secrets absent → 503 `META_NOT_CONFIGURED`, one
+    `blocked` run row naming the missing variables, and no request to `graph.facebook.com`.
+61. Invoke it with a Page token → one `ok` run, rows keyed by `(platform, external_id)`, and a second
+    run updates those rows instead of inserting duplicates. A missing insight metric is stored as
+    NULL, not 0.
+
+Internal chat (0018). None of these has been run. P52–P57 in the operator notes at the end of
+`0018_chat.sql` cover lines 62–67 if they are added to `authorization_probes.sql`:
+
+62. As a member token: `select * from esme_chat_conversations` → only threads whose
+    `esme_chat_members` row names that profile (0 rows before `esme_ensure_committee_channels()`).
+63. As any `authenticated` token: `insert into esme_chat_messages (conversation_id, sender_id, body)
+    values (<a thread you belong to>, <your id>, 'x')` → refused. The three tables have no write
+    policy; the RPCs are the only writer.
+64. As a member: `select esme_send_chat_message(<a thread of another committee>, 'x')` →
+    `ESME_FORBIDDEN`, and no row is inserted. As a member of that thread → the stored row, a bumped
+    `last_message_at` and `last_read_at` moved to now.
+65. As a member: `select esme_start_direct_conversation(<profile in another committee>)` →
+    `ESME_OUTSIDE_COMMITTEE`; the same call naming your own id → `ESME_SELF_TARGET`; naming a
+    colleague twice → the same conversation id both times.
+66. As a member: `select * from esme_ensure_committee_channels()` → exactly the committees the
+    caller's `tasks.read` reaches, each with the active members of that committee in
+    `esme_chat_members`. A member must not acquire a channel for a committee they cannot read.
+67. Call `esme_chat_messages_page(<thread>, null, 30)`, then again with `p_before` set to the oldest
+    `created_at` from the first page → no id appears twice, and the second page is older. A
+    `p_limit` of 0 or 1000 is clamped, not obeyed verbatim.
+68. With two signed-in members of one committee and both subscribed, send from one token → the
+    other receives an `INSERT` event on `esme_chat_messages`; a signed-in non-member receives none.
+    This requires `esme_chat_messages` to be in the `supabase_realtime` publication and Realtime to
+    be enabled for the project. Without that, sending and reading still work on reload.
 
 Until these run against your project, the integration is **unverified**, and the product
 must not present it otherwise. `0007_remove_email_verification.sql` has the same caveat as every

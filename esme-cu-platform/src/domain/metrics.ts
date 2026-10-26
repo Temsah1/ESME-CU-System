@@ -227,13 +227,15 @@ export function netPoints(ledger: ScoreLedgerEntry[], period: Period, memberId?:
 }
 
 export function overdueWork(tasks: Task[], period: Period, asOf: string): MetricValue {
-  const overdue = tasks.filter(
+  // Archived rows are history; counting them as overdue work would keep a retired task alive.
+  const live = tasks.filter((t) => !t.archivedAt);
+  const overdue = live.filter(
     (t) => t.deadline && t.deadline < asOf.slice(0, 10) && !TERMINAL.includes(t.status) && inPeriod(t.startDate, { label: period.label, from: null, to: asOf.slice(0, 10) })
   );
-  const noDeadline = tasks.filter((t) => !t.deadline).length;
+  const noDeadline = live.filter((t) => !t.deadline).length;
   return outcome(
     'overdue_work',
-    tasks.length,
+    live.length,
     noDeadline,
     overdue.map((t) => t.id),
     overdue.length,
@@ -242,7 +244,7 @@ export function overdueWork(tasks: Task[], period: Period, asOf: string): Metric
 }
 
 export function workloadSpread(tasks: Task[], users: User[], committeeId: string): MetricValue {
-  const open = tasks.filter((t) => t.committeeId === committeeId && !TERMINAL.includes(t.status));
+  const open = tasks.filter((t) => t.committeeId === committeeId && !t.archivedAt && !TERMINAL.includes(t.status));
   const owners = new Set(users.filter((u) => u.committeeId === committeeId).map((u) => u.id));
   if (open.length === 0 || owners.size < 2) {
     return outcome('committee_load', open.length, 0, [], null, 'This committee has no open task or only one member, so there is no spread to measure.');

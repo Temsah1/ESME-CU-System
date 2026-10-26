@@ -1243,9 +1243,9 @@ export const PublicWebsite: React.FC<PublicWebsiteProps> = ({
                     <div className="w-10 h-10 rounded-xl bg-[#123B60]/10 flex items-center justify-center text-[#123B60] shrink-0">
                       <Mail className="w-5 h-5" />
                     </div>
-                    <div>
+                    <div className="min-w-0">
                       <div className="text-xs text-slate-500 font-semibold">Email</div>
-                      <a href={`mailto:${content.contact.email}`} className="text-sm font-bold text-[#123B60] hover:text-[#F59A16] transition-colors">
+                      <a href={`mailto:${content.contact.email}`} className="text-sm font-bold text-[#123B60] hover:text-[#F59A16] transition-colors break-all">
                         {content.contact.email}
                       </a>
                     </div>
@@ -1257,9 +1257,9 @@ export const PublicWebsite: React.FC<PublicWebsiteProps> = ({
                     <div className="w-10 h-10 rounded-xl bg-[#123B60]/10 flex items-center justify-center text-[#123B60] shrink-0">
                       <Phone className="w-5 h-5" />
                     </div>
-                    <div>
+                    <div className="min-w-0">
                       <div className="text-xs text-slate-500 font-semibold">Phone</div>
-                      <a href={`tel:${content.contact.phone}`} className="text-sm font-bold text-[#123B60] hover:text-[#F59A16] transition-colors">
+                      <a href={`tel:${content.contact.phone}`} className="text-sm font-bold text-[#123B60] hover:text-[#F59A16] transition-colors break-all">
                         {content.contact.phone}
                       </a>
                     </div>
@@ -1271,9 +1271,9 @@ export const PublicWebsite: React.FC<PublicWebsiteProps> = ({
                     <div className="w-10 h-10 rounded-xl bg-[#123B60]/10 flex items-center justify-center text-[#123B60] shrink-0">
                       <MapPin className="w-5 h-5" />
                     </div>
-                    <div>
+                    <div className="min-w-0">
                       <div className="text-xs text-slate-500 font-semibold">Location</div>
-                      <div className="text-sm font-bold text-[#123B60]">
+                      <div className="text-sm font-bold text-[#123B60] break-words">
                         {content.contact.location}
                       </div>
                     </div>

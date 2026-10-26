@@ -1,4 +1,4 @@
-import { canAccessErp, isDecidable, repairStoredStatus } from '../domain/accountState';
+import { ACCOUNT_STATUSES, canAccessErp, repairStoredStatus } from '../domain/accountState';
 import { isPrimaryAdmin, validateRoleChange, hasCapability, capabilitiesFor, scopeFor, PUBLIC_REGISTRATION_ROLE, type Role } from '../domain/roles';
 import {
   DUPLICATE_IDENTITY_MESSAGE,
@@ -46,6 +46,7 @@ type StoredAccount = {
   role: Role;
   status: AuthIdentity['status'];
   committeeId?: string;
+  subTeam?: string;
   salt: string;
   hash: string;
   createdAt: string;
@@ -171,7 +172,9 @@ function randomId(prefix: string): string {
 
 function recordOf(account: StoredAccount): RegistrationRecord {
   return {
+    // The local vault has no separate request table: the account row is the queue row.
     id: account.id,
+    profileId: account.id,
     fullName: account.displayName,
     email: account.email,
     username: account.username,
@@ -399,9 +402,9 @@ export function createLocalDevAdapter(): AuthAdapter {
         username,
         displayName: draft.fullName.trim(),
         role: PUBLIC_REGISTRATION_ROLE,
-        // A new registration is never active, whatever the browser asks for. It is reviewable
-        // at once: there is no verification step to wait for.
-        status: 'pending_approval',
+        // Signing up is enough to open the member workspace (migration 0012 in production);
+        // the queue row is a committee-placement request, not an access gate.
+        status: 'active',
         committeeId: draft.committeeId,
         salt: toBase64(saltBytes),
         hash: await derive(draft.password, saltBytes),
@@ -485,7 +488,16 @@ export function createLocalDevAdapter(): AuthAdapter {
       const actor = requirePrivilege('registrations.decide', { action: 'registration_decision_denied', targetId: id });
       const vault = readVault();
       const account = vault.accounts.find((a) => a.id === id);
-      if (!account) return { ok: false, error: { code: 'not_found', message: 'This request no longer exists.' } };
+      if (!account) {
+        return {
+          ok: false,
+          error: {
+            code: 'not_found',
+            message:
+              'That registration request is no longer in the queue. Another reviewer may have decided it; refresh to see the latest state.',
+          },
+        };
+      }
       const refusal = (code: string, message: string) => {
         vault.audit.unshift(
           auditLine({ actor, targetId: account.id, action: 'registration_decision_denied', detail: message, outcome: 'denied' })
@@ -494,8 +506,12 @@ export function createLocalDevAdapter(): AuthAdapter {
         return { ok: false as const, error: { code, message } };
       };
       if (isPrimaryAdmin(account)) return refusal('protected', 'The primary Super Admin cannot be decided from the queue.');
-      if (!isDecidable(account.status)) {
-        return refusal('already_decided', 'This request was already decided.');
+      // The decision belongs to the application row, not the account row. Since 0012 a
+      // self-registered account is already active, and approving only records its committee
+      // placement — refusing here would make every new applicant undecidable.
+      const applicationOpen = !account.provisioned && account.decidedAt === undefined;
+      if (!applicationOpen) {
+        return refusal('already_decided', 'This request was already decided by another reviewer. Refresh to see the outcome.');
       }
       const previousRole = account.role;
       if (decision === 'approve') {
@@ -538,6 +554,12 @@ export function createLocalDevAdapter(): AuthAdapter {
         writeVault(vault);
         return { ok: false as const, error: { code, message } };
       };
+      // Production types this parameter as `esme_account_status`, so Postgres refuses a value
+      // outside the four before the update runs. Offline the row is plain JSON and would take
+      // whatever a stale form sent — including nothing, leaving an account with no state at all.
+      if (!ACCOUNT_STATUSES.includes(status)) {
+        return refusal('invalid_status', `Choose an account state: ${ACCOUNT_STATUSES.join(', ')}.`);
+      }
       if (isPrimaryAdmin(account)) return refusal('protected', 'The primary Super Admin account is protected.');
       if (account.id === actor.id && status !== 'active') {
         return refusal('self_lockout', 'You cannot lock your own account.');
@@ -598,6 +620,50 @@ export function createLocalDevAdapter(): AuthAdapter {
     },
 
     /**
+     * A directory row with no credential. Sign-in can never match it (the salt and hash are empty),
+     * but an activation or role change addresses a real vault row instead of answering
+     * "No such account." — which is what a provisioned profile was before this existed.
+     */
+    async provisionAccount(input) {
+      const actor = requirePrivilege('users.create', { action: 'provision_denied', targetId: input.id });
+      const vault = readVault();
+      const email = input.email.trim().toLowerCase();
+      if (vault.accounts.some((a) => a.id === input.id || a.email.trim().toLowerCase() === email)) {
+        return { ok: false, error: { code: 'duplicate', message: `An account for ${input.email} already exists.` } };
+      }
+      const now = new Date().toISOString();
+      vault.accounts.unshift({
+        id: input.id,
+        email,
+        username: input.username.trim().toLowerCase(),
+        displayName: input.displayName,
+        role: input.role,
+        status: 'pending_approval',
+        committeeId: input.committeeId,
+        subTeam: input.subTeam,
+        academicYear: input.academicYear,
+        department: input.department,
+        phone: input.phone,
+        salt: '',
+        hash: '',
+        createdAt: now,
+        submittedAt: now,
+        provisioned: actor.displayName,
+      });
+      vault.audit.unshift(
+        auditLine({
+          actor,
+          targetId: input.id,
+          action: 'account_provisioned',
+          detail: `${email} (${input.role}); no credential, pending until activated`,
+          outcome: 'allowed',
+        })
+      );
+      writeVault(vault);
+      return { ok: true };
+    },
+
+    /**
      * The reward writes, offline.
      *
      * There is no server here to file a row, so this adapter does what the database would: applies the
@@ -613,6 +679,17 @@ export function createLocalDevAdapter(): AuthAdapter {
       const actor = requireCapability('rewards.write');
       if (write.targetId === actor.id) {
         return { ok: false, error: { code: 'esme_self_target', message: 'Nobody can award themselves a bonus.' } };
+      }
+      // The same absolute rule as 0016's trigger. The store has already refused it through
+      // validateRewardAction(); this keeps the offline adapter from filing a record a server would not.
+      if (write.targetRole === 'high_board') {
+        return {
+          ok: false,
+          error: {
+            code: 'esme_high_board_target',
+            message: 'Bonus points are not awarded to a High Board seat.',
+          },
+        };
       }
       if (!Number.isInteger(write.points) || write.points < 1) {
         return { ok: false, error: { code: 'esme_bad_points', message: 'A bonus is a whole number of points above zero.' } };

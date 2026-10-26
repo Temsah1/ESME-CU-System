@@ -71,8 +71,20 @@ export type RegistrationOutcome =
 
 export type Decision = 'approve' | 'reject';
 
+/**
+ * A row of the committee-placement queue.
+ *
+ * `id` is the `esme_registration_requests.id` and is the only value `decideRegistration()`
+ * accepts — the database locks that row and refuses a request it cannot find. `profileId` is
+ * the auth/profile identity the row is about, and is what a workspace application is keyed by,
+ * since one person never has two queue rows. Keeping the two apart is what stops a decision
+ * from being addressed with the profile id and rejected as `ESME_NOT_FOUND`.
+ */
 export type RegistrationRecord = {
+  /** `esme_registration_requests.id` — the decision target. */
   id: string;
+  /** `esme_registration_requests.profile_id` — the auth user / profile the request is about. */
+  profileId?: string;
   fullName: string;
   email: string;
   username: string;
@@ -225,6 +237,11 @@ export interface AuthAdapter {
    * that saves happily until the next reload.
    */
   listAccounts(): Promise<AuthAccount[]>;
+  /**
+   * `id` must be the queue row id (`RegistrationRecord.id`), never the profile or auth user id.
+   * A provider that cannot find the row answers `not_found`; one that has already decided it
+   * answers `already_decided`, and the caller must refresh rather than retry blindly.
+   */
   decideRegistration(
     id: string,
     decision: Decision,
@@ -233,6 +250,27 @@ export interface AuthAdapter {
 
   setAccountStatus(id: string, status: AccountStatus): Promise<AdminActionResult>;
   assignRole(id: string, role: Role): Promise<AdminActionResult>;
+
+  /**
+   * A credential-less profile row created by an administrator from the directory.
+   *
+   * Optional because it is only honest where the provider has a profile table this build may write
+   * to. The local adapter keeps the row in its vault so that a later activation or role change
+   * addresses a real account; an adapter without this method must not receive the row at all, or
+   * the directory would show a person the provider cannot find.
+   */
+  provisionAccount?(input: {
+    id: string;
+    email: string;
+    username: string;
+    displayName: string;
+    role: Role;
+    committeeId?: string;
+    subTeam?: string;
+    academicYear?: string;
+    department?: string;
+    phone?: string;
+  }): Promise<AdminActionResult>;
 
   /**
    * The reward ledger is written here, not in the caller. `esme_award_bonus()`, `esme_issue_warning()`,

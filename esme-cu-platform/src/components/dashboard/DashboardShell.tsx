@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { Bell, ChevronLeft, ChevronRight, ExternalLink, LogOut, Menu, MonitorSmartphone, Moon, Search, Sun, X } from 'lucide-react';
 import { useApp, useActor } from '../../context/AppContext';
+import { scopeFor } from '../../domain/roles';
 import { NAV_BY_ID, NAV_SECTIONS, type NavItem } from './nav';
 import { CommandPalette } from './CommandPalette';
 import { DrawerShell, transitions, useIsDesktop } from '../../motion';
@@ -10,13 +11,13 @@ export type DashboardView =
   | 'overview'
   | 'decision_center'
   | 'action_center'
+  | 'messages'
   | 'members'
   | 'committees'
   | 'tasks'
   | 'submissions'
   | 'scoring'
   | 'rewards'
-  | 'applications'
   | 'website_cms'
   | 'media_library'
   | 'season_planner'
@@ -130,7 +131,7 @@ export const DashboardShell: React.FC<DashboardShellProps> = ({
   onSignOut,
   children,
 }) => {
-  const { can, theme, setTheme, resolvedTheme, notifications, markNotificationRead, applications, submissions, email, actionQueue, seasons } =
+  const { can, theme, setTheme, resolvedTheme, notifications, markNotificationRead, submissions, email, actionQueue, seasons } =
     useApp();
   const currentUser = useActor();
   const isDesktop = useIsDesktop();
@@ -168,12 +169,22 @@ export const DashboardShell: React.FC<DashboardShellProps> = ({
     items: group.items.filter((entry) => entry.capability === null || can(entry.capability)),
   })).filter((group) => group.items.length > 0);
 
+  // A count on the rail is a promise about records this account may act on. A member holds
+  // submissions.read at self scope and no review grant, so counting the chapter's queue there
+  // would describe work they cannot open.
+  const reviewScope = scopeFor(currentUser.role, 'submissions.review');
+  const reviewable =
+    reviewScope === 'all'
+      ? submissions
+      : reviewScope === 'committee'
+        ? submissions.filter((s) => s.committeeId === currentUser.committeeId)
+        : [];
+  const pendingReview = reviewable.filter((s) => s.status === 'submitted' || s.status === 'under_review').length;
+
   const badges: Partial<Record<DashboardView, number>> = {
     notifications: email.failures.length > 0 ? email.failures.length : undefined,
     action_center: can('tasks.read') && actionQueue().length > 0 ? actionQueue().length : undefined,
-    applications: applications.filter((a) => a.status === 'pending').length || undefined,
-    submissions:
-      submissions.filter((s) => s.status === 'submitted' || s.status === 'under_review').length || undefined,
+    submissions: pendingReview || undefined,
   };
 
   const unreadCount = notifications.filter((n) => !n.read).length;

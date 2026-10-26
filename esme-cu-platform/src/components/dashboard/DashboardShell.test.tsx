@@ -92,6 +92,28 @@ async function signInAsMember() {
   if (session.identity.role !== 'member') throw new Error(`expected a member session, got ${session.identity.role}`);
 }
 
+/** Approve an applicant as the director of comm_te and sign the shell in as that account. */
+async function signInAsDirector() {
+  const email = 'dina.director@esme-cu.edu';
+  const registered = await adapter.register({
+    fullName: 'Dina Director',
+    email,
+    username: 'dina.director',
+    password: PASSWORD,
+    confirmPassword: PASSWORD,
+    acceptedPolicies: true,
+  });
+  if (!registered.ok) throw new Error(`registration refused: ${registered.failure.code} — ${registered.failure.message}`);
+  const approved = await adapter.decideRegistration(registered.receipt.reference, 'approve', { committeeId: 'comm_te' });
+  if (!approved.ok) throw new Error(`approval refused: ${approved.error.code} — ${approved.error.message}`);
+  const applicant = (await adapter.listAccounts()).find((a) => a.email === email);
+  if (!applicant) throw new Error('the approved applicant is not in the provider directory');
+  const promoted = await adapter.assignRole(applicant.id, 'director');
+  if (!promoted.ok) throw new Error(`role change refused: ${promoted.error.code}`);
+  await adapter.signOut();
+  await adapter.signIn(email, PASSWORD);
+}
+
 async function renderShell(view: DashboardView = 'overview') {
   const [{ AppProvider }, auth, { DashboardShell }, motion, { MotionConfig }] = await Promise.all([
     import('../../context/AppContext'),
@@ -162,6 +184,42 @@ describe('what the frame offers', () => {
     // Nothing was seeded, so the season slot says so instead of inventing one. It appears in the
     // rail and in the breadcrumb, so both copies have to answer the same way.
     expect(TL.screen.getAllByText(/No season set|seasons? recorded, none active/).length).toBeGreaterThan(0);
+  });
+});
+
+describe('what the rail counts', { timeout: 25_000 }, () => {
+  const submission = (id: string, committeeId: string, status: 'submitted' | 'approved') => ({
+    id,
+    taskId: `task_${id}`,
+    taskTitle: `Work ${id}`,
+    committeeId,
+    committeeName: committeeId === 'comm_te' ? 'Technical & Engineering Committee' : 'Media & Content Committee',
+    memberId: 'usr_member',
+    memberName: 'Aya Student',
+    submittedAt: '2026-01-05',
+    description: 'Submitted work',
+    status,
+    proposedPoints: 10,
+    version: 1,
+  });
+
+  it('counts only the submissions a committee director can review', async () => {
+    localStorage.setItem(
+      `${V2}submissions`,
+      JSON.stringify([
+        submission('te_1', 'comm_te', 'submitted'),
+        submission('te_2', 'comm_te', 'approved'),
+        submission('te_3', 'comm_te', 'submitted'),
+        submission('mc_1', 'comm_mc', 'submitted'),
+      ])
+    );
+    await signInAsDirector();
+    await renderShell();
+
+    const submissionsButton = TL.screen.getByRole('button', { name: /Submissions Review/ });
+    expect(TL.within(submissionsButton).getByText('2')).toBeTruthy();
+    // The media committee's row is real, but it is outside this director's review scope.
+    expect(TL.within(submissionsButton).queryByText('3')).toBeNull();
   });
 });
 

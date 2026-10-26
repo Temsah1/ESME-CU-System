@@ -37,9 +37,15 @@ import {
   type Role,
 } from '../domain/roles';
 import type { AccountStatus } from '../domain/accountState';
-import { applicationStageFor, repairStoredStatus } from '../domain/accountState';
-import type { RegistrationRecord } from '../auth/types';
+import { repairStoredStatus } from '../domain/accountState';
+import { applicationFromRecord, decisionTargetOf } from '../domain/registrationQueue';
 import { assertTaskMove, canMoveSubmission, checkRevisionFeedback, checkReview, rubricFor, scoreRubric, selfServiceMoves } from '../domain/workflow';
+import {
+  draftFromTask,
+  mayEditTaskFields,
+  normalizeTaskDraft,
+  validateTaskDraft,
+} from '../domain/tasks';
 import { appendAuditEntry } from '../domain/audit';
 import {
   METRIC_DEFINITIONS,
@@ -203,7 +209,7 @@ interface AppContextType {
   refreshDirectory: () => Promise<void>;
   addUser: (
     user: Omit<User, 'id' | 'totalPoints' | 'approvedTasksCount' | 'joinedDate' | 'lastActive' | 'status'>
-  ) => void;
+  ) => Promise<void>;
   updateUser: (id: string, updates: Partial<User>) => void;
   setAccountStatus: (id: string, status: AccountStatus) => Promise<void>;
   assignRole: (id: string, role: Role) => Promise<void>;
@@ -230,6 +236,14 @@ interface AppContextType {
   tasks: Task[];
   addTask: (task: Omit<Task, 'id' | 'createdAt'>) => void;
   updateTask: (id: string, updates: Partial<Task>) => void;
+  /**
+   * Soft delete. Deletion is preferred over a hard delete because a task row is the parent of
+   * submissions (cascaded) and the reference a ledger row keeps for its points; archiving hides
+   * the task from the board and keeps all of it.
+   */
+  archiveTask: (id: string) => void;
+  restoreTask: (id: string) => void;
+  /** Hard delete, refused once the task has submissions or score history. */
   deleteTask: (id: string) => void;
   /** Assignee-driven lifecycle moves; everything else comes from filing or reviewing. */
   moveTask: (id: string, to: Task['status']) => void;
@@ -403,50 +417,6 @@ function deviceToken(): string {
  */
 const appRoot = () => `${window.location.origin}${window.location.pathname}`;
 const recordUrl = (kind: 'task' | 'application', id: string) => `${appRoot()}?open=${kind}:${encodeURIComponent(id)}`;
-
-/**
- * The provider's queue row is the authority for who exists and where their request stands.
- * A locally captured questionnaire only fills fields the provider does not carry.
- */
-function applicationFromRecord(record: RegistrationRecord, existing?: RegistrationApplication): RegistrationApplication {
-  const base: RegistrationApplication = existing ?? {
-    id: `app_${record.id}`,
-    fullName: record.fullName,
-    universityEmail: record.email,
-    studentId: record.studentId ?? '',
-    academicYear: record.academicYear ?? '',
-    department: record.department ?? '',
-    phone: record.phone ?? '',
-    committeeMembership: record.committeeMembership,
-    preferredCommitteeId: record.committeeId ?? '',
-    secondCommitteePreferenceId: record.secondCommitteePreferenceId,
-    technicalSkills: record.technicalSkills,
-    previousExperience: record.previousExperience,
-    motivation: record.motivation,
-    availabilityHours: record.availabilityHours,
-    agreedToPolicies: record.agreedToPolicies,
-    appliedDate: record.submittedAt,
-    status: applicationStageFor(record.status),
-    authUserId: record.id,
-  };
-  return {
-    ...base,
-    fullName: record.fullName,
-    universityEmail: record.email,
-    status: applicationStageFor(record.status),
-    accountStatus: record.status,
-    authUserId: record.id,
-    appliedDate: base.appliedDate || record.submittedAt,
-    rejectionReason: record.rejectionReason ?? base.rejectionReason,
-    assignedCommitteeId: record.assignedCommitteeId ?? base.assignedCommitteeId,
-    committeeMembership: base.committeeMembership ?? record.committeeMembership,
-    reviewedBy: record.decisionBy ?? base.reviewedBy,
-    technicalSkills: base.technicalSkills || record.technicalSkills,
-    previousExperience: base.previousExperience || record.previousExperience,
-    motivation: base.motivation || record.motivation,
-    availabilityHours: base.availabilityHours || record.availabilityHours,
-  };
-}
 
 // One-shot V1 -> V2 -> V3 cleanup, run while this module loads so it precedes the first
 // collection read. Idempotent: it writes a version key and returns early once present.
@@ -932,7 +902,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     );
   };
 
-  const addUser: AppContextType['addUser'] = (userData) => {
+  const addUser: AppContextType['addUser'] = async (userData) => {
     guard('users.create');
     // The directory already holds every account this actor can see, so a second row for
     // the same person is refused here rather than discovered when two seats point at two
@@ -945,6 +915,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (username && users.some((u) => u.username.trim().toLowerCase() === username)) {
       throw new Error(`An account already uses the username “${userData.username}”. Assign that account instead of creating a second one.`);
     }
+    // A row the provider cannot hold would be a directory entry that vanishes on the next sync
+    // and an account nobody can activate. Refuse it here instead of showing it briefly.
+    if (auth.adapter && !auth.adapter.provisionAccount) {
+      throw new Error('This provider has no way to store a provisioned profile in this build, so no account was created.');
+    }
     const newUser: User = {
       ...userData,
       id: `usr_${Date.now()}`,
@@ -955,6 +930,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       joinedDate: new Date().toISOString().split('T')[0],
       lastActive: 'Never signed in',
     };
+    if (auth.adapter?.provisionAccount) {
+      const result = await auth.adapter.provisionAccount({
+        id: newUser.id,
+        email: newUser.email,
+        username: newUser.username,
+        displayName: newUser.name,
+        role: newUser.role,
+        committeeId: newUser.committeeId,
+        subTeam: newUser.subTeam,
+        academicYear: newUser.academicYear,
+        department: newUser.department,
+        phone: newUser.phone,
+      });
+      if (!result.ok) throw new Error(result.error.message);
+    }
     setUsers((prev) => [newUser, ...prev]);
     logAction('Provisioned User', 'user', newUser.id, `Created profile for ${newUser.name} as ${newUser.role}`);
   };
@@ -1238,9 +1228,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const addTask: AppContextType['addTask'] = (taskData) => {
+    if (!currentUser) throw new CapabilityError('tasks.write');
+    // `tasks.write(self)` is the assignee's move along the delivery flow. Creating work is the
+    // committee's act, so a member cannot mint a task and thereby grant themselves points.
+    if (!mayEditTaskFields(currentUser.role)) throw new CapabilityError('tasks.write');
     guard('tasks.write', { committeeId: taskData.committeeId });
+
+    const committee = committees.find((c) => c.id === taskData.committeeId);
+    const issues = validateTaskDraft(draftFromTask({ ...taskData, id: '', createdAt: '' }), committees, users);
+    if (issues.length > 0) throw new Error(issues[0].message);
+
     const newTask: Task = {
       ...taskData,
+      committeeName: committee?.name ?? taskData.committeeName,
+      assigneeNames: users.filter((u) => taskData.assigneeIds.includes(u.id)).map((u) => u.name),
       id: `task_${Date.now()}`,
       createdAt: new Date().toISOString().split('T')[0],
     };
@@ -1249,22 +1250,84 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     announceTaskAssignment(newTask, newTask.assigneeIds);
   };
 
+  const guardTaskManage = (task: Task, capability: Capability) => {
+    if (!currentUser) throw new CapabilityError(capability);
+    if (!mayEditTaskFields(currentUser.role) && capability === 'tasks.write') {
+      throw new CapabilityError(capability);
+    }
+    guard(capability, { committeeId: task.committeeId });
+  };
+
   const updateTask: AppContextType['updateTask'] = (id, updates) => {
     const task = tasks.find((t) => t.id === id);
     if (!task) throw new Error('That task is not in this workspace.');
-    guardTaskWrite(task);
+    guardTaskManage(task, 'tasks.write');
+    if (task.archivedAt) throw new Error('Archived tasks are read-only. Restore it before editing.');
     if (updates.status && updates.status !== task.status) assertTaskMove(task.status, updates.status);
-    setTasks((prev) => prev.map((t) => (t.id === id ? { ...t, ...updates } : t)));
+
+    const draft = normalizeTaskDraft(draftFromTask({ ...task, ...updates }));
+    const issues = validateTaskDraft(draft, committees, users);
+    if (issues.length > 0) throw new Error(issues[0].message);
+    // A committee-scoped editor may not move the task into a committee they do not run.
+    if (draft.committeeId !== task.committeeId) guard('tasks.write', { committeeId: draft.committeeId });
+
+    const committee = committees.find((c) => c.id === draft.committeeId);
+    const next: Task = {
+      ...task,
+      ...draft,
+      committeeName: committee?.name ?? task.committeeName,
+      assigneeNames: draft.assigneeIds
+        .map((assigneeId) => users.find((u) => u.id === assigneeId)?.name ?? '')
+        .filter(Boolean),
+      status: updates.status ?? task.status,
+      referenceLinks: updates.referenceLinks ?? task.referenceLinks,
+    };
+    setTasks((prev) => prev.map((t) => (t.id === id ? next : t)));
     logAction('Updated Task', 'task', id, `${currentUser?.name ?? 'Someone'} edited ${task.title}`);
-    const added = (updates.assigneeIds ?? []).filter((memberId) => !task.assigneeIds.includes(memberId));
-    if (added.length > 0) announceTaskAssignment({ ...task, ...updates }, added);
+    const added = next.assigneeIds.filter((memberId) => !task.assigneeIds.includes(memberId));
+    if (added.length > 0) announceTaskAssignment(next, added);
+  };
+
+  const archiveTask: AppContextType['archiveTask'] = (id) => {
+    const task = tasks.find((t) => t.id === id);
+    if (!task) throw new Error('That task is not in this workspace.');
+    guard('tasks.delete', { committeeId: task.committeeId });
+    if (task.archivedAt) throw new Error('That task is already archived.');
+    setTasks((prev) =>
+      prev.map((t) =>
+        t.id === id ? { ...t, archivedAt: stamp(), archivedBy: currentUser?.name ?? 'system' } : t
+      )
+    );
+    logAction(
+      'Archived Task',
+      'task',
+      id,
+      `${task.title} archived; assignments, submissions and score history are retained`
+    );
+  };
+
+  const restoreTask: AppContextType['restoreTask'] = (id) => {
+    const task = tasks.find((t) => t.id === id);
+    if (!task) throw new Error('That task is not in this workspace.');
+    guard('tasks.delete', { committeeId: task.committeeId });
+    if (!task.archivedAt) throw new Error('That task is not archived.');
+    setTasks((prev) => prev.map((t) => (t.id === id ? { ...t, archivedAt: undefined, archivedBy: undefined } : t)));
+    logAction('Restored Task', 'task', id, `${task.title} restored to the board`);
   };
 
   const deleteTask: AppContextType['deleteTask'] = (id) => {
     const task = tasks.find((t) => t.id === id);
-    guard('tasks.delete', { committeeId: task?.committeeId });
+    if (!task) throw new Error('That task is not in this workspace.');
+    guard('tasks.delete', { committeeId: task.committeeId });
+    // Hard deletion cascades submissions and detaches ledger rows. Once either exists the record
+    // is evidence, and the archive is the only deletion the chapter accepts.
+    const hasSubmissions = submissions.some((s) => s.taskId === id);
+    const hasScoreHistory = scoreLedger.some((entry) => entry.taskId === id);
+    if (hasSubmissions || hasScoreHistory) {
+      throw new Error('This task has submissions or score history; archive it instead of deleting it.');
+    }
     setTasks((prev) => prev.filter((t) => t.id !== id));
-    logAction('Deleted Task', 'task', id, 'Removed task');
+    logAction('Deleted Task', 'task', id, `Removed task ${task.title} with no dependent records`);
   };
 
   const addSubmission: AppContextType['addSubmission'] = (subData) => {
@@ -1821,9 +1884,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     try {
       const records = await auth.adapter.listRegistrations();
       setApplications((prev) => {
-        const byRef = new Map(prev.map((a) => [a.authUserId, a] as const));
-        const visible = records.map((r) => applicationFromRecord(r, byRef.get(r.id)));
-        const fromProvider = new Set(records.map((r) => r.id));
+        // A local row is keyed by the profile id it was filed under, not by the queue id —
+        // matching on the queue id would leave both copies and hide the row that can be decided.
+        const byRef = new Map(prev.filter((a) => a.authUserId).map((a) => [a.authUserId, a] as const));
+        const visible = records.map((r) => applicationFromRecord(r, byRef.get(r.profileId ?? r.id)));
+        const fromProvider = new Set(
+          records.flatMap((r) => [r.profileId, r.id].filter((v): v is string => Boolean(v)))
+        );
         return [...visible, ...prev.filter((a) => !a.authUserId || !fromProvider.has(a.authUserId))];
       });
       setQueueSource('provider');
@@ -1885,29 +1952,50 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       recipientName: newApp.fullName,
       recipientEmail: newApp.universityEmail,
       ref: newApp.id,
-      title: 'Application received',
-      message: `${newApp.fullName} was told their request is pending approval.`,
+      title: 'Account created',
+      message: `${newApp.fullName}'s account is active; committee placement is still open.`,
       type: 'info',
-      link: 'applications',
+      link: 'members',
     });
   };
 
   const updateApplicationStatus: AppContextType['updateApplicationStatus'] = async (id, status, notes, committeeId) => {
     guard('registrations.decide');
     const app = applications.find((a) => a.id === id);
-    if (!app) return;
+    if (!app) {
+      throw new Error('That application is no longer in the queue. Refresh to see the latest state.');
+    }
     if (app.status === 'accepted' || app.status === 'rejected') {
       throw new Error('This application already has a decision.');
     }
     // A decision is the provider's record first and this browser's copy second, so the
-    // account status, welcome mail and audit entry all move from the same transaction.
-    if (auth.adapter && app.authUserId && (status === 'accepted' || status === 'rejected')) {
+    // account status, welcome mail and audit entry all move from the same transaction. A row
+    // with neither identity was captured in this browser only; there is nothing to decide
+    // remotely, and it is decided locally the way it always was.
+    const linkedToProvider = Boolean(app.requestId || app.authUserId);
+    if (auth.adapter && linkedToProvider && (status === 'accepted' || status === 'rejected')) {
+      // The RPC locks `esme_registration_requests` by its own id. Passing the profile id here
+      // is what used to raise `ESME_NOT_FOUND`; only the local vault, which has no separate
+      // request table, may fall back to the account id.
+      const targetId = decisionTargetOf(app, auth.adapter.kind);
+      if (!targetId) {
+        throw new Error(
+          'This request has no queue record on the server yet. Refresh the queue before deciding it.'
+        );
+      }
       const result = await auth.adapter.decideRegistration(
-        app.authUserId,
+        targetId,
         status === 'accepted' ? 'approve' : 'reject',
         { reason: notes, committeeId }
       );
-      if (!result.ok) throw new Error(result.error.message);
+      if (!result.ok) {
+        // The row was removed or another reviewer won the race. Pull the queue so the screen
+        // shows the truth, and let the caller render the adapter's refresh-orientated message.
+        if (result.error.code === 'not_found' || result.error.code === 'already_decided') {
+          await refreshRegistrationQueue();
+        }
+        throw new Error(result.error.message);
+      }
     }
     setApplications((prev) =>
       prev.map((a) =>
@@ -2349,7 +2437,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const setActionPrefs: AppContextType['setActionPrefs'] = (prefs) => {
     if (!currentUser) throw new CapabilityError('tasks.read');
     setActionPrefsState(prefs);
-    logAction('Updated Reminder Preferences', 'system', 'action-center', `${Object.values(prefs.enabled).filter(Boolean).length} of 6 kinds on, ${prefs.leadDays} day lead`);
+    logAction('Updated Reminder Preferences', 'system', 'action-center', `${Object.values(prefs.enabled).filter(Boolean).length} of 5 kinds on, ${prefs.leadDays} day lead`);
   };
 
   /**
@@ -2362,7 +2450,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const queue = buildActionQueue({
       tasks,
       submissions,
-      applications,
       events: seasonEvents,
       users,
       asOf: new Date().toISOString(),
@@ -2391,7 +2478,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         id: `not_${Date.now()}_${index}`,
         title: n.title,
         message: n.message,
-        type: n.key.startsWith('overdue:') || n.key.startsWith('recruitment:') ? ('alert' as const) : ('warning' as const),
+        type: n.key.startsWith('overdue:') ? ('alert' as const) : ('warning' as const),
         timestamp: at,
         read: false,
         link: n.link,
@@ -2751,6 +2838,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     tasks,
     addTask,
     updateTask,
+    archiveTask,
+    restoreTask,
     moveTask,
     reviewTask,
     deleteTask,

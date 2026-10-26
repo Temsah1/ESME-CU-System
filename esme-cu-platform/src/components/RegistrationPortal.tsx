@@ -202,7 +202,7 @@ export const RegistrationPortal: React.FC<RegistrationPortalProps> = ({
 
     setReceipt({ reference: outcome.receipt.reference });
     setSubmitted(true);
-    toast('Application submitted for review');
+    toast('Account created — you can sign in now');
   };
 
   if (submitted) {
@@ -217,26 +217,26 @@ export const RegistrationPortal: React.FC<RegistrationPortalProps> = ({
           <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
             <CheckCircle2 className="w-10 h-10" />
           </div>
-          <h2 className="text-2xl font-bold text-[#123B60]">Application received</h2>
+          <h2 className="text-2xl font-bold text-[#123B60]">Account created</h2>
           <p className="text-sm text-slate-600 mt-2 leading-relaxed">
-            You will get an email at <strong>{formData.universityEmail}</strong> once an administrator reviews your
-            request. Until then it grants no access.
+            Your account is ready. Sign in with <strong>{formData.universityEmail}</strong> and the password you chose —
+            no administrator has to approve you first.
           </p>
           <div className="mt-6 p-4 bg-slate-50 rounded-xl border border-slate-200 text-xs text-slate-600 text-left space-y-2">
             <div><strong>Reference:</strong> <span className="font-mono">{receipt?.reference || formData.universityEmail}</span></div>
             <div><strong>Preferred Committee:</strong> {formData.committeeMembership === 'no' ? 'None — you told us you do not belong to one yet' : (committees.find(c => c.id === formData.preferredCommitteeId)?.name ?? 'Not recorded')}</div>
             <div><strong>Department:</strong> {formData.department || 'Not recorded'} · <strong>Year:</strong> {formData.academicYear || 'Not recorded'}</div>
             <div><strong>Email:</strong> {formData.universityEmail}</div>
-            <div><strong>Status:</strong> <span className="text-amber-600 font-bold">Pending review</span></div>
+            <div><strong>Status:</strong> <span className="text-emerald-600 font-bold">Active</span></div>
             <ol className="pt-1 pl-4 list-decimal space-y-1 text-slate-500">
-              <li>An administrator reviews the application and either approves or rejects it.</li>
-              <li>Approval is what activates the account and opens the member workspace; you will be emailed the result either way.</li>
+              <li>Sign in now; the member workspace opens straight away.</li>
+              <li>An officer will place you in a committee. Placement is a roster change, not a condition of access.</li>
             </ol>
           </div>
           <p className="mt-4 text-[11px] text-slate-400 inline-flex items-start gap-1.5 text-left">
             <ShieldCheck className="w-3.5 h-3.5 mt-0.5 shrink-0" aria-hidden />
-            No role is chosen on this form — every new account is a member until an administrator decides otherwise,
-            and the notification is sent to the address you entered above.
+            No role is chosen on this form — every new account starts as a member, and only an authorized officer can
+            change that afterwards.
           </p>
           <div className="mt-8 space-y-3">
             <button
@@ -590,7 +590,7 @@ export const RegistrationPortal: React.FC<RegistrationPortalProps> = ({
 
           <div className="pt-4 border-t border-slate-100 flex items-center justify-between gap-4">
             <span className="text-[11px] text-slate-400">
-              Applications are reviewed by administrators holding the approval capability.
+              No approval step — your account is active as soon as you submit.
             </span>
             <button
               type="submit"

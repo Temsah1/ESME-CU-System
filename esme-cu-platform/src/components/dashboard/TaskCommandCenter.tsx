@@ -12,10 +12,22 @@ import {
   Ban,
   Eye,
   RotateCcw,
+  Pencil,
+  Archive,
+  ArchiveRestore,
+  Loader2,
 } from 'lucide-react';
 import { useApp, useActor } from '../../context/AppContext';
 import { scopeFor } from '../../domain/roles';
 import { canMoveTask, selfServiceMoves } from '../../domain/workflow';
+import {
+  TASK_CATEGORIES,
+  draftFromTask,
+  mayEditTaskFields,
+  normalizeTaskDraft,
+  validateTaskDraft,
+  type TaskDraft,
+} from '../../domain/tasks';
 import { useStickyNonNull, ModalShell, useToast } from '../../motion';
 import { EmptyState } from '../EmptyState';
 import { DataTable, type DataTableAction } from './DataTable';
@@ -30,43 +42,67 @@ const MOVE_LABELS: Partial<Record<TaskStatus, string>> = {
 const PRIORITY_RANK: Record<Task['priority'], number> = { urgent: 0, high: 1, medium: 2, low: 3 };
 
 export const TaskCommandCenter: React.FC = () => {
-  const { tasks, committees, users, addTask, moveTask, reviewTask, addSubmission, can } = useApp();
+  const {
+    tasks,
+    committees,
+    users,
+    addTask,
+    updateTask,
+    archiveTask,
+    restoreTask,
+    moveTask,
+    reviewTask,
+    addSubmission,
+    can,
+  } = useApp();
   const currentUser = useActor();
   
   const [viewMode, setViewMode] = useState<'board' | 'table'>('board');
   const [searchTerm, setSearchTerm] = useState('');
   const [committeeFilter, setCommitteeFilter] = useState('all');
   const [priorityFilter, setPriorityFilter] = useState('all');
+  const [showArchived, setShowArchived] = useState(false);
   
-  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [isFormOpen, setIsFormOpen] = useState(false);
+  const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
+  const [formError, setFormError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
   const { toast } = useToast();
   const [selectedTaskForSubmission, setSelectedTaskForSubmission] = useState<Task | null>(null);
+  const [archiveTarget, setArchiveTarget] = useState<Task | null>(null);
 
-  // New task form state. The start date is filled when the modal opens, not while this
-  // component renders, so the clock is only read on an explicit user action.
-  const blankTask = () => ({
+  // New-task state. The start date is filled when the modal opens, not while this component
+  // renders, so the clock is only read on an explicit user action.
+  const blankTask = (): TaskDraft => ({
     title: '',
     description: '',
     committeeId: '',
-    assigneeIds: [] as string[],
-    priority: 'medium' as Task['priority'],
+    assigneeIds: [],
+    priority: 'medium',
     points: 100,
     startDate: '',
     deadline: '',
-    acceptanceCriteria: '',
-    category: 'Technical Workshop'
+    acceptanceCriteria: [],
+    category: 'general',
   });
-  const [newTask, setNewTask] = useState(blankTask);
+  const [form, setForm] = useState<TaskDraft>(blankTask);
+
+  // Stored rows may carry a category older than this list; it stays selectable so editing one
+  // does not silently re-file it under a different rubric.
+  const categoryChoices: string[] = TASK_CATEGORIES.includes(form.category as (typeof TASK_CATEGORIES)[number])
+    ? [...TASK_CATEGORIES]
+    : [form.category, ...TASK_CATEGORIES];
 
   // Submission form state
   const [submissionDesc, setSubmissionDesc] = useState('');
   const [submissionLinks, setSubmissionLinks] = useState('');
 
-  const canCreateTask = can('tasks.write');
+  const mayCreateTask = can('tasks.write') && mayEditTaskFields(currentUser.role);
   const maySubmit = can('submissions.create');
   const taskScope = scopeFor(currentUser.role, 'tasks.read');
 
   const filteredTasks = tasks.filter((t) => {
+    if (!showArchived && t.archivedAt) return false;
     const matchesSearch = t.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
                           t.description.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesComm = committeeFilter === 'all' || t.committeeId === committeeFilter;
@@ -82,6 +118,17 @@ export const TaskCommandCenter: React.FC = () => {
     return matchesSearch && matchesComm && matchesPrio;
   });
 
+  const archivedCount = tasks.filter((t) => t.archivedAt).length;
+
+  /** Metadata is edited by the administrator and committee leadership, never by an assignee. */
+  const mayEdit = (task: Task) =>
+    !task.archivedAt &&
+    mayEditTaskFields(currentUser.role) &&
+    can('tasks.write', { committeeId: task.committeeId });
+
+  const mayArchive = (task: Task) => can('tasks.delete', { committeeId: task.committeeId });
+  const mayRestore = (task: Task) => mayArchive(task) && Boolean(task.archivedAt);
+
   const columns: { status: TaskStatus; label: string; color: string }[] = [
     { status: 'assigned', label: 'Assigned', color: 'border-blue-400' },
     { status: 'in_progress', label: 'In Progress', color: 'border-indigo-400' },
@@ -91,49 +138,88 @@ export const TaskCommandCenter: React.FC = () => {
     { status: 'approved', label: 'Approved', color: 'border-emerald-400' }
   ];
 
-  const handleCreate = (e: React.FormEvent) => {
+  const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
-    const draft = newTask;
+    // A second press while the first write is still settling is not a second task.
+    if (saving) return;
+    setFormError(null);
 
+    const draft = normalizeTaskDraft(form);
+    const issues = validateTaskDraft(draft, committees, users);
+    if (issues.length > 0) {
+      setFormError(issues[0].message);
+      return;
+    }
+
+    const committee = committees.find((c) => c.id === draft.committeeId);
+    if (!committee) {
+      setFormError('Choose the committee that owns this task.');
+      return;
+    }
+
+    setSaving(true);
     try {
-      const comm = committees.find((c) => c.id === draft.committeeId);
-      if (!comm) throw new Error('Choose the committee that owns this task before saving.');
-      const assignees = users.filter((u) => draft.assigneeIds.includes(u.id));
-
-      addTask({
-        title: draft.title,
-        description: draft.description,
-        committeeId: draft.committeeId,
-        committeeName: comm.name,
-        assigneeIds: draft.assigneeIds,
-        assigneeNames: assignees.map(a => a.name),
-        createdById: currentUser.id,
-        createdByName: currentUser.name,
-        priority: draft.priority,
-        points: Number(draft.points),
-        startDate: draft.startDate,
-        deadline: draft.deadline,
-        status: 'assigned',
-        acceptanceCriteria: draft.acceptanceCriteria.split('\n').filter(c => c.trim()),
-        category: draft.category
-      });
-
-      toast(`Task "${draft.title}" created`);
-      setIsCreateModalOpen(false);
-      setNewTask(blankTask());
+      if (editingTaskId) {
+        updateTask(editingTaskId, draft);
+        toast(`Task "${draft.title}" updated`);
+      } else {
+        addTask({
+          ...draft,
+          committeeName: committee.name,
+          assigneeNames: users.filter((u) => draft.assigneeIds.includes(u.id)).map((a) => a.name),
+          createdById: currentUser.id,
+          createdByName: currentUser.name,
+          status: 'assigned',
+        });
+        toast(`Task "${draft.title}" created`);
+      }
+      setIsFormOpen(false);
+      setEditingTaskId(null);
     } catch (error) {
-      toast(error instanceof Error ? error.message : 'The task was refused.', 'error');
+      const message = error instanceof Error ? error.message : 'The task was refused.';
+      setFormError(message);
+      toast(message, 'error');
+    } finally {
+      setSaving(false);
     }
   };
 
   const openCreateModal = () => {
-    setNewTask({ ...blankTask(), startDate: new Date().toISOString().split('T')[0] });
-    setIsCreateModalOpen(true);
+    setEditingTaskId(null);
+    setForm({ ...blankTask(), startDate: new Date().toISOString().split('T')[0] });
+    setFormError(null);
+    setIsFormOpen(true);
+  };
+
+  const openEditModal = (task: Task) => {
+    setEditingTaskId(task.id);
+    setForm(draftFromTask(task));
+    setFormError(null);
+    setIsFormOpen(true);
+  };
+
+  const handleArchive = (task: Task) => {
+    try {
+      archiveTask(task.id);
+      toast(`"${task.title}" archived. Its history is kept and it can be restored.`);
+    } catch (error) {
+      toast(error instanceof Error ? error.message : 'The task was not archived.', 'error');
+    }
+  };
+
+  const handleRestore = (task: Task) => {
+    try {
+      restoreTask(task.id);
+      toast(`"${task.title}" restored to the board.`);
+    } catch (error) {
+      toast(error instanceof Error ? error.message : 'The task was not restored.', 'error');
+    }
   };
 
   // Only an assignee moves a task, and only along the states the delivery flow leaves open.
+  // An archived row is history: it is restored before it moves again.
   const movesFor = (task: Task) =>
-    task.assigneeIds.includes(currentUser.id) ? selfServiceMoves(task.status) : [];
+    !task.archivedAt && task.assigneeIds.includes(currentUser.id) ? selfServiceMoves(task.status) : [];
 
   const handleMove = (task: Task, to: TaskStatus) => {
     try {
@@ -150,6 +236,7 @@ export const TaskCommandCenter: React.FC = () => {
 
   // Board-side review moves only. Approving happens in the review centre, where the rubric runs.
   const mayReviewTask = (task: Task) =>
+    !task.archivedAt &&
     can('submissions.review', { committeeId: task.committeeId }) &&
     (task.status === 'submitted' || task.status === 'under_review');
 
@@ -186,6 +273,46 @@ export const TaskCommandCenter: React.FC = () => {
    * portal — the same set the board shows, derived from the delivery flow rather than the view.
    */
   const rowActionsFor = (task: Task): DataTableAction<Task>[] => [
+    ...(mayEdit(task)
+      ? [
+          {
+            key: 'edit',
+            label: 'Edit task',
+            icon: Pencil,
+            showLabel: true,
+            onClick: openEditModal,
+          } as DataTableAction<Task>,
+        ]
+      : []),
+    ...(mayRestore(task)
+      ? [
+          {
+            key: 'restore',
+            label: 'Restore task',
+            icon: ArchiveRestore,
+            showLabel: true,
+            onClick: handleRestore,
+          } as DataTableAction<Task>,
+        ]
+      : []),
+    ...(mayArchive(task) && !task.archivedAt
+      ? [
+          {
+            key: 'archive',
+            label: 'Archive task',
+            icon: Archive,
+            showLabel: true,
+            danger: true,
+            confirm: {
+              title: 'Archive this task?',
+              confirmLabel: 'Archive task',
+              body: (t: Task) =>
+                `"${t.title}" leaves the board. Its assignments, submissions and score history are kept, and a Super Admin can restore it. Nothing is erased.`,
+            },
+            onClick: handleArchive,
+          } as DataTableAction<Task>,
+        ]
+      : []),
     ...(mayReviewTask(task) && task.status === 'submitted'
       ? [
           {
@@ -315,7 +442,7 @@ export const TaskCommandCenter: React.FC = () => {
             ))}
           </div>
 
-          {canCreateTask && (
+          {mayCreateTask && (
             <button
               onClick={openCreateModal}
               className="px-4 py-2 bg-[#F59A16] hover:bg-[#D47F0A] text-white text-xs font-bold rounded-xl shadow-md transition flex items-center gap-1.5"
@@ -340,7 +467,7 @@ export const TaskCommandCenter: React.FC = () => {
           />
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <select
             value={committeeFilter}
             onChange={(e) => setCommitteeFilter(e.target.value)}
@@ -363,6 +490,19 @@ export const TaskCommandCenter: React.FC = () => {
             <option value="medium">Medium</option>
             <option value="low">Low</option>
           </select>
+
+          <button
+            type="button"
+            aria-pressed={showArchived}
+            onClick={() => setShowArchived((prev) => !prev)}
+            className={`px-3 py-2 rounded-xl border text-xs font-bold transition ${
+              showArchived
+                ? 'border-[#123B60] bg-[#123B60] text-white'
+                : 'border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300'
+            }`}
+          >
+            Show archived{archivedCount > 0 ? ` (${archivedCount})` : ''}
+          </button>
         </div>
       </div>
 
@@ -397,19 +537,30 @@ export const TaskCommandCenter: React.FC = () => {
                   {colTasks.map((t) => (
                     <div
                       key={t.id}
-                      className="bg-white dark:bg-slate-900 rounded-xl p-3.5 border border-slate-200 dark:border-slate-800 shadow-xs hover:shadow-md hover:-translate-y-0.5 hover:border-[#123B60]/30 transition-all duration-200 space-y-2.5"
+                      className={`rounded-xl p-3.5 border shadow-xs hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 space-y-2.5 ${
+                        t.archivedAt
+                          ? 'bg-slate-50 dark:bg-slate-900/60 border-dashed border-slate-300 dark:border-slate-700 opacity-80'
+                          : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 hover:border-[#123B60]/30'
+                      }`}
                     >
-                      <div className="flex items-center justify-between">
+                      <div className="flex items-center justify-between gap-1">
                         <span className="text-[10px] px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 font-bold text-[#123B60] dark:text-[#F59A16]">
                           {t.committeeName.split(' ')[0]}
                         </span>
-                        <span className={`text-[10px] px-2 py-0.5 rounded font-bold uppercase ${
-                          t.priority === 'urgent' ? 'bg-red-100 text-red-700' :
-                          t.priority === 'high' ? 'bg-orange-100 text-orange-700' :
-                          'bg-slate-100 text-slate-600'
-                        }`}>
-                          {t.priority}
-                        </span>
+                        <div className="flex items-center gap-1">
+                          {t.archivedAt && (
+                            <span className="text-[10px] px-2 py-0.5 rounded font-bold uppercase bg-slate-200 text-slate-600 dark:bg-slate-700 dark:text-slate-300">
+                              Archived
+                            </span>
+                          )}
+                          <span className={`text-[10px] px-2 py-0.5 rounded font-bold uppercase ${
+                            t.priority === 'urgent' ? 'bg-red-100 text-red-700' :
+                            t.priority === 'high' ? 'bg-orange-100 text-orange-700' :
+                            'bg-slate-100 text-slate-600'
+                          }`}>
+                            {t.priority}
+                          </span>
+                        </div>
                       </div>
 
                       <h2 className="text-xs font-bold text-slate-800 dark:text-slate-100 leading-snug line-clamp-2">
@@ -482,7 +633,7 @@ export const TaskCommandCenter: React.FC = () => {
                       )}
 
                       {/* Submit deliverable — needs the submission capability and a task the flow lets you file against */}
-                      {maySubmit && canMoveTask(t.status, 'submitted') && (
+                      {maySubmit && !t.archivedAt && canMoveTask(t.status, 'submitted') && (
                         <button
                           onClick={() => setSelectedTaskForSubmission(t)}
                           className="w-full mt-2 py-1.5 rounded-lg bg-[#123B60] hover:bg-[#0A2239] text-white text-[11px] font-bold transition flex items-center justify-center gap-1.5"
@@ -490,6 +641,41 @@ export const TaskCommandCenter: React.FC = () => {
                           <Upload className="w-3 h-3" />
                           Submit Work
                         </button>
+                      )}
+
+                      {(mayEdit(t) || mayArchive(t) || mayRestore(t)) && (
+                        <div className="flex flex-wrap gap-1.5 mt-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+                          {mayEdit(t) && (
+                            <button
+                              onClick={() => openEditModal(t)}
+                              aria-label={`Edit ${t.title}`}
+                              className="flex-1 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-300 text-[11px] font-bold hover:bg-slate-50 dark:hover:bg-slate-800 transition flex items-center justify-center gap-1.5"
+                            >
+                              <Pencil className="w-3 h-3" />
+                              Edit
+                            </button>
+                          )}
+                          {mayRestore(t) && (
+                            <button
+                              onClick={() => handleRestore(t)}
+                              aria-label={`Restore ${t.title}`}
+                              className="flex-1 py-1.5 rounded-lg border border-emerald-300 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300 text-[11px] font-bold hover:bg-emerald-50 dark:hover:bg-emerald-950/20 transition flex items-center justify-center gap-1.5"
+                            >
+                              <ArchiveRestore className="w-3 h-3" />
+                              Restore
+                            </button>
+                          )}
+                          {mayArchive(t) && !t.archivedAt && (
+                            <button
+                              onClick={() => setArchiveTarget(t)}
+                              aria-label={`Archive ${t.title}`}
+                              className="flex-1 py-1.5 rounded-lg border border-rose-300 dark:border-rose-900 text-rose-600 dark:text-rose-400 text-[11px] font-bold hover:bg-rose-50 dark:hover:bg-rose-950/20 transition flex items-center justify-center gap-1.5"
+                            >
+                              <Archive className="w-3 h-3" />
+                              Archive
+                            </button>
+                          )}
+                        </div>
                       )}
                     </div>
                   ))}
@@ -524,7 +710,14 @@ export const TaskCommandCenter: React.FC = () => {
                 sortValue: (t) => t.title,
                 render: (t) => (
                   <>
-                    <div className="font-bold text-slate-800 dark:text-slate-100">{t.title}</div>
+                    <div className="font-bold text-slate-800 dark:text-slate-100">
+                      {t.title}
+                      {t.archivedAt && (
+                        <span className="ml-2 text-[9px] px-1.5 py-0.5 rounded uppercase align-middle bg-slate-200 text-slate-600 dark:bg-slate-700 dark:text-slate-300">
+                          Archived
+                        </span>
+                      )}
+                    </div>
                     <div className="text-[11px] text-slate-400 line-clamp-1">{t.description}</div>
                   </>
                 ),
@@ -574,35 +767,52 @@ export const TaskCommandCenter: React.FC = () => {
         </motion.div>
       )}
 
-      {/* Create Task Modal */}
-      <ModalShell open={isCreateModalOpen} onClose={() => setIsCreateModalOpen(false)} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 max-w-lg w-full shadow-2xl">
+      {/* Create / edit Task Modal — a task is edited with the same fields it is created with. */}
+      <ModalShell open={isFormOpen} onClose={() => setIsFormOpen(false)} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 max-w-lg w-full shadow-2xl">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800 mb-4">
-              <h2 className="text-base font-bold text-slate-900 dark:text-white">Create New Organization Task</h2>
-              <button onClick={() => setIsCreateModalOpen(false)} className="text-slate-400 hover:text-slate-600">
+              <h2 className="text-base font-bold text-slate-900 dark:text-white">
+                {editingTaskId ? 'Edit Task' : 'Create New Organization Task'}
+              </h2>
+              <button
+                type="button"
+                onClick={() => setIsFormOpen(false)}
+                aria-label="Close task form"
+                className="text-slate-400 hover:text-slate-600"
+              >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <form onSubmit={handleCreate} className="space-y-4 text-xs">
+            <form onSubmit={handleSave} className="space-y-4 text-xs">
+              {formError && (
+                <p
+                  role="alert"
+                  className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-[11px] font-semibold text-rose-700 dark:border-rose-900 dark:bg-rose-950/30 dark:text-rose-300"
+                >
+                  {formError}
+                </p>
+              )}
               <div>
-                <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">Task Title</label>
+                <label htmlFor="task-title" className="block font-bold text-slate-700 dark:text-slate-300 mb-1">Task Title</label>
                 <input
+                  id="task-title"
                   type="text"
                   required
-                  value={newTask.title}
-                  onChange={(e) => setNewTask({ ...newTask, title: e.target.value })}
+                  value={form.title}
+                  onChange={(e) => setForm({ ...form, title: e.target.value })}
                   placeholder="e.g. Ultrasonic Testing Workshop Curriculum & Sourcing"
                   className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 outline-none"
                 />
               </div>
 
               <div>
-                <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">Description</label>
+                <label htmlFor="task-description" className="block font-bold text-slate-700 dark:text-slate-300 mb-1">Description</label>
                 <textarea
+                  id="task-description"
                   required
                   rows={2}
-                  value={newTask.description}
-                  onChange={(e) => setNewTask({ ...newTask, description: e.target.value })}
+                  value={form.description}
+                  onChange={(e) => setForm({ ...form, description: e.target.value })}
                   placeholder="Task mandate, context, and expected output..."
                   className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 outline-none"
                 />
@@ -610,10 +820,11 @@ export const TaskCommandCenter: React.FC = () => {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">Responsible Committee</label>
+                  <label htmlFor="task-committee" className="block font-bold text-slate-700 dark:text-slate-300 mb-1">Responsible Committee</label>
                   <select
-                    value={newTask.committeeId}
-                    onChange={(e) => setNewTask({ ...newTask, committeeId: e.target.value, assigneeIds: [] })}
+                    id="task-committee"
+                    value={form.committeeId}
+                    onChange={(e) => setForm({ ...form, committeeId: e.target.value, assigneeIds: [] })}
                     className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 outline-none"
                   >
                     <option value="" disabled>
@@ -630,10 +841,11 @@ export const TaskCommandCenter: React.FC = () => {
                   )}
                 </div>
                 <div>
-                  <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">Priority</label>
+                  <label htmlFor="task-priority" className="block font-bold text-slate-700 dark:text-slate-300 mb-1">Priority</label>
                   <select
-                    value={newTask.priority}
-                    onChange={(e) => setNewTask({ ...newTask, priority: e.target.value as any })}
+                    id="task-priority"
+                    value={form.priority}
+                    onChange={(e) => setForm({ ...form, priority: e.target.value as Task['priority'] })}
                     className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 outline-none"
                   >
                     <option value="low">Low</option>
@@ -646,49 +858,79 @@ export const TaskCommandCenter: React.FC = () => {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">Point Value</label>
+                  <label htmlFor="task-start" className="block font-bold text-slate-700 dark:text-slate-300 mb-1">Start Date</label>
                   <input
+                    id="task-start"
+                    type="date"
+                    value={form.startDate}
+                    onChange={(e) => setForm({ ...form, startDate: e.target.value })}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 outline-none"
+                  />
+                </div>
+                <div>
+                  <label htmlFor="task-deadline" className="block font-bold text-slate-700 dark:text-slate-300 mb-1">Deadline</label>
+                  <input
+                    id="task-deadline"
+                    type="date"
+                    required
+                    value={form.deadline}
+                    onChange={(e) => setForm({ ...form, deadline: e.target.value })}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 outline-none"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label htmlFor="task-points" className="block font-bold text-slate-700 dark:text-slate-300 mb-1">Point Value</label>
+                  <input
+                    id="task-points"
                     type="number"
                     required
                     min={10}
                     max={500}
-                    value={newTask.points}
-                    onChange={(e) => setNewTask({ ...newTask, points: Number(e.target.value) })}
+                    value={form.points}
+                    onChange={(e) => setForm({ ...form, points: Number(e.target.value) })}
                     className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 outline-none font-bold text-[#F59A16]"
                   />
                 </div>
                 <div>
-                  <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">Deadline</label>
-                  <input
-                    type="date"
-                    required
-                    value={newTask.deadline}
-                    onChange={(e) => setNewTask({ ...newTask, deadline: e.target.value })}
+                  <label htmlFor="task-category" className="block font-bold text-slate-700 dark:text-slate-300 mb-1">Category</label>
+                  <select
+                    id="task-category"
+                    value={form.category}
+                    onChange={(e) => setForm({ ...form, category: e.target.value })}
                     className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 outline-none"
-                  />
+                  >
+                    {categoryChoices.map((category) => (
+                      <option key={category} value={category}>
+                        {category === 'general' ? 'General (default rubric)' : category}
+                      </option>
+                    ))}
+                  </select>
                 </div>
               </div>
 
               <div>
                 <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">Assign Members</label>
                 <div className="max-h-28 overflow-y-auto border border-slate-200 dark:border-slate-700 rounded-xl p-2 space-y-1">
-                  {users.filter(u => u.committeeId === newTask.committeeId).length === 0 ? (
+                  {users.filter(u => u.committeeId === form.committeeId).length === 0 ? (
                     <p className="text-[11px] text-slate-400 p-1">
-                      {newTask.committeeId
+                      {form.committeeId
                         ? 'No members are attached to this committee yet. You can still save the task and assign later.'
                         : 'Pick a committee to list its members.'}
                     </p>
                   ) : (
-                    users.filter(u => u.committeeId === newTask.committeeId).map((u) => (
+                    users.filter(u => u.committeeId === form.committeeId).map((u) => (
                     <label key={u.id} className="flex items-center gap-2 cursor-pointer p-1 rounded hover:bg-slate-100 dark:hover:bg-slate-800">
                       <input
                         type="checkbox"
-                        checked={newTask.assigneeIds.includes(u.id)}
+                        checked={form.assigneeIds.includes(u.id)}
                         onChange={(e) => {
                           if (e.target.checked) {
-                            setNewTask({ ...newTask, assigneeIds: [...newTask.assigneeIds, u.id] });
+                            setForm({ ...form, assigneeIds: [...form.assigneeIds, u.id] });
                           } else {
-                            setNewTask({ ...newTask, assigneeIds: newTask.assigneeIds.filter(id => id !== u.id) });
+                            setForm({ ...form, assigneeIds: form.assigneeIds.filter(id => id !== u.id) });
                           }
                         }}
                         className="rounded text-[#123B60]"
@@ -701,11 +943,12 @@ export const TaskCommandCenter: React.FC = () => {
               </div>
 
               <div>
-                <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">Acceptance Criteria (1 per line)</label>
+                <label htmlFor="task-criteria" className="block font-bold text-slate-700 dark:text-slate-300 mb-1">Acceptance Criteria (1 per line)</label>
                 <textarea
+                  id="task-criteria"
                   rows={2}
-                  value={newTask.acceptanceCriteria}
-                  onChange={(e) => setNewTask({ ...newTask, acceptanceCriteria: e.target.value })}
+                  value={form.acceptanceCriteria.join('\n')}
+                  onChange={(e) => setForm({ ...form, acceptanceCriteria: e.target.value.split('\n') })}
                   placeholder="What must be true before this counts as done..."
                   className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 outline-none"
                 />
@@ -714,19 +957,54 @@ export const TaskCommandCenter: React.FC = () => {
               <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100 dark:border-slate-800">
                 <button
                   type="button"
-                  onClick={() => setIsCreateModalOpen(false)}
+                  onClick={() => setIsFormOpen(false)}
                   className="px-4 py-2 rounded-xl border border-slate-200 text-slate-600 font-semibold"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 bg-[#F59A16] hover:bg-[#D47F0A] text-white font-bold rounded-xl"
+                  disabled={saving}
+                  className="px-5 py-2 bg-[#F59A16] hover:bg-[#D47F0A] text-white font-bold rounded-xl disabled:opacity-60 flex items-center gap-1.5"
                 >
-                  Assign Task
+                  {saving && <Loader2 className="w-3.5 h-3.5 animate-spin" aria-hidden />}
+                  {editingTaskId ? 'Save changes' : 'Assign Task'}
                 </button>
               </div>
             </form>
+      </ModalShell>
+
+      {/* Archive confirmation for the board. Table rows use DataTable's confirmation instead. */}
+      <ModalShell open={archiveTarget !== null} onClose={() => setArchiveTarget(null)} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 max-w-md w-full shadow-2xl">
+        {archiveTarget && (
+          <div className="space-y-4">
+            <h2 className="text-base font-bold text-slate-900 dark:text-white">Archive this task?</h2>
+            <p className="text-xs text-slate-500 leading-relaxed">
+              “{archiveTarget.title}” leaves the board. Its assignments, submissions and score history are
+              kept, and a Super Admin can restore it. Nothing is erased.
+            </p>
+            <div className="flex items-center justify-end gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setArchiveTarget(null)}
+                className="px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-600 dark:text-slate-300"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const target = archiveTarget;
+                  setArchiveTarget(null);
+                  handleArchive(target);
+                }}
+                className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-xs font-bold text-white"
+              >
+                Archive task
+              </button>
+            </div>
+          </div>
+        )}
       </ModalShell>
 
       {/* Submit Work Modal */}

@@ -1,4 +1,4 @@
-import type { RegistrationApplication, SeasonEvent, Task, TaskSubmission, User } from '../types';
+import type { SeasonEvent, Task, TaskSubmission, User } from '../types';
 
 /**
  * Spec D: one queue for the pending work that actually exists, built from records on every
@@ -10,11 +10,11 @@ import type { RegistrationApplication, SeasonEvent, Task, TaskSubmission, User }
  * prevention means here.
  */
 
-export type ActionKind = 'approval' | 'review' | 'overdue' | 'recruitment' | 'event' | 'milestone';
+export type ActionKind = 'approval' | 'review' | 'overdue' | 'event' | 'milestone';
 
-export const ACTION_KINDS: ActionKind[] = ['approval', 'review', 'overdue', 'recruitment', 'event', 'milestone'];
+export const ACTION_KINDS: ActionKind[] = ['approval', 'review', 'overdue', 'event', 'milestone'];
 
-export type ActionTarget = 'tasks' | 'submissions' | 'applications' | 'season_planner' | 'scoring';
+export type ActionTarget = 'tasks' | 'submissions' | 'season_planner' | 'scoring';
 
 export type ActionItem = {
   key: string;
@@ -41,7 +41,7 @@ export type ActionPrefs = {
 };
 
 export const DEFAULT_ACTION_PREFS: ActionPrefs = {
-  enabled: { approval: true, review: true, overdue: true, recruitment: true, event: true, milestone: true },
+  enabled: { approval: true, review: true, overdue: true, event: true, milestone: true },
   leadDays: 2,
   escalateAfterDays: 3,
 };
@@ -65,13 +65,12 @@ const dayFloor = (from: string, to: string) => Math.floor((Date.parse(to) - Date
 export function buildActionQueue(input: {
   tasks: Task[];
   submissions: TaskSubmission[];
-  applications: RegistrationApplication[];
   events: SeasonEvent[];
   users: User[];
   asOf: string;
   prefs: ActionPrefs;
 }): ActionItem[] {
-  const { tasks, submissions, applications, events, users, asOf, prefs } = input;
+  const { tasks, submissions, events, users, asOf, prefs } = input;
   const today = asOf.slice(0, 10);
   const TERMINAL: Task['status'][] = ['approved', 'rejected', 'cancelled'];
   const items: ActionItem[] = [];
@@ -79,6 +78,8 @@ export function buildActionQueue(input: {
   const ownerName = (id: string) => users.find((u) => u.id === id)?.name ?? id;
 
   tasks.forEach((task) => {
+    // An archived row is history, not outstanding work.
+    if (task.archivedAt) return;
     const open = !TERMINAL.includes(task.status);
     if (!open || !task.deadline) return;
     const dueInDays = dayFloor(today, task.deadline);
@@ -131,27 +132,6 @@ export function buildActionQueue(input: {
         priority: tasks.find((t) => t.id === s.taskId)?.priority ?? 'medium',
         view: 'submissions',
         recordId: s.id,
-        dueInDays: null,
-        escalateAfterDays: prefs.escalateAfterDays,
-      });
-    });
-
-  applications
-    .filter((a) => a.status === 'pending' || a.status === 'under_review')
-    .forEach((a) => {
-      const age = dayFloor(a.appliedDate, today);
-      items.push({
-        key: `recruitment:${a.id}:${a.status}`,
-        kind: 'recruitment',
-        title: a.fullName,
-        detail: `Application ${a.status.replace(/_/g, ' ')} for ${a.preferredCommitteeId}, filed ${a.appliedDate} (${age} day(s) ago).`,
-        owner: null,
-        committeeId: a.preferredCommitteeId,
-        deadline: null,
-        // Age decides urgency: a week-old unanswered application outranks a fresh one.
-        priority: age >= 7 ? 'high' : age >= 3 ? 'medium' : 'low',
-        view: 'applications',
-        recordId: a.id,
         dueInDays: null,
         escalateAfterDays: prefs.escalateAfterDays,
       });
@@ -234,7 +214,7 @@ export function planNotifications(items: ActionItem[], emitted: EmittedKey[]): {
     seen.add(item.key);
     toEmit.push({
       key: item.key,
-      title: `${item.kind === 'recruitment' ? 'Application' : item.kind === 'milestone' ? 'Milestone' : item.kind === 'event' ? 'Event' : item.kind === 'approval' ? 'Review' : 'Deadline'}: ${item.title}`,
+      title: `${item.kind === 'milestone' ? 'Milestone' : item.kind === 'event' ? 'Event' : item.kind === 'approval' ? 'Review' : 'Deadline'}: ${item.title}`,
       message: `${item.detail}${item.dueInDays !== null ? ` Due ${item.deadline} (${item.dueInDays >= 0 ? `${item.dueInDays} day(s)` : `${Math.abs(item.dueInDays)} day(s) ago`}).` : ''}`,
       link: item.view,
     });

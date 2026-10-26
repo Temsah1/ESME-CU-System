@@ -77,6 +77,9 @@ export interface Task {
   referenceLinks?: string[];
   category: string;
   createdAt: string;
+  /** Soft delete: an archived row keeps its assignments, submissions and score history. */
+  archivedAt?: string;
+  archivedBy?: string;
 }
 
 export interface TaskSubmission {
@@ -151,7 +154,13 @@ export interface RegistrationApplication {
   status: 'pending' | 'under_review' | 'accepted' | 'rejected' | 'waitlisted';
   /** The provider's own account status, shown next to the stage the board projects it to. */
   accountStatus?: AccountStatus;
+  /** Profile / auth identity this queue row is about. */
   authUserId?: string;
+  /**
+   * `esme_registration_requests.id` — the row a decision must name. Local rows created in this
+   * browser have no server queue row yet, so this stays empty until the provider's queue is read.
+   */
+  requestId?: string;
   assignedCommitteeId?: string;
   internalNotes?: string;
   rejectionReason?: string;

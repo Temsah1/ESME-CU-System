@@ -14,11 +14,11 @@ import {
   LayoutDashboard,
   LineChart,
   Mail,
+  MessagesSquare,
   Scale,
   Settings,
   Share2,
   ShieldAlert,
-  UserPlus,
   Users,
   type LucideIcon,
 } from 'lucide-react';
@@ -56,6 +56,7 @@ const item = (
 export const NAV_ITEMS: NavItem[] = [
   item('overview', 'Overview', 'Core Command', LayoutDashboard, null, 'home, today, my chapter'),
   item('notifications', 'Alerts & Email', 'Core Command', Mail, null, 'inbox, delivery, notifications, preferences'),
+  item('messages', 'Messages', 'Core Command', MessagesSquare, null, 'chat, direct message, committee channel, unread'),
   item('decision_center', 'Decision Center', 'Core Command', Gauge, 'analytics.configure', 'approvals, bottlenecks, risk'),
   item('action_center', 'Action Center', 'Core Command', Inbox, 'tasks.read', 'pending, waiting on me, queue'),
   item('kpi_analytics', 'KPI & Analytics', 'Core Command', LineChart, 'analytics.configure', 'metrics, throughput, charts'),
@@ -64,7 +65,6 @@ export const NAV_ITEMS: NavItem[] = [
 
   item('members', 'Members Directory', 'Organization & People', Users, 'users.read', 'people, accounts, roster'),
   item('committees', 'Committees & Teams', 'Organization & People', Layers, 'committees.read', 'structure, seats, director, head'),
-  item('applications', 'Recruitment Apps', 'Organization & People', UserPlus, 'registrations.read', 'applicants, approve, reject'),
   item('skill_matrix', 'L0–L4 Skill Matrix', 'Organization & People', Award, 'skills.read', 'levels, courses, development'),
 
   item('tasks', 'Tasks Command', 'Operations & Execution', CheckSquare, 'tasks.read', 'assignments, deadlines, create task'),
@@ -78,7 +78,7 @@ export const NAV_ITEMS: NavItem[] = [
 
   item('audit_log', 'Audit Trail', 'System & Governance', History, 'audit.read', 'who did what, append-only'),
   item('report_builder', 'Report Export', 'System & Governance', FileSpreadsheet, 'submissions.read', 'xlsx, export, workbook'),
-  item('moderator', 'IT Moderator Tools', 'System & Governance', ShieldAlert, 'registrations.decide', 'bootstrap, roles, suspend, cache'),
+  item('moderator', 'IT Moderator Tools', 'System & Governance', ShieldAlert, 'registrations.decide', 'integrity, test accounts, diagnostics, cache'),
   item('settings', 'Settings & Backups', 'System & Governance', Settings, 'settings.manage', 'theme, registration form, export, backup'),
 ];
 

@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { describe, expect, it } from 'vitest';
-import type { RegistrationApplication, SeasonEvent, Task, TaskSubmission, User } from '../types';
+import type { SeasonEvent, Task, TaskSubmission, User } from '../types';
 import {
   DEFAULT_ACTION_PREFS,
   buildActionQueue,
@@ -74,25 +74,6 @@ function person(patch: Partial<User> & Pick<User, 'id'>): User {
   };
 }
 
-function application(patch: Partial<RegistrationApplication> & Pick<RegistrationApplication, 'id'>): RegistrationApplication {
-  return {
-    fullName: 'Applicant',
-    universityEmail: 'a@esme.local',
-    academicYear: '3',
-    department: 'Civil',
-    phone: '',
-    preferredCommitteeId: 'c1',
-    technicalSkills: '',
-    previousExperience: '',
-    motivation: '',
-    availabilityHours: '5',
-    agreedToPolicies: true,
-    appliedDate: '2026-10-14',
-    status: 'pending',
-    ...patch,
-  };
-}
-
 function event(patch: Partial<SeasonEvent> & Pick<SeasonEvent, 'id'>): SeasonEvent {
   return {
     title: 'Event',
@@ -111,7 +92,6 @@ const build = (patch: Partial<Parameters<typeof buildActionQueue>[0]> = {}) =>
   buildActionQueue({
     tasks: [],
     submissions: [],
-    applications: [],
     events: [],
     users: [person({ id: 'u2', name: 'Member Two' })],
     asOf: AS_OF,
@@ -146,12 +126,10 @@ describe('queue contents', () => {
     ).toEqual([]);
   });
 
-  it('keeps an application visible as recruitment work until it is decided', () => {
-    const queue = build({
-      applications: [application({ id: 'a1', appliedDate: '2026-09-01' }), application({ id: 'a2', status: 'accepted' })],
-    });
-    expect(queue.map((i) => i.recordId)).toEqual(['a1']);
-    expect(queue[0].priority).toBe('high');
+  it('leaves the retired recruitment queue out of the work list', () => {
+    const queue = build({ tasks: [task({ id: 't1', deadline: '2026-10-20' })] });
+    expect(queue.map((i) => i.view)).not.toContain('applications');
+    expect(queue.map((i) => i.kind)).not.toContain('recruitment');
   });
 
   it('separates a season milestone from an ordinary event', () => {
@@ -160,8 +138,8 @@ describe('queue contents', () => {
   });
 
   it('drops a whole kind when the account turned its reminders off', () => {
-    const prefs: ActionPrefs = { ...DEFAULT_ACTION_PREFS, enabled: { ...DEFAULT_ACTION_PREFS.enabled, overdue: false, recruitment: false } };
-    const queue = build({ prefs, tasks: [task({ id: 't1', deadline: '2026-10-01' })], applications: [application({ id: 'a1' })] });
+    const prefs: ActionPrefs = { ...DEFAULT_ACTION_PREFS, enabled: { ...DEFAULT_ACTION_PREFS.enabled, overdue: false } };
+    const queue = build({ prefs, tasks: [task({ id: 't1', deadline: '2026-10-01' })] });
     expect(queue.map((i) => i.kind)).toEqual(['review']);
   });
 });
@@ -187,11 +165,11 @@ describe('who may see what', () => {
 describe('ordering, reminders and escalation', () => {
   it('puts the nearest date first, then closed dates, then priority', () => {
     const queue = sortQueue([
-      { ...build({ applications: [application({ id: 'a1', appliedDate: '2026-09-01' })] })[0] },
+      { ...build({ events: [event({ id: 'e1' })] })[0] },
       taskQueue('tfar', '2026-10-30'),
       taskQueue('tsoon', '2026-10-17'),
     ]);
-    expect(queue.map((i) => i.recordId)).toEqual(['tsoon', 'tfar', 'a1']);
+    expect(queue.map((i) => i.recordId)).toEqual(['tsoon', 'tfar', 'e1']);
   });
 
   it('reminds inside the lead time and immediately for what already went by', () => {
@@ -241,7 +219,7 @@ describe('one announcement per record stage', () => {
 
   it('links every notification to the screen that can act on it', () => {
     planNotifications(queue, []).toEmit.forEach((n) =>
-      expect(['tasks', 'submissions', 'applications', 'season_planner', 'scoring']).toContain(n.link)
+      expect(['tasks', 'submissions', 'season_planner', 'scoring']).toContain(n.link)
     );
   });
 });

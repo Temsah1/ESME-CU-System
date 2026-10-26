@@ -404,3 +404,139 @@ describe('the migrations only mention relations and columns that exist', () => {
     }
   });
 });
+
+// ---- 0014 task management -------------------------------------------------------------------
+// Static, like the rest of this file: the deletion guard's behaviour is P35-P38 in
+// supabase/probes/, which need a real staging database. These checks keep the policies and the
+// trigger shaped so that a probe would be testing the intended rule.
+
+const file0014 = perFile.find((f) => f.name === '0014_task_management.sql');
+
+describe('task management archives instead of erasing history', () => {
+  it('adds nullable archive columns and a live-row index', () => {
+    expect(file0014, '0014_task_management.sql is missing').toBeTruthy();
+    const tasks = columnsOf.get('esme_tasks') ?? new Set<string>();
+    for (const column of ['archived_at', 'archived_by']) {
+      expect([...tasks], `esme_tasks has no ${column}`).toContain(column);
+      const line = file0014!.text.match(new RegExp(`add column if not exists ${column}[^,;]*`, 'i'))?.[0] ?? '';
+      // A live row is the existing rows; the add cannot require a value from them.
+      expect(line, `${column} must stay nullable`).not.toMatch(/not null/i);
+    }
+    expect(file0014!.text).toMatch(/where archived_at is null/i);
+  });
+
+  it('scopes deletion to the committee the task belongs to', () => {
+    // 0002 defined the policy first; the last definition is the one a fully-migrated project runs.
+    const deletes = policies.filter((p) => p.name === 'esme_tasks_delete');
+    expect(deletes.length).toBeGreaterThanOrEqual(2);
+    const current = deletes[deletes.length - 1];
+    expect(current.body).toContain("esme_reaches_committee(committee_id, 'tasks.delete')");
+    // The old capability-only check ignored the committee and is exactly what 0014 replaces.
+    expect(current.body).not.toMatch(/esme_has_capability\('tasks\.delete'\)/);
+  });
+
+  it('refuses a hard delete while submissions or ledger rows refer to the task', () => {
+    const guarded = [...triggersFor.entries()].filter(
+      ([fn, tables]) => fn === 'esme_guard_task_delete' && tables.includes('esme_tasks')
+    );
+    expect(guarded, '0014 must bind esme_guard_task_delete to esme_tasks').toHaveLength(1);
+    const body = functionBodies.get('esme_guard_task_delete') ?? '';
+    expect(body).toContain('from esme_submissions where task_id = old.id');
+    expect(body).toContain('from esme_score_ledger where task_id = old.id');
+    expect(body).toContain('ESME_TASK_HAS_HISTORY');
+    expect(body).toMatch(/return old/i);
+    expect(
+      /create trigger esme_tasks_guard_delete[\s\S]{0,140}?\bbefore delete\b/i.test(sqlCode)
+    ).toBe(true);
+  });
+
+  it('deletes nothing and does not widen the capability matrix', () => {
+    const code = file0014!.text.replace(/--[^\n]*/g, '');
+    expect(code).not.toMatch(/\bdelete from\b/i);
+    expect(code).not.toMatch(/insert into esme_role_capabilities/i);
+    expect(code).not.toMatch(/drop table/i);
+  });
+});
+
+// ---- 0015 High Board content ---------------------------------------------------------------
+// Static: the matrix row is the whole change, because the CMS/media/settings policies already
+// read these capability names. P39-P42 in supabase/probes/ are what would prove Postgres honours
+// them for a real High Board session.
+
+describe('the High Board content grant is the content suite, not the platform', () => {
+  const file0015 = perFile.find((f) => f.name === '0015_high_board_content.sql');
+  const grants = () => {
+    const rows: { role: string; capability: string; scope: string }[] = [];
+    for (const match of (file0015?.text ?? '').matchAll(
+      /\('([a-z_]+)',\s*'([a-z.]+)',\s*'([a-z]+)'\)/g
+    )) {
+      rows.push({ role: match[1], capability: match[2], scope: match[3] });
+    }
+    return rows;
+  };
+
+  it('grants the four cms capabilities to high_board and nobody else', () => {
+    expect(file0015, '0015_high_board_content.sql is missing').toBeTruthy();
+    const rows = grants();
+    expect(rows).toHaveLength(4);
+    expect(rows.map((r) => r.capability).sort()).toEqual([
+      'cms.content.publish',
+      'cms.content.write',
+      'cms.media.manage',
+      'cms.settings.global',
+    ]);
+    for (const row of rows) {
+      expect(row.role, `${row.capability} must not go to another role here`).toBe('high_board');
+      expect(row.scope, `${row.capability} is organization-wide`).toBe('all');
+    }
+    // The upsert is what lets a re-run repair a drifted scope instead of failing.
+    expect(file0015!.text).toMatch(/on conflict \(role, capability\) do update set scope = excluded\.scope/i);
+  });
+
+  it('adds no policy and touches no content row', () => {
+    const code = file0015!.text.replace(/--[^\n]*/g, '');
+    expect(code).not.toMatch(/create policy|alter policy|drop policy/i);
+    expect(code).not.toMatch(/\b(?:insert into|update|delete from)\s+esme_(?:content_pages|media_assets)/i);
+    expect(code).not.toMatch(/grants?\s+(?:users\.role\.assign|users\.suspend|settings\.manage|backups\.manage)/i);
+  });
+});
+
+// ---- 0016 High Board bonus guard -----------------------------------------------------------
+// Static: P43-P46 in supabase/probes/ are what would prove the trigger fires on staging. What can
+// be read here is that it fires before insert on the table that stores the frozen target role, and
+// that it changes neither the capability matrix nor any existing record.
+
+describe('a bonus aimed at a High Board seat is refused at the table', () => {
+  const file0016 = perFile.find((f) => f.name === '0016_high_board_bonus_guard.sql');
+
+  it('binds a before-insert trigger to esme_reward_entries', () => {
+    expect(file0016, '0016_high_board_bonus_guard.sql is missing').toBeTruthy();
+    const guarded = [...triggersFor.entries()].filter(
+      ([fn, tables]) => fn === 'esme_guard_high_board_bonus' && tables.includes('esme_reward_entries')
+    );
+    expect(guarded, '0016 must bind the guard to esme_reward_entries').toHaveLength(1);
+    expect(
+      /create trigger esme_reward_entries_high_board_guard[\s\S]{0,140}?\bbefore insert\b/i.test(sqlCode)
+    ).toBe(true);
+  });
+
+  it('reads the frozen target role, not a value the caller can rewrite later', () => {
+    const body = functionBodies.get('esme_guard_high_board_bonus') ?? '';
+    const columns = columnsOf.get('esme_reward_entries') ?? new Set<string>();
+    // Both identifiers have to exist on the firing table, or the trigger would fail at runtime.
+    expect([...columns], 'esme_reward_entries has no target_role_at_time').toContain('target_role_at_time');
+    expect(body).toContain("new.kind = 'bonus'");
+    expect(body).toContain("new.target_role_at_time = 'high_board'");
+    expect(body).toContain('ESME_HIGH_BOARD_TARGET');
+    expect(body).toMatch(/return new/i);
+    // A warning to a board member stays possible: the rule is about bonus points, not discipline.
+    expect(body).not.toMatch(/ESME_HIGH_BOARD_TARGET[\s\S]*warning/i);
+  });
+
+  it('rewrites no entry and does not widen the capability matrix', () => {
+    const code = file0016!.text.replace(/--[^\n]*/g, '');
+    expect(code).not.toMatch(/\b(?:update|delete from)\s+esme_reward_entries/i);
+    expect(code).not.toMatch(/insert into esme_role_capabilities/i);
+    expect(code).not.toMatch(/create policy|alter policy|drop policy/i);
+  });
+});

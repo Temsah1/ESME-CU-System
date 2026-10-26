@@ -6,13 +6,13 @@ import { NAV_BY_ID } from './nav';
 import { DashboardHome } from './DashboardHome';
 import { ExecutiveDecisionCenter } from './ExecutiveDecisionCenter';
 import { ActionCenter } from './ActionCenter';
+import { MessagesView } from './MessagesView';
 import { MemberManagement } from './MemberManagement';
 import { CommitteeManagement } from './CommitteeManagement';
 import { TaskCommandCenter } from './TaskCommandCenter';
 import { SubmissionReviewCenter } from './SubmissionReviewCenter';
 import { PointsAndLeaderboard } from './PointsAndLeaderboard';
 import { RewardsAndDiscipline } from './RewardsAndDiscipline';
-import { RegistrationManager } from './RegistrationManager';
 import { WebsiteCMS } from './WebsiteCMS';
 import { MediaLibrary } from './MediaLibrary';
 import { SeasonPlanner } from './SeasonPlanner';
@@ -45,13 +45,13 @@ const views: Record<DashboardView, React.FC<ViewProps>> = {
   overview: DashboardHome,
   decision_center: ExecutiveDecisionCenter,
   action_center: ActionCenter,
+  messages: MessagesView,
   members: MemberManagement,
   committees: CommitteeManagement,
   tasks: TaskCommandCenter,
   submissions: SubmissionReviewCenter,
   scoring: PointsAndLeaderboard,
   rewards: RewardsAndDiscipline,
-  applications: RegistrationManager,
   website_cms: WebsiteCMS,
   media_library: MediaLibrary,
   season_planner: SeasonPlanner,

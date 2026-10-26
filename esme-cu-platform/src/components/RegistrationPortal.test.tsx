@@ -147,16 +147,17 @@ describe('the signup form', () => {
     expect(committeeSelect().textContent).toContain('High Board (HB)');
   });
 
-  it('files an application that carries what the applicant was asked and nothing else', async () => {
+  it('files a placement request that carries what the applicant was asked and nothing else', async () => {
     const { user } = await renderPortal();
     await fillNonMember(user);
 
-    await TL.waitFor(() => expect(TL.screen.getByText('Application received')).toBeTruthy());
+    await TL.waitFor(() => expect(TL.screen.getByText('Account created')).toBeTruthy());
 
     const [row] = filed();
     expect(row.fullName).toBe('Nada Officer');
     expect(row.universityEmail).toBe('nada.officer@esme-cu.edu');
     expect(row.agreedToPolicies).toBe(true);
+    // The row is the committee-placement request; the account itself is already active.
     expect(row.status).toBe('pending');
     expect(row.academicYear).toBe(ACADEMIC_YEAR_OPTIONS[1]);
     expect(row.department).toBe(DEPARTMENT_OPTIONS[0]);

@@ -5,7 +5,6 @@ import {
   Layers,
   CheckSquare,
   FileCheck2,
-  UserPlus,
   AlertTriangle,
   Award,
   Target,
@@ -30,7 +29,6 @@ export const SuperAdminOverview: React.FC<SuperAdminOverviewProps> = ({ onNaviga
     committees,
     tasks,
     submissions,
-    applications,
     seasonEvents,
     scoreLedger,
     auditLogs,
@@ -49,10 +47,9 @@ export const SuperAdminOverview: React.FC<SuperAdminOverviewProps> = ({ onNaviga
   // Dynamic calculations from initialized state
   const totalMembers = users.length;
   const activeCommittees = committees.filter(c => c.status === 'active').length;
-  const activeTasks = tasks.filter(t => t.status === 'assigned' || t.status === 'in_progress').length;
+  const activeTasks = tasks.filter(t => !t.archivedAt && (t.status === 'assigned' || t.status === 'in_progress')).length;
   const pendingSubmissions = submissions.filter(s => s.status === 'submitted' || s.status === 'under_review').length;
-  const pendingApplications = applications.filter(a => a.status === 'pending').length;
-  const overdueTasks = tasks.filter(t => t.status === 'overdue' || (Date.parse(t.deadline) < clock.ms && t.status !== 'approved')).length;
+  const overdueTasks = tasks.filter(t => !t.archivedAt && (t.status === 'overdue' || (Date.parse(t.deadline) < clock.ms && t.status !== 'approved'))).length;
   const totalPointsDistributed = scoreLedger.reduce((acc, curr) => acc + curr.points, 0);
 
   // Season KPI completion calculation. The planner starts with nothing written in it, so an
@@ -121,16 +118,6 @@ export const SuperAdminOverview: React.FC<SuperAdminOverviewProps> = ({ onNaviga
       color: 'text-amber-600',
       bg: 'bg-amber-500/10',
       actionView: 'submissions'
-    },
-    {
-      label: 'Pending Applications',
-      value: pendingApplications,
-      capability: 'registrations.read',
-      subtitle: `${applications.length} recruitment entries`,
-      icon: UserPlus,
-      color: 'text-emerald-600',
-      bg: 'bg-emerald-500/10',
-      actionView: 'applications'
     },
     {
       label: 'Overdue / Flagged',

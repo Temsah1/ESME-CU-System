@@ -30,7 +30,7 @@ const priorityStyle: Record<ActionItem['priority'], string> = {
 };
 
 const dueLabel = (item: ActionItem) => {
-  if (item.dueInDays === null) return { text: item.kind === 'recruitment' ? 'no deadline; age-driven' : 'no date on record', over: false };
+  if (item.dueInDays === null) return { text: 'no date on record', over: false };
   if (item.dueInDays < 0) return { text: `${Math.abs(item.dueInDays)} day(s) past ${item.deadline}`, over: true };
   if (item.dueInDays === 0) return { text: `due today (${item.deadline})`, over: true };
   return { text: `${item.dueInDays} day(s) to ${item.deadline}`, over: false };
@@ -94,7 +94,7 @@ export const ActionCenter: React.FC<{ onNavigate: (view: DashboardView) => void 
         <div>
           <h1 className="text-xl font-black text-slate-900 dark:text-white">Action Center</h1>
           <p className="text-xs text-slate-500">
-            {queue.length} open item(s) drawn from tasks, submissions, applications and season rows this account can
+            {queue.length} open item(s) drawn from tasks, submissions and season rows this account can
             read. The queue is rebuilt on every view, so a closed record disappears instead of ageing here.
           </p>
         </div>
@@ -167,7 +167,7 @@ export const ActionCenter: React.FC<{ onNavigate: (view: DashboardView) => void 
             title={queue.length === 0 ? 'Nothing outstanding' : 'Nothing matches this filter'}
             description={
               queue.length === 0
-                ? 'No task is open with a deadline, no deliverable awaits a decision, no application is unanswered and no season row is unfinished. An empty queue is a real state, not a loading one.'
+                ? 'No task is open with a deadline, no deliverable awaits a decision and no season row is unfinished. An empty queue is a real state, not a loading one.'
                 : `${queue.length} item(s) are open; none is of this kind or due inside the reminder window.`
             }
             icon={Inbox}

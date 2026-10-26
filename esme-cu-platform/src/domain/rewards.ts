@@ -84,6 +84,32 @@ export type RewardRejection =
 
 const LIMITS = { reason: 400, evidenceUrl: 300 } as const;
 
+/**
+ * Whether an inline action should be offered on this person's row at all.
+ *
+ * `validateRewardAction()` is still the decision — it also counts the bonus window and reads the
+ * policy matrix. This only answers the visibility question for a directory row, from the same
+ * self/rank/high-board/committee rules, so the screen never shows a button that must then refuse.
+ */
+export function mayOfferReward(
+  kind: RewardKind,
+  actor: Actor,
+  target: User | null,
+  options: { policy: RewardPolicy; targetIsPrimaryAdmin?: boolean }
+): boolean {
+  if (!target || !hasCapability(actor.role, 'rewards.write')) return false;
+  const policyRoles = kind === 'bonus' ? options.policy.canAwardBonus : options.policy.canIssueWarning;
+  if (!policyRoles.includes(actor.role)) return false;
+  if (target.id === actor.id || options.targetIsPrimaryAdmin) return false;
+  if (target.status !== 'active') return false;
+  if (kind === 'bonus' && target.role === 'high_board') return false;
+  if (!canActOn(actor, 'rewards.write', { committeeId: target.committeeId })) return false;
+  if (actor.role === 'head' && actor.subTeam && target.subTeam !== actor.subTeam) return false;
+  if (actor.role === 'director' && target.committeeId !== actor.committeeId) return false;
+  const peerSuperAdmin = actor.role === 'super_admin' && target.role === 'super_admin';
+  return ROLE_RANK[target.role] < ROLE_RANK[actor.role] || peerSuperAdmin;
+}
+
 /** Only http/https can be stored; anything else is a broken or dangerous link, not evidence. */
 export function isSafeEvidenceUrl(value: string): boolean {
   try {
@@ -142,6 +168,15 @@ export function validateRewardAction(input: {
   }
   if (target.status !== 'active') {
     return { allowed: false, code: 'inactive_target', reason: `${target.name} is not an active account, so this entry would point at nobody.` };
+  }
+  // A High Board seat is recognised by the board, not by a bonus from any one officer. The rule
+  // is absolute, including for a Super Admin: a peer bonus must not become a favour between peers.
+  if (kind === 'bonus' && target.role === 'high_board') {
+    return {
+      allowed: false,
+      code: 'high_board_target',
+      reason: `${target.name} sits on the High Board; bonus points are not awarded to a High Board seat.`,
+    };
   }
 
   const actorRank = ROLE_RANK[actor.role];

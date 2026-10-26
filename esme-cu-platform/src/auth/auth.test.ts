@@ -5,6 +5,7 @@ import { createSupabaseAdapter, configurationProblems, isSupabaseConfigured } fr
 import { resolveAdapter } from './index';
 import { AccessRevokedError, AuthFailedError, AuthMisconfiguredError, AuthNotConfiguredError, RateLimitedError } from './errors';
 import { DUPLICATE_IDENTITY_MESSAGE } from '../domain/registration';
+import type { AccountStatus } from '../domain/accountState';
 import type { AuthAdapter, RegistrationDraft } from './types';
 
 /**
@@ -111,20 +112,18 @@ describe('primary administrator bootstrap', () => {
 });
 
 describe('public registration', () => {
-  it('cannot grant a privileged role: an approved applicant signs in as a plain member', async () => {
+  it('opens the member workspace without a reviewer and grants no privileged role', async () => {
     await bootstrapSuperAdmin();
     const registered = await adapter.register(draft());
     expect(registered.ok).toBe(true);
     if (!registered.ok) return;
-    expect(registered.receipt.status).toBe('pending_approval');
-
-    const approved = await adapter.decideRegistration(registered.receipt.reference, 'approve');
-    expect(approved.ok).toBe(true);
+    expect(registered.receipt.status).toBe('active');
 
     const session = await adapter.signIn('aya.student@esme-cu.edu', STRONG);
     expect(session.identity.role).toBe('member');
     expect(session.identity.status).toBe('active');
     expect(session.identity.capabilities).not.toContain('registrations.decide');
+    expect(session.identity.capabilities).not.toContain('users.role.assign');
   });
 
   it('hands the reviewer the questionnaire, not just the identity', async () => {
@@ -141,7 +140,6 @@ describe('public registration', () => {
     expect(record?.motivation).toBe('Wants to run the NDT workshop track.');
     expect(record?.technicalSkills).toBe('ANSYS, ultrasonic testing');
     expect(record?.availabilityHours).toBe('10 h/week');
-    expect(record?.status).toBe('pending_approval');
   });
 
   it('rejects a duplicate identity with the deliberately vague message', async () => {    await bootstrapSuperAdmin();
@@ -276,16 +274,17 @@ describe('the academic answers on the trusted side', () => {
 });
 
 describe('account status gates access', () => {
-  it('refuses an applicant whose request has not been decided yet', async () => {
-    const admin = await bootstrapSuperAdmin();
-    await adapter.register(draft());
+  it('admits a new registrant before any reviewer decision', async () => {
+    await bootstrapSuperAdmin();
+    const registered = await adapter.register(draft());
+    if (!registered.ok) throw new Error('registration should succeed');
 
-    await expect(adapter.signIn('aya.student@esme-cu.edu', STRONG)).rejects.toBeInstanceOf(AccessRevokedError);
-    // the failed attempt belongs to the applicant, not the administrator holding the session
-    expect((await adapter.restore())?.identity.id).toBe(admin.identity.id);
+    const session = await adapter.signIn('aya.student@esme-cu.edu', STRONG);
+    expect(session.identity.id).toBe(registered.receipt.reference);
+    expect(session.identity.status).toBe('active');
   });
 
-  it('approval is what activates an account, and the request is decidable the moment it exists', async () => {
+  it('lets a reviewer record a committee placement on an already-active account', async () => {
     await bootstrapSuperAdmin();
     const registered = await adapter.register(draft());
     if (!registered.ok) throw new Error('registration should succeed');
@@ -322,6 +321,31 @@ describe('account status gates access', () => {
     const queued = (await reopened.listRegistrations()).find((r) => r.id === registered.receipt.reference);
     expect(queued?.status).toBe('pending_approval');
     expect((await reopened.decideRegistration(registered.receipt.reference, 'approve')).ok).toBe(true);
+  });
+
+  it('refuses a status the state machine has no value for and repairs a row already holding one', async () => {
+    await bootstrapSuperAdmin();
+    const registered = await adapter.register(draft());
+    if (!registered.ok) throw new Error('registration should succeed');
+    const id = registered.receipt.reference;
+
+    // Production types this parameter as `esme_account_status`, so no value outside the four can
+    // reach the row. Offline the adapter makes the same refusal instead of filing a blank state.
+    const refused = await adapter.setAccountStatus(id, '' as AccountStatus);
+    expect(refused.ok).toBe(false);
+    if (!refused.ok) expect(refused.error.code).toBe('invalid_status');
+    expect((await adapter.listAccounts()).find((a) => a.id === id)?.status).toBe('active');
+
+    // A row an earlier write left with no status at all is unreachable unless it reads back onto
+    // the queue, where an administrator can activate it by name.
+    const vault = JSON.parse(localStorage.getItem('ESME_CU_DEV_AUTH_V1') ?? '{}');
+    delete vault.accounts.find((a: { id: string }) => a.id === id).status;
+    localStorage.setItem('ESME_CU_DEV_AUTH_V1', JSON.stringify(vault));
+
+    const reopened = createLocalDevAdapter();
+    expect((await reopened.listAccounts()).find((a) => a.id === id)?.status).toBe('pending_approval');
+    expect((await reopened.setAccountStatus(id, 'active')).ok).toBe(true);
+    expect((await reopened.listAccounts()).find((a) => a.id === id)?.status).toBe('active');
   });
 
   it('suspending an account blocks it and leaves no usable session', async () => {
@@ -454,7 +478,7 @@ describe('account directory', () => {
     const accounts = await adapter.listAccounts();
     expect(accounts.map((a) => a.email).sort()).toEqual(['aya.student@esme-cu.edu', ADMIN.email].sort());
     const applicant = accounts.find((a) => a.email === 'aya.student@esme-cu.edu')!;
-    expect(applicant).toMatchObject({ status: 'pending_approval', role: 'member' });
+    expect(applicant).toMatchObject({ status: 'active', role: 'member' });
     // Nothing on the account says "awaiting a click" any more — the queue has no such stage.
     expect(applicant).not.toHaveProperty('emailVerified');
     expect(applicant.id).toBeTruthy();
@@ -487,6 +511,32 @@ describe('account directory', () => {
     await adapter.signIn(queued.email, STRONG);
 
     await expect(adapter.listAccounts()).rejects.toBeInstanceOf(AuthFailedError);
+  });
+
+  it('activates and re-roles a profile the directory provisioned', async () => {
+    await bootstrapSuperAdmin();
+    const id = 'usr_provisioned_qa';
+    const created = await adapter.provisionAccount!({
+      id,
+      email: 'board.member@esme-cu.edu',
+      username: 'board.member',
+      displayName: 'Board Member',
+      role: 'high_board',
+      committeeId: 'comm_high_board',
+    });
+    expect(created.ok).toBe(true);
+
+    // The row exists for the provider, so the same id its directory advertises is accepted.
+    expect((await adapter.setAccountStatus(id, 'active')).ok).toBe(true);
+    expect((await adapter.assignRole(id, 'member')).ok).toBe(true);
+    expect((await adapter.listAccounts()).find((a) => a.id === id)).toMatchObject({
+      status: 'active',
+      role: 'member',
+      committeeId: 'comm_high_board',
+    });
+
+    // No password was ever set, so the profile cannot sign itself in.
+    await expect(adapter.signIn('board.member@esme-cu.edu', STRONG)).rejects.toBeInstanceOf(AuthFailedError);
   });
 });
 

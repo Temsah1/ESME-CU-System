@@ -305,12 +305,16 @@ describe('§7.6–7.8 — the paths that skip the interface', () => {
     });
     if (!pending.ok) throw new Error('registration refused');
     const pendingId = pending.receipt.reference;
+    // The account signs up active; a reviewer's rejection is what leaves it inactive, so the
+    // activation attempt below would be a real change rather than a no-op on an active row.
+    const rejected = await adapter.decideRegistration(pendingId, 'reject', { reason: 'fixture' });
+    expect(rejected.ok).toBe(true);
 
     await signInAs('status_actor@escalation.test');
     // The caller is one ordinary member trying to activate another — users.suspend and
     // registrations.decide are both outside the member row of the matrix.
     await expect(adapter.setAccountStatus(pendingId, 'active')).rejects.toThrow();
-    expect(vaultAccounts().find((a) => a.id === pendingId)?.status).toBe('pending_approval');
+    expect(vaultAccounts().find((a) => a.id === pendingId)?.status).toBe('rejected');
     expect(journal().some((line) => line.action === 'status_change_denied' && line.outcome === 'denied')).toBe(true);
   });
 
@@ -361,10 +365,14 @@ describe('§7.6–7.8 — the paths that skip the interface', () => {
     if (!drafted.ok) throw new Error(`registration refused: ${drafted.failure.message}`);
 
     expect(roleInVault(drafted.receipt.reference)).toBe('member');
-    expect(vaultAccounts().find((a) => a.id === drafted.receipt.reference)?.status).toBe('pending_approval');
-    // A pending account has no session to escalate with.
+    // A `status: 'active'` in the request body is ignored in the sense that matters: the row
+    // is active because that is the 0012 default for every signup, not because the client asked.
+    expect(vaultAccounts().find((a) => a.id === drafted.receipt.reference)?.status).toBe('active');
     await adapter.signOut();
-    await expect(adapter.signIn('smuggled@escalation.test', PASSWORD)).rejects.toThrow();
+    const session = await adapter.signIn('smuggled@escalation.test', PASSWORD);
+    expect(session.identity.role).toBe('member');
+    expect(session.identity.capabilities).not.toContain('users.role.assign');
+    expect(session.identity.capabilities).not.toContain('registrations.decide');
   });
 
   it('does not turn an approval into a promotion', async () => {

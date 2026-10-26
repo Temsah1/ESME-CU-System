@@ -8,11 +8,21 @@ import {
   Trash2,
   ShieldCheck,
   AlertTriangle,
+  Award,
 } from 'lucide-react';
 import { useApp, useActor } from '../../context/AppContext';
 import { useStickyNonNull, ModalShell, useToast } from '../../motion';
 import { DataTable, type DataTableAction } from './DataTable';
-import { ALL_ROLES, ROLE_LABELS } from '../../domain/roles';
+import { ALL_ROLES, ROLE_LABELS, canReadProfile, isPrimaryAdmin, scopeFor } from '../../domain/roles';
+import {
+  SEVERITY_LABELS,
+  WARNING_SEVERITIES,
+  mayOfferReward,
+  validateRewardAction,
+  warningNumberAfter,
+  type RewardKind,
+  type WarningSeverity,
+} from '../../domain/rewards';
 import { ACCOUNT_STATUS_LABELS, ACCOUNT_STATUSES, canTransition, type AccountStatus } from '../../domain/accountState';
 import { ACADEMIC_YEAR_OPTIONS, DEPARTMENT_OPTIONS } from '../../data/referenceContent';
 import type { Role, User } from '../../types';
@@ -58,19 +68,38 @@ export const MemberManagement: React.FC = () => {
     updateUser,
     assignRole,
     setAccountStatus,
-    deleteUser
+    deleteUser,
+    rewardEntries,
+    rewardPolicy,
+    awardBonus,
+    issueWarning,
   } = useApp();
   const currentUser = useActor();
   const { toast } = useToast();
 
   const [selectedCommitteeFilter, setSelectedCommitteeFilter] = useState('all');
   const [selectedRoleFilter, setSelectedRoleFilter] = useState<'all' | Role>('all');
+  const [selectedSubTeamFilter, setSelectedSubTeamFilter] = useState('all');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [newUser, setNewUser] = useState({ ...BLANK_MEMBER, role: 'member' as Role });
   const [roleDraft, setRoleDraft] = useState<Role>(currentUser.role);
-  const [statusDraft, setStatusDraft] = useState<AccountStatus>('active');
+  const [statusDraft, setStatusDraft] = useState<AccountStatus | ''>('');
   const [pending, setPending] = useState(false);
+
+  // The inline form is opened for one person and one intent. The idempotency key is minted with
+  // that intent, so a retried click or a re-submit lands on the same entry instead of a second one.
+  const [rewardForm, setRewardForm] = useState<{
+    kind: RewardKind;
+    target: User;
+    idempotencyKey: string;
+    openedAt: string;
+  } | null>(null);
+  const [rewardPoints, setRewardPoints] = useState(10);
+  const [rewardSeverity, setRewardSeverity] = useState<WarningSeverity>('notice');
+  const [rewardReason, setRewardReason] = useState('');
+  const [rewardEvidence, setRewardEvidence] = useState('');
+  const [rewardFiling, setRewardFiling] = useState(false);
 
   const mayCreate = can('users.create');
   const mayUpdate = can('users.update');
@@ -78,17 +107,131 @@ export const MemberManagement: React.FC = () => {
   const maySuspend = can('users.suspend');
   const mayDelete = can('users.delete');
 
-  // Free-text search is the table's own; these two selects are the scope the caller controls.
-  const filteredUsers = users.filter((u) => {
+  const actor = {
+    id: currentUser.id,
+    role: currentUser.role,
+    committeeId: currentUser.committeeId,
+    subTeam: currentUser.subTeam,
+  };
+
+  /**
+   * The row-level question, answered from the same self/rank/high-board/committee rules the store
+   * applies. A row that would be refused gets no button, so the screen never offers a dead action.
+   */
+  const offersReward = (kind: RewardKind, target: User) =>
+    mayOfferReward(kind, actor, target, {
+      policy: rewardPolicy,
+      targetIsPrimaryAdmin: isPrimaryAdmin(target),
+    });
+
+  const openReward = (kind: RewardKind, target: User) => {
+    setRewardForm({
+      kind,
+      target,
+      idempotencyKey: `${kind}:${Date.now().toString(36)}:${Math.random().toString(36).slice(2, 9)}`,
+      openedAt: new Date().toISOString(),
+    });
+    setRewardPoints(10);
+    setRewardSeverity('notice');
+    setRewardReason('');
+    setRewardEvidence('');
+  };
+
+  const closeReward = () => {
+    if (rewardFiling) return;
+    setRewardForm(null);
+  };
+
+  // The store reaches the same decision; this is only what the form shows before it is submitted,
+  // including the rolling-window caps a row-level visibility check cannot see.
+  const rewardPreview = rewardForm
+    ? validateRewardAction({
+        kind: rewardForm.kind,
+        actor,
+        target: rewardForm.target,
+        points: rewardForm.kind === 'bonus' ? rewardPoints : 0,
+        severity: rewardForm.kind === 'warning' ? rewardSeverity : undefined,
+        reason: rewardReason,
+        evidenceUrl: rewardEvidence,
+        policy: rewardPolicy,
+        entries: rewardEntries,
+        now: rewardForm.openedAt,
+        targetIsPrimaryAdmin: isPrimaryAdmin(rewardForm.target),
+      })
+    : null;
+
+  const handleRewardSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!rewardForm || rewardFiling) return;
+    if (rewardPreview && !rewardPreview.allowed) {
+      toast(rewardPreview.reason, 'error');
+      return;
+    }
+    const { kind, target, idempotencyKey } = rewardForm;
+    setRewardFiling(true);
+    try {
+      const entry =
+        kind === 'bonus'
+          ? await awardBonus({
+              targetId: target.id,
+              points: rewardPoints,
+              reason: rewardReason,
+              evidenceUrl: rewardEvidence,
+              idempotencyKey,
+            })
+          : await issueWarning({
+              targetId: target.id,
+              severity: rewardSeverity,
+              reason: rewardReason,
+              evidenceUrl: rewardEvidence,
+              idempotencyKey,
+            });
+      toast(
+        entry.kind === 'bonus'
+          ? `${entry.points} bonus point${entry.points === 1 ? '' : 's'} recorded for ${entry.targetName}.`
+          : `${SEVERITY_LABELS[entry.severity ?? 'notice']} recorded for ${entry.targetName}.`,
+        'success'
+      );
+      setRewardForm(null);
+      setRewardReason('');
+      setRewardEvidence('');
+    } catch (error) {
+      toast(error instanceof Error ? error.message : 'The entry was not recorded.', 'error');
+    } finally {
+      setRewardFiling(false);
+    }
+  };
+
+  /**
+   * The directory is a read of `users.read`'s scope, not of the workspace cache: a committee-scoped
+   * officer sees their own committee and their own record, and an account with no grant sees no
+   * rows. The provider's RLS applies the same rule, so filtering here cannot widen what a caller
+   * could have read.
+   */
+  const directoryScope = scopeFor(currentUser.role, 'users.read');
+  const visibleUsers = directoryScope ? users.filter((u) => canReadProfile(currentUser, u)) : [];
+  const scopedCommittees =
+    directoryScope === 'all'
+      ? committees
+      : committees.filter((c) => c.id === currentUser.committeeId);
+  const committeeName = committees.find((c) => c.id === currentUser.committeeId)?.name;
+  const subTeams = [...new Set(visibleUsers.map((u) => u.subTeam).filter((s): s is string => Boolean(s)))].sort();
+
+  // Free-text search is the table's own; these selects are the scope the caller controls.
+  const filteredUsers = visibleUsers.filter((u) => {
     const matchesCommittee = selectedCommitteeFilter === 'all' || u.committeeId === selectedCommitteeFilter;
     const matchesRole = selectedRoleFilter === 'all' || u.role === selectedRoleFilter;
-    return matchesCommittee && matchesRole;
+    const matchesSubTeam = selectedSubTeamFilter === 'all' || u.subTeam === selectedSubTeamFilter;
+    return matchesCommittee && matchesRole && matchesSubTeam;
   });
 
   const openEdit = (user: User) => {
     setEditingUser(user);
     setRoleDraft(user.role);
-    setStatusDraft(user.status);
+    // The state select offers transitions, never the state the account already holds, so its draft
+    // starts empty rather than on a value no option carries — a controlled select whose value
+    // matches nothing reports "" back to the caller.
+    setStatusDraft('');
   };
 
   const runPrivileged = async (label: string, operation: () => Promise<void> | void) => {
@@ -105,8 +248,8 @@ export const MemberManagement: React.FC = () => {
 
   const handleCreateUser = (e: React.FormEvent) => {
     e.preventDefault();
-    runPrivileged(`Provisioned ${newUser.name}. The account starts pending approval.`, () => {
-      addUser({
+    runPrivileged(`Provisioned ${newUser.name}. The profile stays pending until it is activated here.`, async () => {
+      await addUser({
         name: newUser.name,
         email: newUser.email,
         username: newUser.username || newUser.email.split('@')[0],
@@ -149,7 +292,9 @@ export const MemberManagement: React.FC = () => {
   };
 
   const handleStatusChange = () => {
-    if (!editingUser || statusDraft === editingUser.status) return;
+    // Only a state the account may actually move to is a write; the select's own option list is
+    // the authority, so an empty draft or a value it does not offer is ignored instead of filed.
+    if (!editingUser || !statusDraft || !canTransition(editingUser.status, statusDraft)) return;
     const target = editingUser;
     runPrivileged(`${target.name} moved to ${ACCOUNT_STATUS_LABELS[statusDraft]}.`, async () => {
       await setAccountStatus(target.id, statusDraft);
@@ -174,9 +319,15 @@ export const MemberManagement: React.FC = () => {
         <div>
           <h1 className="text-xl font-black text-slate-900 dark:text-white">Members Directory</h1>
           <p className="text-xs text-slate-500">
-            {users.length > 0
-              ? `${users.length} account${users.length === 1 ? '' : 's'} visible to you. Roles and account states are set by the provider, never typed in here.`
-              : 'Accounts appear here when your authentication provider returns them.'}
+            {directoryScope === null
+              ? 'This directory is not available to your role. Your own record and your committee live on the Overview.'
+              : directoryScope === 'committee'
+                ? `${visibleUsers.length} account${visibleUsers.length === 1 ? '' : 's'} in ${
+                    committeeName ?? 'your committee'
+                  }. Other committees are outside your scope; the provider enforces the same boundary.`
+                : visibleUsers.length > 0
+                  ? `${visibleUsers.length} account${visibleUsers.length === 1 ? '' : 's'} visible to you. Roles and account states are set by the provider, never typed in here.`
+                  : 'Accounts appear here when your authentication provider returns them.'}
           </p>
         </div>
 
@@ -199,9 +350,18 @@ export const MemberManagement: React.FC = () => {
         searchPlaceholder="Search by name, email, or username..."
         noMatchesLabel="No accounts match this search and these filters."
         empty={{
-          title: 'No member accounts yet',
+          title:
+            directoryScope === null
+              ? 'This directory is not available to your role'
+              : directoryScope === 'committee'
+                ? `No accounts in ${committeeName ?? 'your committee'} yet`
+                : 'No member accounts yet',
           description:
-            "This directory reads from your authentication provider. Until that provider is configured and returns profiles, there is nothing to list — no sample members are inserted to fill the space.",
+            directoryScope === null
+              ? 'Reading the chapter directory needs a role that holds users.read. Nothing is shown here, and nothing is inferred from the accounts this browser has cached.'
+              : directoryScope === 'committee'
+                ? 'Only accounts in your committee can appear here. Until the provider returns a profile for one, there is nothing to list.'
+                : 'This directory reads from your authentication provider. Until that provider is configured and returns profiles, there is nothing to list — no sample members are inserted to fill the space.',
           icon: Users,
           action: mayCreate ? (
             <button
@@ -213,7 +373,7 @@ export const MemberManagement: React.FC = () => {
           ) : undefined,
         }}
         toolbar={
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <select
               value={selectedCommitteeFilter}
               onChange={(e) => setSelectedCommitteeFilter(e.target.value)}
@@ -221,7 +381,7 @@ export const MemberManagement: React.FC = () => {
               className="px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-xs bg-slate-50 dark:bg-slate-800 font-medium outline-none"
             >
               <option value="all">All Committees</option>
-              {committees.map((c) => (
+              {scopedCommittees.map((c) => (
                 <option key={c.id} value={c.id}>{c.name}</option>
               ))}
             </select>
@@ -237,6 +397,20 @@ export const MemberManagement: React.FC = () => {
                 <option key={role} value={role}>{ROLE_LABELS[role]}</option>
               ))}
             </select>
+
+            {subTeams.length > 1 && (
+              <select
+                value={selectedSubTeamFilter}
+                onChange={(e) => setSelectedSubTeamFilter(e.target.value)}
+                aria-label="Filter by sub-team"
+                className="px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-xs bg-slate-50 dark:bg-slate-800 font-medium outline-none"
+              >
+                <option value="all">All Sub-teams</option>
+                {subTeams.map((team) => (
+                  <option key={team} value={team}>{team}</option>
+                ))}
+              </select>
+            )}
           </div>
         }
         columns={[
@@ -320,6 +494,20 @@ export const MemberManagement: React.FC = () => {
           },
         ]}
         actions={[
+          {
+            key: 'award-bonus',
+            label: 'Award bonus',
+            icon: Award,
+            hidden: (u: User) => !offersReward('bonus', u),
+            onClick: (u: User) => openReward('bonus', u),
+          } as DataTableAction<User>,
+          {
+            key: 'issue-warning',
+            label: 'Issue warning',
+            icon: AlertTriangle,
+            hidden: (u: User) => !offersReward('warning', u),
+            onClick: (u: User) => openReward('warning', u),
+          } as DataTableAction<User>,
           ...(mayUpdate
             ? [
                 {
@@ -354,6 +542,168 @@ export const MemberManagement: React.FC = () => {
         ]}
       />
 
+      {/* Inline bonus / warning modal, opened from one row and aimed only at that row. */}
+      <ModalShell
+        open={rewardForm !== null}
+        onClose={closeReward}
+        className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 max-w-lg w-full shadow-2xl max-h-[90vh] overflow-y-auto"
+      >
+        {rewardForm && (
+          <>
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800 mb-4">
+              <h2 className="text-base font-bold text-slate-900 dark:text-white">
+                {rewardForm.kind === 'bonus'
+                  ? `Award a bonus to ${rewardForm.target.name}`
+                  : `Issue a warning to ${rewardForm.target.name}`}
+              </h2>
+              <button
+                onClick={closeReward}
+                disabled={rewardFiling}
+                className="text-slate-400 hover:text-slate-600 disabled:opacity-40"
+                aria-label="Close"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleRewardSubmit} className="space-y-4 text-xs">
+              <p className="rounded-xl bg-slate-50 dark:bg-slate-800/60 px-3.5 py-2.5 text-[11px] text-slate-600 dark:text-slate-300">
+                {rewardForm.kind === 'bonus'
+                  ? `A bonus writes the entry and a scoring-ledger row. Cap is ${rewardPolicy.maxBonusPointsPerAction} per action and ${rewardPolicy.maxBonusPointsPerMemberPerPeriod} per member in ${rewardPolicy.periodDays} days.`
+                  : `A warning moves no points. This would be warning ${warningNumberAfter(
+                      rewardEntries,
+                      rewardForm.target.id,
+                      rewardPolicy,
+                      rewardForm.openedAt
+                    )} in ${rewardPolicy.periodDays} days, and at ${rewardPolicy.escalateWarningsAfter} the ${
+                      rewardPolicy.notifyRolesOnEscalation.map((r) => ROLE_LABELS[r]).join(' and ')
+                    } are alerted.`}
+              </p>
+
+              <div className="rounded-xl border border-slate-200 dark:border-slate-700 px-3 py-2.5">
+                <div className="font-bold text-slate-800 dark:text-slate-100">{rewardForm.target.name}</div>
+                <div className="text-[10px] text-slate-400">
+                  {ROLE_LABELS[rewardForm.target.role]}
+                  {rewardForm.target.committeeId
+                    ? ` · ${committees.find((c) => c.id === rewardForm.target.committeeId)?.name ?? 'committee not listed'}`
+                    : ' · no committee'}
+                  {` · ${rewardForm.target.totalPoints} pts`}
+                </div>
+              </div>
+
+              {rewardForm.kind === 'bonus' ? (
+                <div>
+                  <label className={labelClass} htmlFor="inline-reward-points">Bonus points</label>
+                  <input
+                    id="inline-reward-points"
+                    type="number"
+                    min={1}
+                    step={1}
+                    required
+                    value={rewardPoints}
+                    onChange={(e) => setRewardPoints(Number(e.target.value))}
+                    className={inputClass}
+                  />
+                </div>
+              ) : (
+                <div>
+                  <label className={labelClass} htmlFor="inline-reward-severity">Severity</label>
+                  <select
+                    id="inline-reward-severity"
+                    value={rewardSeverity}
+                    onChange={(e) => setRewardSeverity(e.target.value as WarningSeverity)}
+                    className={inputClass}
+                  >
+                    {WARNING_SEVERITIES.map((s) => (
+                      <option key={s} value={s}>{SEVERITY_LABELS[s]}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              <div>
+                <label className={labelClass} htmlFor="inline-reward-reason">Reason (mandatory)</label>
+                <textarea
+                  id="inline-reward-reason"
+                  required
+                  rows={3}
+                  maxLength={400}
+                  value={rewardReason}
+                  onChange={(e) => setRewardReason(e.target.value)}
+                  placeholder={
+                    rewardForm.kind === 'bonus'
+                      ? 'What exactly did the member do, and under which task or event?'
+                      : 'What happened, when, and what is expected to change?'
+                  }
+                  className={inputClass}
+                />
+                <div className="text-[10px] text-slate-400 text-right">{rewardReason.length}/400</div>
+              </div>
+
+              <div>
+                <label className={labelClass} htmlFor="inline-reward-evidence">Evidence link (optional)</label>
+                <input
+                  id="inline-reward-evidence"
+                  type="url"
+                  value={rewardEvidence}
+                  onChange={(e) => setRewardEvidence(e.target.value)}
+                  placeholder="https://…"
+                  className={inputClass}
+                />
+              </div>
+
+              {rewardPreview && (
+                <div
+                  className={`rounded-xl px-3.5 py-2.5 text-[11px] ${
+                    !rewardPreview.allowed
+                      ? 'bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300'
+                      : rewardPreview.warning
+                        ? 'bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300'
+                        : 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300'
+                  }`}
+                  role="status"
+                >
+                  {!rewardPreview.allowed ? (
+                    <>Blocked: {rewardPreview.reason}</>
+                  ) : rewardPreview.warning ? (
+                    <>Before you commit: {rewardPreview.warning}</>
+                  ) : (
+                    <>
+                      Ready to write for {rewardForm.target.name}
+                      {rewardForm.kind === 'bonus'
+                        ? ` — ${rewardPoints} points, new total ${rewardForm.target.totalPoints + rewardPoints} pts.`
+                        : ' — no points move; the member and the audit trail both get the reason.'}
+                    </>
+                  )}
+                </div>
+              )}
+
+              <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100 dark:border-slate-800">
+                <button
+                  type="button"
+                  onClick={closeReward}
+                  disabled={rewardFiling}
+                  className="px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 font-semibold disabled:opacity-40"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={!rewardPreview?.allowed || rewardFiling}
+                  className="px-5 py-2 bg-[#123B60] text-white font-bold rounded-xl disabled:opacity-50"
+                >
+                  {rewardFiling
+                    ? 'Recording…'
+                    : rewardForm.kind === 'bonus'
+                      ? 'Record bonus'
+                      : 'Record warning'}
+                </button>
+              </div>
+            </form>
+          </>
+        )}
+      </ModalShell>
+
       {/* Provision Member Modal */}
       <ModalShell open={isAddModalOpen} onClose={() => setIsAddModalOpen(false)} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 max-w-lg w-full shadow-2xl">
         <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800 mb-4">
@@ -365,9 +715,8 @@ export const MemberManagement: React.FC = () => {
 
         <form onSubmit={handleCreateUser} className="space-y-4 text-xs">
           <p className="text-[11px] text-slate-500 leading-relaxed rounded-xl bg-slate-50 dark:bg-slate-800/60 px-3 py-2.5">
-            This creates a profile record. It does not set a password and does not grant access: the account starts as
-            <strong> pending approval</strong> and only reaches <strong>active</strong> after the email is confirmed
-            and an approval decision is recorded.
+            This creates a directory profile. It sets no password and grants no access: the row stays
+            <strong> pending</strong> until this directory moves it to <strong>active</strong>.
           </p>
 
           <div>
@@ -673,13 +1022,14 @@ export const MemberManagement: React.FC = () => {
                           className={`${inputClass} flex-1`}
                           aria-label="Next account state"
                         >
+                          <option value="" disabled>Choose a new state…</option>
                           {legalStatuses.map((s) => (
                             <option key={s} value={s}>{ACCOUNT_STATUS_LABELS[s]}</option>
                           ))}
                         </select>
                         <button
                           onClick={handleStatusChange}
-                          disabled={pending}
+                          disabled={pending || !statusDraft}
                           className="px-3.5 py-2 rounded-xl bg-[#123B60] text-white text-xs font-bold disabled:opacity-50"
                         >
                           Apply

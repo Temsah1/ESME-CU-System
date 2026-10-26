@@ -122,6 +122,28 @@ describe('the bonus write reaches the function that decides it', () => {
     });
   });
 
+  it('states the absolute High Board rule in words instead of echoing the trigger code', async () => {
+    vi.doMock('@supabase/supabase-js', () => ({
+      createClient: () => ({ auth: { getSession: async () => ({ data: { session: null } }) }, rpc }),
+    }));
+    rpc.mockResolvedValue({
+      data: null,
+      error: { message: 'ESME_HIGH_BOARD_TARGET: bonus points are not awarded to a High Board seat', code: 'P0001' },
+    });
+
+    const result = await (
+      await adapter()
+    ).awardBonus({ targetId: bonusRow.target_id, points: 10, reason: 'Board recognition', idempotencyKey: 'bonus:board', targetRole: 'high_board' });
+
+    expect(result).toEqual({
+      ok: false,
+      error: {
+        code: 'high_board_target',
+        message: 'Bonus points are not awarded to a High Board seat. A warning can still be recorded against that account.',
+      },
+    });
+  });
+
   it('says what is missing when the ledger has no schema yet, instead of a generic failure', async () => {
     vi.doMock('@supabase/supabase-js', () => ({
       createClient: () => ({ auth: { getSession: async () => ({ data: { session: null } }) }, rpc }),

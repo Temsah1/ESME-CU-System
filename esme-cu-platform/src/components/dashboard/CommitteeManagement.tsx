@@ -220,8 +220,8 @@ export const CommitteeManagement: React.FC = () => {
                 className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-sm flex flex-col justify-between"
               >
                 <div>
-                  <div className="flex items-center justify-between gap-3 mb-3">
-                    <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
+                    <div className="flex flex-wrap items-center gap-2 min-w-0">
                       <span className="px-3 py-1 bg-[#123B60] text-white font-black text-xs rounded-lg">{comm.shortCode}</span>
                       <span
                         className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase text-slate-700 dark:text-slate-200 ${

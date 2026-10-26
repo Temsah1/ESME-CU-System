@@ -15,6 +15,7 @@ import {
   escalationRecipients,
   findByIdempotencyKey,
   isSafeEvidenceUrl,
+  mayOfferReward,
   validatePolicyEdit,
   validateRewardAction,
   warningNumberAfter,
@@ -154,11 +155,20 @@ describe('who may record a bonus or a warning', () => {
       allowed: false,
       code: 'above_rank',
     });
-    // A High Board sits above the committee ladder, so board-to-board is a peer action.
+    // A High Board sits above the committee ladder: a bonus on that seat is refused by the
+    // absolute rule first, and a warning between peers by the rank rule.
     expect(attempt({ actor: actorOf(board), target: person({ id: 'usr_board2', role: 'high_board', committeeId: undefined }) })).toMatchObject({
       allowed: false,
-      code: 'above_rank',
+      code: 'high_board_target',
     });
+    expect(
+      attempt({
+        kind: 'warning',
+        points: 0,
+        actor: actorOf(board),
+        target: person({ id: 'usr_board2', role: 'high_board', committeeId: undefined }),
+      })
+    ).toMatchObject({ allowed: false, code: 'above_rank' });
     expect(attempt({ actor: actorOf(admin), target: person({ id: 'usr_sa', name: 'Second Admin', username: 'sa', email: 'sa@esme.test', role: 'super_admin', committeeId: undefined }) })).toMatchObject({
       allowed: true,
     });
@@ -167,6 +177,57 @@ describe('who may record a bonus or a warning', () => {
   it('refuses an account that is not active and one that is not in the directory', () => {
     expect(attempt({ target: person({ status: 'suspended' }) })).toMatchObject({ allowed: false, code: 'inactive_target' });
     expect(attempt({ target: null })).toMatchObject({ allowed: false, code: 'no_target' });
+  });
+
+  it('awards no bonus to a High Board seat, not even from a Super Admin', () => {
+    // The rank rule alone would let the administrator through: 100 > 80. This is the absolute rule
+    // that closes that path, and it is checked before points are even considered.
+    expect(attempt({ target: board })).toMatchObject({ allowed: false, code: 'high_board_target' });
+    expect(attempt({ target: board, points: 0 })).toMatchObject({ allowed: false, code: 'high_board_target' });
+    // The rule is about bonus money, not discipline: a warning still travels down to the seat.
+    expect(attempt({ kind: 'warning', points: 0, target: board })).toMatchObject({ allowed: true });
+  });
+});
+
+describe('which rows are offered an inline action', () => {
+  const offer = (kind: 'bonus' | 'warning', actor: User, target: User | null, over: Partial<{ policy: RewardPolicy; targetIsPrimaryAdmin: boolean }> = {}) =>
+    mayOfferReward(kind, actorOf(actor), target, {
+      policy: DEFAULT_REWARD_POLICY,
+      targetIsPrimaryAdmin: target ? target.email === admin.email : false,
+      ...over,
+    });
+
+  it('offers both actions on a junior in reach and neither on a superior or a peer', () => {
+    expect(offer('bonus', director, member)).toBe(true);
+    expect(offer('warning', director, member)).toBe(true);
+    expect(offer('bonus', head, director)).toBe(false);
+    expect(offer('warning', head, person({ id: 'usr_peer', role: 'head', subTeam: 'NDT' }))).toBe(false);
+  });
+
+  it('hides the bonus button on a High Board row but keeps the warning one', () => {
+    expect(offer('bonus', admin, board)).toBe(false);
+    expect(offer('warning', admin, board)).toBe(true);
+    expect(offer('bonus', director, board)).toBe(false);
+  });
+
+  it('hides the row the actor owns, the protected administrator and inactive accounts', () => {
+    expect(offer('warning', director, director)).toBe(false);
+    expect(offer('warning', admin, admin)).toBe(false);
+    expect(offer('bonus', admin, person({ id: 'usr_off', status: 'suspended' }))).toBe(false);
+  });
+
+  it('keeps a committee officer inside their committee and a Head inside their team', () => {
+    expect(offer('bonus', director, person({ id: 'usr_mc', committeeId: 'comm_mc' }))).toBe(false);
+    expect(offer('bonus', head, person({ id: 'usr_other', subTeam: 'Roadmap' }))).toBe(false);
+    expect(offer('bonus', head, person({ id: 'usr_team', subTeam: 'NDT' }))).toBe(true);
+  });
+
+  it('follows the matrix and the capability, so no dead button is rendered', () => {
+    const optedOut: RewardPolicy = { ...DEFAULT_REWARD_POLICY, canAwardBonus: ['super_admin'] };
+    expect(offer('bonus', director, member, { policy: optedOut })).toBe(false);
+    expect(offer('warning', director, member, { policy: optedOut })).toBe(true);
+    expect(offer('bonus', member, member)).toBe(false);
+    expect(offer('bonus', admin, null)).toBe(false);
   });
 });
 

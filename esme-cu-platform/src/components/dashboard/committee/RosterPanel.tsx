@@ -73,7 +73,7 @@ export const RosterPanel: React.FC<Props> = ({ committee, committees, users, may
           {candidates.length === 0 ? (
             <p className="text-[11px] text-slate-400">
               {users.length === 0
-                ? 'The directory is empty, so there is nobody to add. Accounts come from the provider — approvals appear here after the next sync.'
+                ? 'The directory is empty, so there is nobody to add. Accounts come from the provider — they appear here after the next sync.'
                 : `No other account matches “${term}”. Moving an account here changes its committee; it is not a second copy of the person.`}
             </p>
           ) : (

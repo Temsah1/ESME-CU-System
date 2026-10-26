@@ -56,8 +56,13 @@ describe('migration order', () => {
       '0011_registration_academic_fields.sql',
       '0012_self_service_registration.sql',
       '0013_season_planner_management.sql',
+      '0014_task_management.sql',
+      '0015_high_board_content.sql',
+      '0016_high_board_bonus_guard.sql',
+      '0017_social_insights.sql',
+      '0018_chat.sql',
     ]);
-    expect(files[files.length - 1].split(/[\\/]/).pop()).toBe('0013_season_planner_management.sql');
+    expect(files[files.length - 1].split(/[\\/]/).pop()).toBe('0018_chat.sql');
   });
 });
 

@@ -65,7 +65,6 @@ export const ExecutiveDecisionCenter: React.FC<{ onNavigate: (view: DashboardVie
   const {
     tasks,
     submissions,
-    applications,
     scoreLedger,
     users,
     committees,
@@ -101,10 +100,6 @@ export const ExecutiveDecisionCenter: React.FC<{ onNavigate: (view: DashboardVie
     committees:
       taskScope === 'committee' ? committees.filter((c) => c.id === actor.committeeId) : committees,
     events: seasonEvents,
-    applications:
-      taskScope === 'committee'
-        ? applications.filter((a) => a.preferredCommitteeId === actor.committeeId)
-        : applications,
     audit: can('audit.read') ? auditLogs : [],
     period: { from, to },
     // Judged as of the close of the window you asked for, not the minute the page loaded:
@@ -114,7 +109,6 @@ export const ExecutiveDecisionCenter: React.FC<{ onNavigate: (view: DashboardVie
 
   const confirmed = deriveConfirmed(scoped).filter((row) => {
     if (row.id === 'confirmed-audit_coverage') return can('audit.read');
-    if (row.id === 'confirmed-queue_backlog') return can('registrations.read');
     return true;
   });
   const alerts = deriveAlerts(scoped);
@@ -164,10 +158,10 @@ export const ExecutiveDecisionCenter: React.FC<{ onNavigate: (view: DashboardVie
         </p>
       </div>
 
-      {scoped.tasks.length + scoped.submissions.length + scoped.applications.length + scoped.ledger.length === 0 && (
+      {scoped.tasks.length + scoped.submissions.length + scoped.ledger.length === 0 && (
         <EmptyState
           title="No operational records yet"
-          description="This center reads tasks, submissions, applications and the score ledger. Until the workspace holds real rows, the readings below report not measurable rather than showing invented activity."
+          description="This center reads tasks, submissions and the score ledger. Until the workspace holds real rows, the readings below report not measurable rather than showing invented activity."
           icon={Target}
         />
       )}
@@ -209,29 +203,30 @@ export const ExecutiveDecisionCenter: React.FC<{ onNavigate: (view: DashboardVie
           <h2 className="text-xs font-bold text-slate-800 dark:text-slate-100">Confirmed readings</h2>
           <p className="text-[11px] text-slate-400">Arithmetic over the records in the window above. No model, no estimate.</p>
         </div>
-        <table className="w-full text-left text-xs">
-          <thead className="bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800 text-slate-500 font-semibold uppercase text-[10px]">
-            <tr>
-              <th className="py-2.5 px-4">Reading</th>
-              <th className="py-2.5 px-4">What the records say</th>
-              <th className="py-2.5 px-4">Window</th>
-              <th className="py-2.5 px-4">Method</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-            {confirmed.map((row) => (
-              <tr key={row.id}>
-                <td className="py-2.5 px-4 font-bold text-slate-800 dark:text-slate-100">{row.title}</td>
-                <td className="py-2.5 px-4 text-slate-600 dark:text-slate-300">{row.detail}</td>
-                <td className="py-2.5 px-4 text-[11px] text-slate-500 whitespace-nowrap">{row.period}</td>
-                <td className="py-2.5 px-4 text-[10px] text-slate-400">{row.method}</td>
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-xs">
+            <thead className="bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800 text-slate-500 font-semibold uppercase text-[10px]">
+              <tr>
+                <th className="py-2.5 px-4">Reading</th>
+                <th className="py-2.5 px-4">What the records say</th>
+                <th className="py-2.5 px-4">Window</th>
+                <th className="py-2.5 px-4">Method</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+              {confirmed.map((row) => (
+                <tr key={row.id}>
+                  <td className="py-2.5 px-4 font-bold text-slate-800 dark:text-slate-100">{row.title}</td>
+                  <td className="py-2.5 px-4 text-slate-600 dark:text-slate-300">{row.detail}</td>
+                  <td className="py-2.5 px-4 text-[11px] text-slate-500 whitespace-nowrap">{row.period}</td>
+                  <td className="py-2.5 px-4 text-[10px] text-slate-400">{row.method}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
         <p className="px-4 py-3 text-[10px] text-slate-400">
-          {can('audit.read') ? '' : 'Audit coverage is not listed: this account has no audit.read scope. '}
-          {can('registrations.read') ? '' : 'Recruitment backlog is not listed for the same reason.'}
+          {can('audit.read') ? '' : 'Audit coverage is not listed: this account has no audit.read scope.'}
         </p>
       </section>
 

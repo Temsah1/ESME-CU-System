@@ -1,5 +1,10 @@
 @import "tailwindcss";
 
+/* The theme switch writes `.dark` on <html> (AppContext), so Tailwind's `dark:` utilities have
+   to follow that class. Tailwind v4 defaults the variant to the OS media query, which made the
+   explicit Light/Dark choices in the header do nothing. */
+@custom-variant dark (&:where(.dark, .dark *));
+
 @layer base {
   :root {
     --esme-navy: #123B60;
@@ -10,6 +15,19 @@
     --esme-orange-light: #FFAF38;
     --esme-ivory: #FDFBF7;
     --esme-slate: #1E293B;
+    --esme-page: #F8FAFC;
+    --esme-ink: #0F172A;
+    --esme-scroll-track: #F1F5F9;
+    --esme-scroll-thumb: #CBD5E1;
+    --esme-scroll-thumb-hover: #94A3B8;
+  }
+
+  .dark {
+    --esme-page: #020617;
+    --esme-ink: #E2E8F0;
+    --esme-scroll-track: #0F172A;
+    --esme-scroll-thumb: #334155;
+    --esme-scroll-thumb-hover: #475569;
   }
 }
 
@@ -19,23 +37,7 @@ html {
 }
 
 :focus-visible {
-  outline: 2px solid #F59A16;
-  outline-offset: 2px;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  html {
-    scroll-behavior: auto;
-  }
-  *, *::before, *::after {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
-  }
-}
-
-:focus-visible {
-  outline: 2px solid #F59A16;
+  outline: 2px solid var(--esme-orange);
   outline-offset: 2px;
 }
 
@@ -53,8 +55,8 @@ html {
 body {
   margin: 0;
   padding: 0;
-  background-color: #F8FAFC;
-  color: #0F172A;
+  background-color: var(--esme-page);
+  color: var(--esme-ink);
   overflow-x: hidden;
 }
 
@@ -64,14 +66,14 @@ body {
   height: 8px;
 }
 ::-webkit-scrollbar-track {
-  background: #F1F5F9;
+  background: var(--esme-scroll-track);
 }
 ::-webkit-scrollbar-thumb {
-  background: #CBD5E1;
+  background: var(--esme-scroll-thumb);
   border-radius: 4px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #94A3B8;
+  background: var(--esme-scroll-thumb-hover);
 }
 
 /* Engineering grid pattern */

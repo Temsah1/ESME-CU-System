@@ -134,8 +134,14 @@ const MATRIX: Matrix = {
     'submissions.review': 'all',
     'scores.read': 'all',
     'events.read': 'all',
-    // Season Planner management (0013). Scoped to the plan: it buys no users/cms/settings capability.
+    // Season Planner management (0013). Scoped to the plan: it buys no users/settings capability.
     'events.write': 'all',
+    // Content suite (0015): the website CMS, the media library and publishing. Still no
+    // users.role.assign, users.suspend, settings.manage, integrations.manage or backups.manage.
+    'cms.settings.global': 'all',
+    'cms.content.write': 'all',
+    'cms.content.publish': 'all',
+    'cms.media.manage': 'all',
     'skills.read': 'all',
     'analytics.configure': 'all',
     'notifications.manage': 'all',
@@ -240,6 +246,26 @@ export function canActOn(
   if (scope === 'self') return target.id === undefined || target.id === actor.id;
   if (actor.committeeId === undefined) return false;
   return target.committeeId === undefined || target.committeeId === actor.committeeId;
+}
+
+/**
+ * Whether this actor may read this profile in the directory.
+ *
+ * Mirrors `esme_reaches_profile(id, 'users.read')` (0002:180): `all` reads the chapter, a
+ * committee-scoped role reads its own committee plus itself, and an account with no committee
+ * does not acquire one by looking. A member holds no `users.read` grant at all.
+ */
+export function canReadProfile(
+  actor: { role: Role; id: string; committeeId?: string },
+  target: { id: string; committeeId?: string }
+): boolean {
+  const scope = scopeFor(actor.role, 'users.read');
+  if (scope === 'all') return true;
+  if (scope === 'self') return target.id === actor.id;
+  if (scope === 'committee') {
+    return target.id === actor.id || (actor.committeeId !== undefined && target.committeeId === actor.committeeId);
+  }
+  return false;
 }
 
 export function isPrimaryAdmin(account: { email?: string; username?: string }): boolean {

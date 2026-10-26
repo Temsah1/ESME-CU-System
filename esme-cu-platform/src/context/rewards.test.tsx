@@ -211,6 +211,27 @@ describe('bonuses through the store', () => {
     expect(ctx!.scoreLedger).toHaveLength(0);
     expect(ctx!.users.find((u) => u.id === 'usr_nada')!.totalPoints).toBe(40);
   });
+
+  it('refuses a bonus aimed at a High Board seat, even from the Super Admin', async () => {
+    const profiles = JSON.parse(localStorage.getItem(`${V2}userProfiles`) ?? '[]') as unknown[];
+    localStorage.setItem(
+      `${V2}userProfiles`,
+      JSON.stringify([
+        ...profiles,
+        account('usr_board', 'Salma Reda', { role: 'high_board', committeeId: undefined, email: 'salma@esme.test', username: 'salma' }),
+      ])
+    );
+    await mount();
+
+    await expect(
+      ctx!.awardBonus({ targetId: 'usr_board', points: 10, reason: 'Board recognition', idempotencyKey: 'bonus:board' })
+    ).rejects.toThrow(/High Board seat/);
+    // The refusal happens before the provider is asked: no entry, no ledger row and no new total.
+    expect(ctx!.rewardEntries).toHaveLength(0);
+    expect(ctx!.scoreLedger).toHaveLength(0);
+    expect(storedEntries()).toHaveLength(0);
+    expect(ctx!.users.find((u) => u.id === 'usr_board')!.totalPoints).toBe(40);
+  });
 });
 
 describe('warnings through the store', () => {
@@ -259,6 +280,27 @@ describe('warnings through the store', () => {
 
     await expect(ctx!.acknowledgeWarning(entry.id)).rejects.toThrow(/only the member/i);
     expect(ctx!.rewardEntries.find((e) => e.id === entry.id)!.acknowledgedAt).toBeUndefined();
+  });
+
+  it('still lets the Super Admin record a warning against a High Board seat', async () => {
+    const profiles = JSON.parse(localStorage.getItem(`${V2}userProfiles`) ?? '[]') as unknown[];
+    localStorage.setItem(
+      `${V2}userProfiles`,
+      JSON.stringify([
+        ...profiles,
+        account('usr_board', 'Salma Reda', { role: 'high_board', committeeId: undefined, email: 'salma@esme.test', username: 'salma' }),
+      ])
+    );
+    await mount();
+
+    const entry = await ctx!.issueWarning({
+      targetId: 'usr_board',
+      severity: 'notice',
+      reason: 'Missed the board handover',
+      idempotencyKey: 'warn:board',
+    });
+    expect(entry).toMatchObject({ kind: 'warning', targetRoleAtTime: 'high_board', points: 0 });
+    expect(ctx!.users.find((u) => u.id === 'usr_board')!.totalPoints).toBe(40);
   });
 });
 

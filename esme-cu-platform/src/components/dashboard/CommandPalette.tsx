@@ -37,7 +37,6 @@ const ACTIONS: { label: string; view: DashboardView; capability: Capability }[] 
   { label: 'Create a task', view: 'tasks', capability: 'tasks.write' },
   { label: 'Review submissions', view: 'submissions', capability: 'submissions.review' },
   { label: 'Record a bonus or warning', view: 'rewards', capability: 'rewards.write' },
-  { label: 'Decide recruitment applications', view: 'applications', capability: 'registrations.decide' },
   { label: 'Edit the website', view: 'website_cms', capability: 'cms.content.write' },
   { label: 'Change committee seats', view: 'committees', capability: 'committees.write' },
 ];

@@ -161,6 +161,32 @@ describe('the directory an administrator reads', () => {
     );
   });
 
+  it('offers only the next states and files nothing until one is chosen', async () => {
+    await approveApplicant('comm_te');
+    const { user } = await renderDirectory();
+    const row = (await TL.screen.findByText(APPLICANT.fullName)).closest('tr') as HTMLElement;
+    await user.click(row.querySelector('button[aria-label="Open record"]') as HTMLElement);
+
+    const state = (await TL.screen.findByLabelText('Next account state')) as HTMLSelectElement;
+    // The state the account already holds is not a target, so the control opens on the placeholder
+    // instead of on a value its own option list does not contain.
+    expect(state.value).toBe('');
+    expect(Array.from(state.options).map((o) => o.value)).toEqual(['', 'suspended']);
+    const apply = TL.within(state.parentElement as HTMLElement).getByRole('button', {
+      name: 'Apply',
+    }) as HTMLButtonElement;
+    expect(apply.disabled).toBe(true);
+
+    await user.selectOptions(state, 'suspended');
+    expect(apply.disabled).toBe(false);
+    await user.click(apply);
+
+    await TL.waitFor(() => {
+      const profiles = JSON.parse(localStorage.getItem(`${V2}userProfiles`) ?? '[]') as User[];
+      expect(profiles.find((p) => p.email === APPLICANT.email)?.status).toBe('suspended');
+    });
+  });
+
   it('writes nothing until the confirmation is accepted', async () => {
     const { user } = await renderDirectory();
     await TL.screen.findByRole('button', { name: 'Remove from directory' });
@@ -294,8 +320,210 @@ describe('the directory a member reads', () => {
     await renderDirectory();
 
     expect(await TL.screen.findByRole('heading', { name: 'Members Directory' })).toBeTruthy();
+    expect(await TL.screen.findByText('This directory is not available to your role')).toBeTruthy();
+    expect(rowNames()).toHaveLength(0);
     expect(TL.screen.queryByRole('button', { name: /Provision Member/i })).toBeNull();
     expect(TL.screen.queryByRole('button', { name: 'Remove from directory' })).toBeNull();
     expect(TL.screen.queryByRole('button', { name: 'Open record' })).toBeNull();
+    expect(TL.screen.queryByRole('button', { name: 'Award bonus' })).toBeNull();
+    expect(TL.screen.queryByRole('button', { name: 'Issue warning' })).toBeNull();
+  });
+});
+
+/**
+ * The roster is the read scope, not the browser cache. A committee-scoped officer is shown their
+ * own committee (and their own row) and nothing else; the committee filter offers only the
+ * committees that scope makes reachable, so a select cannot name a committee the provider would
+ * refuse to return.
+ */
+describe('the directory a committee officer reads', () => {
+  async function signInAsDirector() {
+    await approveApplicant('comm_te');
+    const accounts = await adapter.listAccounts();
+    const applicant = accounts.find((a) => a.email === APPLICANT.email);
+    if (!applicant) throw new Error('the approved applicant is not in the provider directory');
+    const promoted = await adapter.assignRole(applicant.id, 'director');
+    if (!promoted.ok) throw new Error(`role change refused: ${promoted.error.code}`);
+    await adapter.signOut();
+    await adapter.signIn(APPLICANT.email, PASSWORD);
+  }
+
+  it('shows its own committee and hides another committee entirely', async () => {
+    localStorage.setItem(
+      `${V2}userProfiles`,
+      JSON.stringify([
+        account('usr_nada', 'Nada Yehia'),
+        account('usr_mc', 'Mina Media', { committeeId: 'comm_mc' }),
+      ])
+    );
+    await signInAsDirector();
+    await renderDirectory();
+
+    await TL.waitFor(() => expect(rowNames().length).toBe(2));
+    expect(TL.screen.getByText('Nada Yehia')).toBeTruthy();
+    expect(TL.screen.getByText(APPLICANT.fullName)).toBeTruthy();
+    expect(TL.screen.queryByText('Mina Media')).toBeNull();
+    expect(TL.screen.getByText(/2 accounts in Technical & Engineering Committee/)).toBeTruthy();
+    // The board and the unassigned administrator are not part of this committee's roster.
+    expect(TL.screen.queryByText('Kareem Tamer')).toBeNull();
+  });
+
+  it('offers only the committees its scope can reach in the filter', async () => {
+    await signInAsDirector();
+    await renderDirectory();
+    await TL.waitFor(() => expect(rowNames().length).toBeGreaterThan(0));
+
+    const committeeFilter = TL.screen.getByRole('combobox', { name: 'Filter by committee' });
+    const options = TL.within(committeeFilter).getAllByRole('option').map((o) => o.textContent);
+    expect(options).toEqual(['All Committees', 'Technical & Engineering Committee']);
+  });
+});
+
+describe('directory filters', () => {
+  it('narrows the roster by role and by sub-team without leaving the visible set', async () => {
+    localStorage.setItem(
+      `${V2}userProfiles`,
+      JSON.stringify([
+        account('usr_nada', 'Nada Yehia', { subTeam: 'NDT & Inspection' }),
+        account('usr_ai', 'Aya AI', { subTeam: 'Materials Testing & AI' }),
+        account('usr_other', 'Other Committee', { committeeId: 'comm_mc' }),
+      ])
+    );
+    const { user } = await renderDirectory();
+    await TL.waitFor(() => expect(rowNames().length).toBe(4)); // three profiles plus the administrator
+
+    const roleFilter = TL.screen.getByRole('combobox', { name: 'Filter by role' });
+    await user.selectOptions(roleFilter, 'super_admin');
+    await TL.waitFor(() => expect(rowNames().length).toBe(1));
+    expect(rowNames()[0]).toContain('Kareem Tamer');
+
+    await user.selectOptions(roleFilter, 'member');
+    const subTeamFilter = await TL.screen.findByRole('combobox', { name: 'Filter by sub-team' });
+    // The sub-team list is derived from the rows in scope, not from every committee's teams.
+    const teams = TL.within(subTeamFilter).getAllByRole('option').map((o) => o.textContent);
+    expect(teams).toEqual(['All Sub-teams', 'Materials Testing & AI', 'NDT & Inspection']);
+
+    await user.selectOptions(subTeamFilter, 'NDT & Inspection');
+    await TL.waitFor(() => expect(rowNames().length).toBe(1));
+    expect(rowNames()[0]).toContain('Nada Yehia');
+    expect(TL.screen.queryByText('Aya AI')).toBeNull();
+  });
+});
+
+/**
+ * The inline bonus and warning controls sit on the person's own row. What a row offers is the
+ * store's rule read backwards: the same self, rank, High Board and committee checks decide both
+ * whether the button exists and whether the write would be accepted, so no row shows a dead action.
+ */
+describe('the inline bonus and warning controls', () => {
+  const rewardEntries = () =>
+    JSON.parse(localStorage.getItem(`${V2}rewardEntries`) ?? '[]') as {
+      kind: string;
+      targetId: string;
+      points: number;
+      severity?: string;
+      reason: string;
+      idempotencyKey: string;
+    }[];
+
+  const rowFor = async (name: string) => {
+    const cell = await TL.screen.findByText(name);
+    return cell.closest('tr') as HTMLElement;
+  };
+
+  it('offers both actions on a junior row and neither on the administrator\'s own row', async () => {
+    await renderDirectory();
+    const nadaRow = await rowFor('Nada Yehia');
+    const adminRow = await rowFor('Kareem Tamer');
+
+    expect(nadaRow.querySelector('button[aria-label="Award bonus"]')).toBeTruthy();
+    expect(nadaRow.querySelector('button[aria-label="Issue warning"]')).toBeTruthy();
+    // Nobody awards themselves, and a superior is not a target either.
+    expect(adminRow.querySelector('button[aria-label="Award bonus"]')).toBeNull();
+    expect(adminRow.querySelector('button[aria-label="Issue warning"]')).toBeNull();
+  });
+
+  it('keeps the warning action and drops the bonus action on a High Board row', async () => {
+    localStorage.setItem(
+      `${V2}userProfiles`,
+      JSON.stringify([
+        account('usr_nada', 'Nada Yehia'),
+        account('usr_board', 'Salma Reda', { role: 'high_board', committeeId: undefined }),
+      ])
+    );
+    await renderDirectory();
+    const boardRow = await rowFor('Salma Reda');
+
+    expect(boardRow.querySelector('button[aria-label="Issue warning"]')).toBeTruthy();
+    expect(boardRow.querySelector('button[aria-label="Award bonus"]')).toBeNull();
+  });
+
+  it('records a bonus against the row it was opened from and updates the points on screen', async () => {
+    const { user } = await renderDirectory();
+    const nadaRow = await rowFor('Nada Yehia');
+    await user.click(nadaRow.querySelector('button[aria-label="Award bonus"]') as HTMLElement);
+
+    const dialog = await TL.screen.findByRole('dialog');
+    expect(dialog.textContent).toContain('Award a bonus to Nada Yehia');
+    const points = TL.within(dialog).getByLabelText('Bonus points');
+    await user.clear(points);
+    await user.type(points, '12');
+    await user.type(
+      TL.within(dialog).getByLabelText('Reason (mandatory)'),
+      'Ran the NDT workshop for the first-year cohort'
+    );
+    await user.click(TL.within(dialog).getByRole('button', { name: 'Record bonus' }));
+
+    await TL.waitFor(() => expect(TL.screen.queryByRole('dialog')).toBeNull());
+    expect(TL.screen.getByText(/12 bonus points recorded for Nada Yehia/)).toBeTruthy();
+    // The row is re-read from the store, not guessed from the form.
+    await TL.waitFor(() => expect(TL.screen.getByText('Nada Yehia').closest('tr')?.textContent).toContain('12'));
+    await TL.waitFor(() => {
+      const entry = rewardEntries().find((e) => e.targetId === 'usr_nada');
+      expect(entry).toMatchObject({ kind: 'bonus', points: 12, reason: 'Ran the NDT workshop for the first-year cohort' });
+    });
+  });
+
+  it('records a warning without moving points, after asking for a reason', async () => {
+    const { user } = await renderDirectory();
+    const nadaRow = await rowFor('Nada Yehia');
+    await user.click(nadaRow.querySelector('button[aria-label="Issue warning"]') as HTMLElement);
+
+    const dialog = await TL.screen.findByRole('dialog');
+    expect(dialog.textContent).toContain('Issue a warning to Nada Yehia');
+    // An empty reason is refused before the provider is asked, so the submit stays disabled.
+    expect((TL.within(dialog).getByRole('button', { name: 'Record warning' }) as HTMLButtonElement).disabled).toBe(true);
+    await user.selectOptions(TL.within(dialog).getByLabelText('Severity'), 'formal');
+    await user.type(TL.within(dialog).getByLabelText('Reason (mandatory)'), 'Missed the committee meeting without notice');
+    await user.click(TL.within(dialog).getByRole('button', { name: 'Record warning' }));
+
+    await TL.waitFor(() => expect(TL.screen.queryByRole('dialog')).toBeNull());
+    expect(TL.screen.getByText(/Formal warning recorded for Nada Yehia/)).toBeTruthy();
+    await TL.waitFor(() => {
+      const entry = rewardEntries().find((e) => e.targetId === 'usr_nada');
+      expect(entry).toMatchObject({
+        kind: 'warning',
+        severity: 'formal',
+        reason: 'Missed the committee meeting without notice',
+      });
+    });
+    // No bonus was written and no points moved.
+    expect(rewardEntries().some((e) => e.kind === 'bonus')).toBe(false);
+  });
+
+  it('keeps the form from submitting a bonus above the per-action cap', async () => {
+    const { user } = await renderDirectory();
+    const nadaRow = await rowFor('Nada Yehia');
+    await user.click(nadaRow.querySelector('button[aria-label="Award bonus"]') as HTMLElement);
+
+    const dialog = await TL.screen.findByRole('dialog');
+    const points = TL.within(dialog).getByLabelText('Bonus points');
+    await user.clear(points);
+    await user.type(points, '30');
+    await user.type(TL.within(dialog).getByLabelText('Reason (mandatory)'), 'A very large favour');
+
+    // The store's answer is visible before the click, not only in a toast afterwards.
+    expect(TL.within(dialog).getByText(/Blocked: The limit is 25 points per action/)).toBeTruthy();
+    expect((TL.within(dialog).getByRole('button', { name: 'Record bonus' }) as HTMLButtonElement).disabled).toBe(true);
   });
 });

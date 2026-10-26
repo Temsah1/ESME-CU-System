@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { describe, expect, it } from 'vitest';
-import type { Committee, RegistrationApplication, ScoreLedgerEntry, Task, TaskSubmission, User } from '../types';
+import type { Committee, ScoreLedgerEntry, Task, TaskSubmission, User } from '../types';
 import {
   DECISION_RULES,
   deriveAlerts,
@@ -88,25 +88,6 @@ function committee(patch: Partial<Committee> & Pick<Committee, 'id'>): Committee
   };
 }
 
-function application(patch: Partial<RegistrationApplication> & Pick<RegistrationApplication, 'id'>): RegistrationApplication {
-  return {
-    fullName: 'Applicant',
-    universityEmail: 'a@esme.local',
-    academicYear: '3',
-    department: 'Civil',
-    phone: '',
-    preferredCommitteeId: 'c1',
-    technicalSkills: '',
-    previousExperience: '',
-    motivation: '',
-    availabilityHours: '5',
-    agreedToPolicies: true,
-    appliedDate: '2026-10-01',
-    status: 'pending',
-    ...patch,
-  };
-}
-
 function ledgerRow(patch: Partial<ScoreLedgerEntry> & Pick<ScoreLedgerEntry, 'id'>): ScoreLedgerEntry {
   return {
     memberId: 'u2',
@@ -130,7 +111,6 @@ function input(patch: Partial<DecisionInput> = {}): DecisionInput {
   return {
     tasks: [],
     submissions: [],
-    applications: [],
     ledger: [],
     users: [],
     committees: [],
@@ -171,7 +151,7 @@ describe('confirmed readings', () => {
         submissions: [submission({ id: 's1', status: 'approved', reviewedAt: '2026-10-06T10:00:00.000Z' })],
       })
     );
-    expect(rows).toHaveLength(7);
+    expect(rows).toHaveLength(6);
     rows.forEach((row) => expect(row.period).toBeTruthy());
     const approval = rows.find((r) => r.id === 'confirmed-approval_rate')!;
     expect(approval.kind).toBe('confirmed');
@@ -210,7 +190,7 @@ describe('rule-based alerts', () => {
     expect(deriveAlerts(input())).toEqual([]);
   });
 
-  it('uses the stated stall rule for reviews and recruitment', () => {
+  it('uses the stated stall rule for reviews', () => {
     const fresh = submission({ id: 's1', submittedAt: '2026-10-14T09:00:00.000Z' });
     const stale = submission({ id: 's2', submittedAt: '2026-10-01T09:00:00.000Z' });
     const alerts = deriveAlerts(input({ submissions: [fresh, stale] }));
@@ -218,18 +198,8 @@ describe('rule-based alerts', () => {
     expect(stalled.title).toContain('1 deliverable');
     expect(stalled.recordIds).toEqual(['s2']);
     expect(stalled.method).toContain(`${DECISION_RULES.reviewStallDays} or more days`);
-
-    const apps = deriveAlerts(
-      input({
-        applications: [
-          application({ id: 'a1', appliedDate: '2026-10-15' }),
-          application({ id: 'a2', appliedDate: '2026-09-01', status: 'under_review' }),
-          application({ id: 'a3', appliedDate: '2026-09-01', status: 'accepted' }),
-        ],
-      })
-    );
-    const waiting = apps.find((a) => a.id === 'alert-stalled-recruitment')!;
-    expect(waiting.recordIds).toEqual(['a2']);
+    // The retired recruitment queue is not a source of alerts.
+    expect(alerts.map((a) => a.id)).not.toContain('alert-stalled-recruitment');
   });
 
   it('reports a committee only when one member holds the stated share of open work', () => {

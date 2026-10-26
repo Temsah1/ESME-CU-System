@@ -85,8 +85,8 @@ export const PointsAndLeaderboard: React.FC = () => {
           </p>
         </div>
 
-        <div className="flex items-center gap-2 self-start sm:self-auto">
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-1 flex">
+        <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-1 flex flex-wrap">
             <button
               onClick={() => setSelectedTab('leaderboard')}
               className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${
@@ -231,6 +231,7 @@ export const PointsAndLeaderboard: React.FC = () => {
                   : 'No member in your scope has a score yet.'}
               </p>
             ) : (
+            <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
               <thead className="bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800 text-slate-500 font-semibold uppercase text-[10px]">
                 <tr>
@@ -256,6 +257,7 @@ export const PointsAndLeaderboard: React.FC = () => {
                 ))}
               </tbody>
             </table>
+            </div>
             )}
           </div>
             </>
@@ -282,6 +284,7 @@ export const PointsAndLeaderboard: React.FC = () => {
               icon={ListOrdered}
             />
           ) : (
+          <div className="overflow-x-auto">
           <table className="w-full text-left text-xs">
             <thead className="bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800 text-slate-500 font-semibold uppercase text-[10px]">
               <tr>
@@ -318,6 +321,7 @@ export const PointsAndLeaderboard: React.FC = () => {
               ))}
             </tbody>
           </table>
+          </div>
           )}
         </div>
       )}

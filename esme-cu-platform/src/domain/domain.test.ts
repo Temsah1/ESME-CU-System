@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   ALL_ROLES,
   canActOn,
+  canReadProfile,
   capabilitiesFor,
   hasCapability,
   isPrimaryAdmin,
@@ -118,6 +119,61 @@ describe('capability matrix', () => {
     expect(capabilitiesFor('member').length).toBeLessThan(capabilitiesFor('super_admin').length);
     expect(capabilitiesFor('super_admin')).toContain('backups.manage');
   });
+
+  it('gives the public content suite to the administrator, IT Moderator and High Board', () => {
+    // 0015 completes the set 0013 started for events. The screen-level gates (nav, CMS, media)
+    // read these same names, so a missing row hides the work from the officer who runs it.
+    const contentCaps = [
+      'cms.settings.global',
+      'cms.content.write',
+      'cms.content.publish',
+      'cms.media.manage',
+      'events.write',
+    ] as const;
+    for (const role of ['super_admin', 'moderator', 'high_board'] as const) {
+      for (const cap of contentCaps) expect(hasCapability(role, cap), `${role} ${cap}`).toBe(true);
+    }
+    for (const cap of contentCaps) expect(hasCapability('member', cap), `member ${cap}`).toBe(false);
+
+    // The grant is the content suite, not the platform.
+    for (const cap of ['users.role.assign', 'users.suspend', 'settings.manage', 'integrations.manage', 'backups.manage'] as const) {
+      expect(hasCapability('high_board', cap), `high_board ${cap}`).toBe(false);
+    }
+
+    // Committee leads may draft copy for their own committee; publishing stays with the three roles.
+    expect(scopeFor('head', 'cms.content.write')).toBe('committee');
+    expect(hasCapability('head', 'cms.content.publish')).toBe(false);
+    expect(hasCapability('director', 'cms.content.publish')).toBe(false);
+  });
+});
+
+describe('directory visibility follows the read scope', () => {
+  const otherCommittee = { id: 'usr_other', committeeId: 'comm_mc' };
+  const unassigned = { id: 'usr_none' };
+
+  it('shows the whole chapter to the roles whose users.read is all', () => {
+    for (const actor of [superAdmin, { role: 'high_board' as const, id: 'usr_board' }, moderator]) {
+      expect(canReadProfile(actor, otherCommittee), actor.role).toBe(true);
+      expect(canReadProfile(actor, unassigned), actor.role).toBe(true);
+    }
+  });
+
+  it('keeps a committee-scoped officer inside their committee, plus their own record', () => {
+    expect(canReadProfile(director, { id: 'usr_te', committeeId: 'comm_te' })).toBe(true);
+    expect(canReadProfile(director, otherCommittee)).toBe(false);
+    // The board and an unassigned account are not this committee's roster.
+    expect(canReadProfile(director, { id: 'usr_board', committeeId: undefined })).toBe(false);
+    expect(canReadProfile(director, unassigned)).toBe(false);
+    // Their own row remains readable even if their committee link is missing.
+    expect(canReadProfile({ role: 'director', id: 'usr_dir' }, { id: 'usr_dir' })).toBe(true);
+    expect(canReadProfile(head, { id: 'usr_te', committeeId: 'comm_te' })).toBe(true);
+    expect(canReadProfile(head, otherCommittee)).toBe(false);
+  });
+
+  it('gives a member no directory at all', () => {
+    expect(canReadProfile(member, { id: member.id, committeeId: 'comm_te' })).toBe(false);
+    expect(canReadProfile(member, otherCommittee)).toBe(false);
+  });
 });
 
 describe('privilege escalation guards', () => {
@@ -181,8 +237,11 @@ describe('account state machine', () => {
     }
   });
 
-  it('repairs the retired verification stage onto the queue when reading old storage', () => {
+  it('repairs a stored status this build cannot act on onto the review queue', () => {
     expect(repairStoredStatus('pending_email_verification')).toBe('pending_approval');
+    // A blank or missing status can neither sign in nor be decided; it is repaired, not trusted.
+    expect(repairStoredStatus('')).toBe('pending_approval');
+    expect(repairStoredStatus(undefined)).toBe('pending_approval');
     for (const status of ACCOUNT_STATUSES) {
       expect(repairStoredStatus(status)).toBe(status);
     }
