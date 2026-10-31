@@ -1,0 +1,513 @@
+/*
+ * SHIPCRAFT — the closing band and the footer it belongs to.
+ *
+ * The whole section is one staged entrance: every element that rises in is marked `.s-in` and carries
+ * its own stage number, so the sequence lives in CSS and the JavaScript only ever adds one class.
+ * Sizes are driven by `--u`, the container width divided by 787, which is what keeps the composition
+ * identical at 1920px and at 901px.
+ */
+.ship {
+  --u: 1px;
+  background: #0d0d0d;
+  color: #f6f4f1;
+  position: relative;
+  overflow: hidden;
+}
+@media (min-width: 900px) {
+  .ship {
+    /* --u is written by the component from the measured container width. */
+    font-size: calc(var(--u) * 16);
+  }
+}
+/* The transitions are unconditional; only the hidden start states are gated on `.js`, so a page whose
+   scripts never run shows the finished composition instead of an empty black band. */
+.ship .s-in {
+  transition:
+    opacity 0.8s var(--ease),
+    transform 0.9s var(--ease);
+}
+.js .ship .s-in {
+  opacity: 0;
+  transform: translateY(22px);
+}
+.ship.shipped .s-in {
+  opacity: 1;
+  transform: none;
+  transition-delay: calc(var(--s, 0) * 120ms);
+}
+.ship-cta {
+  position: relative;
+  padding: calc(var(--u) * 92) calc(var(--u) * 40);
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: calc(var(--u) * 44);
+}
+@media (min-width: 900px) {
+  .ship-cta {
+    grid-template-columns: 1.05fr 0.95fr;
+    align-items: center;
+    padding: calc(var(--u) * 120) calc(var(--u) * 64);
+  }
+  /* The panel is drawn bleeding past the top-right corner of the band. */
+  .ship-editor {
+    margin-top: calc(var(--u) * -96);
+    margin-right: calc(var(--u) * -64);
+  }
+}
+.ship-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(245, 154, 22, 0.45);
+  background: rgba(245, 154, 22, 0.1);
+  color: #f5b64f;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+.ship-head {
+  font-size: clamp(30px, calc(var(--u) * 62), 76px);
+  line-height: 1.02;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  margin: calc(var(--u) * 18) 0 calc(var(--u) * 14);
+  font-family: 'Newsreader', Georgia, serif;
+}
+.ship-head span {
+  display: block;
+}
+.ship-copy {
+  font-size: clamp(14px, calc(var(--u) * 17), 18px);
+  line-height: 1.7;
+  color: rgba(246, 244, 241, 0.66);
+  max-width: 52ch;
+}
+/* The glossy amber-glass button: lit rims, a halo that grows, and the Velia sheen on top. */
+.ship-button {
+  position: relative;
+  overflow: hidden;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: calc(var(--u) * 26);
+  padding: 14px 26px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 214, 158, 0.5);
+  background: linear-gradient(135deg, #2c241d 0%, #7a5832 100%);
+  color: #ffe9c9;
+  font-weight: 700;
+  font-size: 14px;
+  cursor: pointer;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.32),
+    0 18px 44px -20px rgba(245, 154, 22, 0.45);
+  transition:
+    transform 0.5s var(--ease),
+    box-shadow 0.5s var(--ease);
+}
+.ship-button::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(120deg, transparent 30%, rgba(255, 255, 255, 0.22) 50%, transparent 70%);
+  transform: translateX(-120%);
+  pointer-events: none;
+}
+.ship-button:hover::before,
+.ship-button:focus-visible::before {
+  transform: translateX(120%);
+  transition: transform 0.9s var(--ease);
+}
+.ship-button:hover,
+.ship-button:focus-visible {
+  transform: translateY(-2px);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.4),
+    0 26px 66px -18px rgba(245, 154, 22, 0.6);
+}
+/* The tilted editor panel: pure CSS/SVG, no picture, fading out at the bottom and the left. */
+.ship-editor {
+  position: relative;
+  border-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: linear-gradient(160deg, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0.02));
+  backdrop-filter: blur(18px) saturate(130%);
+  -webkit-backdrop-filter: blur(18px) saturate(130%);
+  padding: calc(var(--u) * 22);
+  transform: perspective(1200px) rotateX(7deg) rotateY(-6deg) scale(1);
+  transform-origin: 60% 40%;
+  transition:
+    transform 0.9s var(--ease),
+    opacity 0.9s var(--ease);
+  -webkit-mask-image: linear-gradient(200deg, #000 55%, transparent 96%), linear-gradient(90deg, transparent 0, #000 22%);
+  -webkit-mask-composite: source-in;
+  mask-image: linear-gradient(200deg, #000 55%, transparent 96%), linear-gradient(90deg, transparent 0, #000 22%);
+  mask-composite: intersect;
+  overflow: hidden;
+}
+.js .ship:not(.shipped) .ship-editor {
+  opacity: 0;
+  transform: perspective(1200px) rotateX(15deg) rotateY(-13deg) scale(0.92);
+}
+.ship-editor::after {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, rgba(245, 154, 22, 0.85), transparent);
+}
+.shipped .ship-editor {
+  transform: perspective(1200px) rotateX(7deg) rotateY(-6deg) scale(1);
+  opacity: 1;
+  transition-delay: calc(var(--s, 0) * 120ms);
+}
+.ship-editor .bar {
+  height: 9px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.11);
+  margin-bottom: 11px;
+}
+.ship-editor .bar.short {
+  width: 42%;
+}
+.ship-editor .bar.accent {
+  width: 62%;
+  background: rgba(245, 154, 22, 0.34);
+}
+.ship-editor .code {
+  font-family: 'IBM Plex Mono', ui-monospace, monospace;
+  font-size: 11.5px;
+  line-height: 1.75;
+  color: rgba(226, 232, 240, 0.72);
+  white-space: pre;
+  margin-top: 14px;
+}
+
+/* Footer: four parts. */
+.ship-login {
+  margin-top: calc(var(--u) * 14);
+  margin-left: 8px;
+  background: none;
+  border: none;
+  padding: 4px 2px;
+  color: rgba(246, 244, 241, 0.55);
+  font-size: 13px;
+  cursor: pointer;
+  transition: color 0.4s var(--ease);
+}
+.ship-login:hover,
+.ship-login:focus-visible {
+  color: #f5b64f;
+}
+.ship-brand {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.ship-brand p {
+  font-size: 14px;
+  line-height: 1.65;
+  color: rgba(246, 244, 241, 0.72);
+  max-width: 34ch;
+}
+.ship-legal {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+  margin-top: 16px;
+}
+.ship-foot {
+  position: relative;
+  padding: calc(var(--u) * 60) calc(var(--u) * 40) calc(var(--u) * 30);
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: calc(var(--u) * 34);
+}
+@media (min-width: 900px) {
+  .ship-foot {
+    grid-template-columns: 1.4fr repeat(3, 1fr) 1.2fr;
+    padding: calc(var(--u) * 72) calc(var(--u) * 64) calc(var(--u) * 40);
+  }
+}
+.ship-col h4 {
+  font-size: 12px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: rgba(246, 244, 241, 0.5);
+  margin-bottom: 12px;
+  font-weight: 700;
+}
+.ship-col ul {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+.ship-col a {
+  position: relative;
+  color: rgba(246, 244, 241, 0.86);
+  font-size: 14px;
+  text-decoration: none;
+  width: fit-content;
+}
+.ship-col a::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -3px;
+  height: 1px;
+  background: currentColor;
+  transform: scaleX(0);
+  transform-origin: right;
+  transition: transform 0.5s var(--ease);
+}
+.ship-col a:hover::after,
+.ship-col a:focus-visible::after {
+  transform: scaleX(1);
+  transform-origin: left;
+}
+.ship-social {
+  display: flex;
+  gap: 10px;
+  margin-top: 4px;
+}
+.ship-social a {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: rgba(246, 244, 241, 0.72);
+  transition:
+    transform 0.5s var(--ease),
+    color 0.5s var(--ease),
+    border-color 0.5s var(--ease);
+}
+.ship-social a:hover,
+.ship-social a:focus-visible {
+  transform: translateY(-3px);
+  color: #f5b64f;
+  border-color: rgba(245, 154, 22, 0.5);
+}
+
+/* Newsletter: glass field, arrow that becomes a check for 1.5s. */
+.ship-news {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 40px;
+  padding: 0 6px 0 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  transition: border-color 0.5s var(--ease), box-shadow 0.5s var(--ease);
+}
+.ship-news:focus-within {
+  border-color: rgba(245, 154, 22, 0.7);
+  box-shadow: 0 0 0 3px rgba(245, 154, 22, 0.14);
+}
+.ship-news input {
+  flex: 1;
+  min-width: 0;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: #f6f4f1;
+  font-size: 13px;
+}
+.ship-news input::placeholder {
+  color: rgba(246, 244, 241, 0.4);
+}
+.ship-news button {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 999px;
+  border: none;
+  background: rgba(245, 154, 22, 0.16);
+  color: #f5b64f;
+  cursor: pointer;
+  transition: background-color 0.4s var(--ease);
+}
+.ship-news button:hover {
+  background: rgba(245, 154, 22, 0.3);
+}
+.ship-news .arrow,
+.ship-news .check {
+  transition: opacity 0.3s var(--ease);
+}
+.ship-news .check {
+  position: absolute;
+  opacity: 0;
+}
+.ship-news.sent .arrow {
+  opacity: 0;
+}
+.ship-news.sent .check {
+  opacity: 1;
+}
+.ship-news .check path {
+  stroke-dasharray: 24;
+  stroke-dashoffset: 24;
+}
+.ship-news.sent .check path {
+  stroke-dashoffset: 0;
+  transition: stroke-dashoffset 0.5s var(--ease) 0.1s;
+}
+
+/* Reaching hands over the copyright line. */
+.ship-hands {
+  position: relative;
+  height: 110px;
+  margin-top: calc(var(--u) * 20);
+  /* The hands reach over the copyright line, so the box overlaps the base bar it sits above. */
+  margin-bottom: calc(var(--u) * -30);
+  pointer-events: none;
+}
+.ship-hand {
+  position: absolute;
+  bottom: 0;
+  width: clamp(120px, 26vw, 280px);
+  transition:
+    opacity 1.4s var(--ease),
+    transform 1.4s var(--ease);
+}
+.ship-hand.left {
+  left: 0;
+}
+.ship-hand.right {
+  right: 0;
+  transform: scaleX(-1);
+}
+.js .ship:not(.shipped) .ship-hand {
+  opacity: 0;
+}
+.js .ship:not(.shipped) .ship-hand.left {
+  transform: translateX(-12vw);
+}
+.js .ship:not(.shipped) .ship-hand.right {
+  transform: translateX(12vw) scaleX(-1);
+}
+.shipped .ship-hand {
+  opacity: 1;
+  transform: translateX(0);
+  transition-delay: calc(var(--s, 0) * 120ms + 260ms);
+}
+.shipped .ship-hand.right {
+  transform: translateX(0) scaleX(-1);
+}
+.ship-hand svg {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+.ship-float {
+  animation: shipFloat 7s ease-in-out infinite alternate;
+}
+@keyframes shipFloat {
+  from {
+    transform: translateY(-4px);
+  }
+  to {
+    transform: translateY(4px);
+  }
+}
+
+/* Giant thin wordmark, sunk by the scroll. The section owns the entrance transform, the inner span
+   the scrubbed sink, so the two never fight over `transform`. */
+.ship-word {
+  position: relative;
+  overflow: hidden;
+  text-align: center;
+  color: #5a3418;
+  font-family: 'Newsreader', Georgia, serif;
+  font-weight: 300;
+  font-size: clamp(72px, 22vw, 320px);
+  line-height: 0.82;
+  letter-spacing: 0.02em;
+  user-select: none;
+}
+.ship-word .sink {
+  display: block;
+  will-change: transform;
+}
+/* The wordmark rises from below the section edge, so its stage start state is a much larger rise than
+   the rest of the sequence. */
+.ship-word > .s-in {
+  display: block;
+}
+.js .ship:not(.shipped) .ship-word > .s-in {
+  transform: translateY(58%);
+}
+.ship-base {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 18px calc(var(--u) * 40) 26px;
+  border-top: 1px solid rgba(255, 255, 255, 0.07);
+  font-size: 12px;
+  color: rgba(246, 244, 241, 0.5);
+}
+@media (min-width: 900px) {
+  .ship-base {
+    padding: 18px calc(var(--u) * 64) 26px;
+  }
+}
+
+/*
+ * Calm is not a faster version of the same sequence: nothing starts hidden here. These rules repeat
+ * the `.js`-gated selectors because those are the ones that hold the start states, and a weaker rule
+ * would lose to them.
+ */
+@media (prefers-reduced-motion: reduce) {
+  .js .ship .s-in {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+  .js .ship:not(.shipped) .ship-word > .s-in {
+    transform: none;
+  }
+  .js .ship:not(.shipped) .ship-editor,
+  .shipped .ship-editor {
+    opacity: 1;
+    transform: perspective(1200px) rotateX(7deg) rotateY(-6deg) scale(1);
+    transition: none;
+  }
+  .js .ship:not(.shipped) .ship-hand,
+  .shipped .ship-hand {
+    opacity: 1;
+    transition: none;
+  }
+  .js .ship:not(.shipped) .ship-hand.left,
+  .js .ship:not(.shipped) .ship-hand.right,
+  .shipped .ship-hand {
+    transform: translateX(0);
+  }
+  .js .ship:not(.shipped) .ship-hand.right,
+  .shipped .ship-hand.right {
+    transform: translateX(0) scaleX(-1);
+  }
+  .ship-float {
+    animation: none;
+  }
+  .ship-button:hover,
+  .ship-button:focus-visible {
+    transform: none;
+  }
+  .ship-button:hover::before,
+  .ship-button:focus-visible::before {
+    transform: translateX(-120%);
+  }
+}

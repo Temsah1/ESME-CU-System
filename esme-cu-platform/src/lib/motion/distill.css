@@ -1,0 +1,223 @@
+/*
+ * DISTILL — the six-step process on a conveyor belt, dissolved by a scanner.
+ *
+ * Sizes are driven by four tokens (--cw, --ch, --gap, --top) that the engine measures once per
+ * resize; the belt itself is a transform-only loop, so nothing here reflows while it runs.
+ */
+.distill {
+  --hot: #ff5a1f;
+  --hot-soft: #ffe1d3;
+  --code: #7a7f88;
+  --comment: #b3b8bf;
+  --cw: 46vw;
+  --ch: 52vh;
+  --gap: 4.75vw;
+  --top: 40.2vh;
+  position: relative;
+  width: 100%;
+  height: calc(var(--top) + var(--ch) + 90px);
+  overflow: hidden;
+  background: var(--esme-ivory);
+}
+.distill .belt {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: calc(var(--top) - 70px);
+  height: calc(var(--ch) + 140px);
+  cursor: grab;
+  touch-action: pan-y;
+}
+.distill .belt.dragging {
+  cursor: grabbing;
+}
+.distill .codes {
+  position: absolute;
+  inset: 0;
+  -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 24vw);
+  mask-image: linear-gradient(90deg, transparent 0, #000 24vw);
+}
+.distill .cards,
+.distill .codes {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.distill canvas.fx {
+  position: absolute;
+  left: 0;
+  top: calc(var(--top) - 70px);
+  width: 100%;
+  height: calc(var(--ch) + 140px);
+  pointer-events: none;
+}
+/* One layer of the belt: a card, or the code that replaces its left half. */
+.distill .card,
+.distill .code {
+  position: absolute;
+  top: 70px;
+  left: 0;
+  width: var(--cw);
+  height: var(--ch);
+  will-change: transform;
+}
+.distill .card {
+  container-type: inline-size;
+  border-radius: 1.6vw;
+  overflow: hidden;
+  background: linear-gradient(150deg, #ffffff 0%, #f4f1ec 60%, #e9e4db 100%);
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  box-shadow: 0 24px 50px -34px rgba(15, 23, 42, 0.5);
+  padding: 2cqw 2.4cqw;
+  display: flex;
+  flex-direction: column;
+  gap: 1.4cqw;
+}
+.distill .card .stripe {
+  height: 0.9cqw;
+  width: 22cqw;
+  border-radius: 999px;
+  background: var(--hot);
+  opacity: 0.85;
+}
+.distill .card h3 {
+  font-size: 7cqw;
+  line-height: 0.94;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: #16181d;
+  font-family: 'Newsreader', Georgia, serif;
+}
+.distill .card p {
+  font-size: 3.1cqw;
+  line-height: 1.5;
+  color: #5b6068;
+  max-width: 30ch;
+}
+.distill .card .rail {
+  margin-top: auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 2cqw;
+  font-family: 'IBM Plex Mono', ui-monospace, monospace;
+  font-size: 2.4cqw;
+  color: var(--comment);
+}
+.distill .code {
+  white-space: pre;
+  overflow: hidden;
+  container-type: inline-size;
+  font-family: 'IBM Plex Mono', ui-monospace, monospace;
+  line-height: 1.39;
+}
+/* The size goes on the children: `.code` itself is a clipping box, not a text run. */
+.distill .code span {
+  font-size: 1.56cqw;
+}
+.distill .code .html {
+  position: absolute;
+  left: 0;
+  top: 4%;
+  color: var(--code);
+}
+.distill .code .meta {
+  position: absolute;
+  left: 51%;
+  top: 4%;
+  color: var(--comment);
+}
+.distill .scan {
+  position: absolute;
+  left: 50%;
+  width: 0;
+  top: calc(var(--top) - 14px);
+  height: calc(var(--ch) + 40px);
+  pointer-events: none;
+}
+.distill .scan i {
+  position: absolute;
+  left: -2px;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  border-radius: 4px;
+  background: linear-gradient(#ff7a3c, #ff5a1f 12%, #ff5a1f 88%, #ff7a3c);
+  box-shadow:
+    0 0 10px 2px rgba(255, 90, 31, 0.85),
+    0 0 34px 10px rgba(255, 90, 31, 0.38);
+}
+.distill .scan b {
+  position: absolute;
+  left: 0;
+  top: 4%;
+  bottom: 4%;
+  width: 42px;
+  filter: blur(6px);
+  background: linear-gradient(90deg, rgba(255, 110, 50, 0.55), transparent);
+}
+.distill .badge {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  top: calc(var(--top) - 60px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 9px;
+}
+.distill .badge .label {
+  font-size: 11.5px;
+  color: #8a8f98;
+  letter-spacing: 0.06em;
+}
+.distill .badge .pill {
+  display: flex;
+  height: 26px;
+  border-radius: 999px;
+  overflow: hidden;
+  box-shadow: 0 0 18px rgba(255, 90, 31, 0.35);
+  font-family: 'IBM Plex Mono', ui-monospace, monospace;
+  font-weight: 500;
+  font-size: 12.5px;
+}
+.distill .badge .num {
+  background: var(--hot);
+  color: #fff;
+  padding: 0 11px 0 13px;
+  min-width: 8.2ch;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  display: flex;
+  align-items: center;
+}
+.distill .badge .pct {
+  background: var(--hot-soft);
+  color: #d9430f;
+  font-size: 11px;
+  padding: 0 12px 0 10px;
+  display: flex;
+  align-items: center;
+}
+@media (max-height: 700px) {
+  .distill {
+    --top: 58svh;
+  }
+}
+@media (max-width: 767px) {
+  .distill {
+    --cw: 84vw;
+    --ch: 54vw;
+    --gap: 7vw;
+    --top: 54svh;
+  }
+  .distill .codes {
+    -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 30vw);
+    mask-image: linear-gradient(90deg, transparent 0, #000 30vw);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .distill .belt {
+    cursor: grab;
+  }
+}

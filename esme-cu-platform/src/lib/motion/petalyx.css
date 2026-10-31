@@ -1,0 +1,357 @@
+/*
+ * PETALYX — the GSAP-driven family: intro zoom, frosted squares, hero parallax, pinned tickets,
+ * the hover accordion, word reveals, the CTA band and the footer logo draw.
+ *
+ * GSAP only ever moves transform/opacity/filter; everything static (colour, radius, size) lives
+ * here so a visitor with JavaScript disabled still gets the same layout.
+ */
+
+/* (a) Page intro. `body.intro` is added for the first visit of the session and removed onComplete. */
+.intro-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background: linear-gradient(160deg, #123b60 0%, #0e2f4d 46%, #0a2239 100%);
+  filter: blur(18px) saturate(1.1);
+  transform: scale(1.3);
+}
+body.intro #app {
+  transform-origin: 50% 50vh;
+}
+body.intro {
+  overflow: hidden;
+}
+
+/* (b) Frosted glass squares that flicker over the hero. */
+.glass-sq {
+  position: absolute;
+  aspect-ratio: 1;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.16);
+  border: 1px solid rgba(255, 255, 255, 0.55);
+  backdrop-filter: blur(10px) saturate(1.2);
+  -webkit-backdrop-filter: blur(10px) saturate(1.2);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.4);
+  pointer-events: none;
+  will-change: opacity;
+}
+.glass-sq.centre {
+  width: clamp(28px, 3.4vw, 44px);
+}
+.glass-sq.outer {
+  width: clamp(36px, 5.4vw, 74px);
+}
+.sq-field {
+  position: absolute;
+  top: 42%;
+  left: 0;
+  right: 0;
+  height: 300px;
+  pointer-events: none;
+  -webkit-mask-image: linear-gradient(#000, transparent);
+  mask-image: linear-gradient(#000, transparent);
+}
+.sq-field i {
+  position: absolute;
+  width: 46px;
+  height: 46px;
+  border: 1px solid #edf0e8;
+  border-radius: 10px;
+  opacity: 0;
+}
+@media (max-width: 760px) {
+  .glass-sq:nth-child(odd) {
+    display: none;
+  }
+}
+
+/* (c) Hero drift loops. */
+@keyframes driftA {
+  from {
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    transform: translate3d(26px, 4px, 0);
+  }
+}
+@keyframes driftB {
+  from {
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    transform: translate3d(-30px, 6px, 0);
+  }
+}
+.drift-a {
+  animation: driftA 14s ease-in-out infinite alternate;
+}
+.drift-b {
+  animation: driftB 17s ease-in-out infinite alternate;
+}
+
+/* (d) Pinned tickets. */
+.pin-stage {
+  position: relative;
+}
+.tickets {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+@media (max-width: 900px) {
+  .tickets {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+.ticket {
+  position: relative;
+  height: 150px;
+  border-radius: 22px;
+  padding: 22px 24px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 6px;
+  color: #fff;
+  background: linear-gradient(155deg, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0.05));
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  -webkit-mask:
+    radial-gradient(circle 17px at 0 55%, #0000 97%, #000) left/51% 100% no-repeat,
+    radial-gradient(circle 17px at 100% 55%, #0000 97%, #000) right/51% 100% no-repeat;
+  mask:
+    radial-gradient(circle 17px at 0 55%, #0000 97%, #000) left/51% 100% no-repeat,
+    radial-gradient(circle 17px at 100% 55%, #0000 97%, #000) right/51% 100% no-repeat;
+}
+.ticket-value {
+  font-size: clamp(30px, 3.4vw, 44px);
+  font-weight: 800;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  font-family: 'IBM Plex Mono', ui-monospace, monospace;
+}
+.ticket-label {
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.72);
+  font-weight: 600;
+}
+.frosted-band {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 120px;
+  pointer-events: none;
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  background: rgba(255, 255, 255, 0.12);
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 18%, #000 82%, transparent);
+  mask-image: linear-gradient(90deg, transparent, #000 18%, #000 82%, transparent);
+}
+.pin-art {
+  will-change: transform;
+}
+
+/* (e) Hover accordion. */
+.acc {
+  display: flex;
+  align-items: stretch;
+  width: 100%;
+  height: clamp(360px, 58vh, 560px);
+  border-top: 1px solid rgba(15, 23, 42, 0.12);
+}
+.acc-panel {
+  position: relative;
+  flex: 0 0 clamp(96px, 11vw, 170px);
+  height: 100%;
+  overflow: hidden;
+  border-right: 1px solid rgba(15, 23, 42, 0.12);
+  transition: flex-grow 0.9s cubic-bezier(0.77, 0, 0.18, 1);
+  cursor: pointer;
+  text-align: left;
+  background: transparent;
+}
+.acc-panel.is-active {
+  flex-grow: 1;
+}
+.acc-num {
+  position: absolute;
+  top: 12%;
+  left: 8px;
+  font-size: clamp(170px, 36vh, 380px);
+  font-weight: 600;
+  line-height: 0.74;
+  letter-spacing: -0.07em;
+  color: rgba(18, 59, 96, 0.12);
+  pointer-events: none;
+  font-family: 'Newsreader', Georgia, serif;
+}
+.acc-rail {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 26px;
+  writing-mode: vertical-rl;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--esme-navy);
+}
+.acc-body {
+  position: relative;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  padding: 28px clamp(20px, 3vw, 44px) 34px;
+}
+.step {
+  opacity: 0;
+  transform: translateX(-24px);
+  filter: blur(6px);
+  transition:
+    opacity 0.4s var(--ease),
+    transform 0.5s var(--ease),
+    filter 0.4s var(--ease);
+}
+.is-active .step {
+  opacity: 1;
+  transform: none;
+  filter: none;
+  transition:
+    opacity 0.7s 0.4s var(--ease),
+    transform 0.9s 0.35s cubic-bezier(0.2, 0.8, 0.2, 1),
+    filter 0.7s 0.4s var(--ease);
+}
+.step h3 {
+  font-size: clamp(20px, 2.4vw, 30px);
+  font-weight: 800;
+  color: var(--esme-navy);
+  margin-bottom: 8px;
+}
+.step p {
+  font-size: 14px;
+  line-height: 1.65;
+  color: #475569;
+  max-width: 46ch;
+}
+.step-shape {
+  position: absolute;
+  top: 18%;
+  right: 12%;
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+  border: 1px solid rgba(245, 154, 22, 0.6);
+  background: rgba(245, 154, 22, 0.14);
+  animation: driftA 9s ease-in-out infinite alternate;
+}
+@media (max-width: 760px) {
+  .acc {
+    display: block;
+    height: auto;
+    border-top: none;
+  }
+  .acc-panel {
+    flex: none;
+    width: 100%;
+    height: auto;
+    overflow: visible;
+    border-right: none;
+    border-bottom: 1px solid rgba(15, 23, 42, 0.1);
+    padding: 18px 0;
+    cursor: default;
+  }
+  .acc-num {
+    display: none;
+  }
+  .acc-rail {
+    display: none;
+  }
+  .acc-body {
+    padding: 0;
+  }
+  .step,
+  .is-active .step {
+    opacity: 1;
+    transform: none;
+    filter: none;
+  }
+  .step-shape {
+    display: none;
+  }
+}
+
+/* (g) CTA band with falling accents. */
+.cta-band {
+  position: relative;
+  overflow: hidden;
+}
+.fall {
+  position: absolute;
+  top: -20px;
+  width: 10px;
+  height: 8px;
+  border-radius: 80% 0 80% 0;
+  opacity: 0.85;
+  background: var(--esme-orange);
+  pointer-events: none;
+  animation: fall linear infinite;
+  will-change: transform;
+}
+@keyframes fall {
+  to {
+    transform: translate(var(--dx), 110vh) rotate(540deg);
+  }
+}
+
+/* (h) Footer logo draw. Only a page with JavaScript running hides the stroke; without it the mark
+   is simply drawn. */
+.logo-draw path {
+  fill: none;
+  stroke: var(--esme-orange);
+  stroke-width: 3;
+  stroke-linecap: round;
+}
+.logo-draw .draw {
+  stroke-dasharray: var(--len, 300);
+}
+.js .logo-draw .draw {
+  stroke-dashoffset: var(--len, 300);
+}
+.logo-draw circle {
+  fill: var(--esme-orange);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .intro-backdrop {
+    display: none;
+  }
+  .drift-a,
+  .drift-b,
+  .step-shape,
+  .fall {
+    animation: none;
+  }
+  .fall {
+    display: none;
+  }
+  .sq-field i {
+    opacity: 0.5;
+  }
+  .logo-draw .draw {
+    stroke-dashoffset: 0;
+  }
+  .acc-panel {
+    transition: none;
+  }
+  .step,
+  .is-active .step {
+    opacity: 1;
+    transform: none;
+    filter: none;
+    transition: none;
+  }
+}

@@ -55,9 +55,9 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
               <motion.div
                 key={t.id}
                 layout
-                initial={{ opacity: 0, y: 20, scale: 0.95 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
-                exit={{ opacity: 0, x: 40, transition: { duration: durations.micro } }}
+                initial={{ opacity: 0, y: 20, scale: 0.95, filter: 'blur(6px)' }}
+                animate={{ opacity: 1, y: 0, scale: 1, filter: 'blur(0px)' }}
+                exit={{ opacity: 0, x: 40, filter: 'blur(4px)', transition: { duration: durations.micro } }}
                 transition={{ duration: durations.standard, ease: easings.out }}
                 className={`pointer-events-auto flex items-start gap-2.5 rounded-xl border border-slate-200 border-l-4 ${ring} bg-white px-3.5 py-3 text-xs font-semibold text-slate-800 shadow-lg`}
               >

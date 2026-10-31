@@ -19,12 +19,15 @@
     "canvas-confetti": "^1.9.4",
     "clsx": "^2.1.1",
     "exceljs": "^4.4.0",
+    "gsap": "3.12.5",
+    "lenis": "1.1.13",
     "lucide-react": "^1.56.0",
     "motion": "^14.3.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
     "recharts": "^3.10.1",
-    "tailwind-merge": "^3.7.0"
+    "tailwind-merge": "^3.7.0",
+    "three": "0.160.1"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.3.3",
@@ -34,6 +37,7 @@
     "@types/node": "^24.13.3",
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.7",
+    "@types/three": "^0.160.0",
     "@vitejs/plugin-react": "^6.1.1",
     "jsdom": "^26.1.0",
     "oxlint": "^1.81.0",

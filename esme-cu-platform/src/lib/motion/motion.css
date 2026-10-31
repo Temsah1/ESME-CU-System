@@ -1,0 +1,496 @@
+/*
+ * VELIA core — the site-wide reveal, split-word, smooth-scroll and Ken-Burns rules.
+ *
+ * The `.js` gate is what keeps the page honest: index.html adds the class before first paint, so a
+ * visitor whose JavaScript never ran never sees an opacity-0 heading they cannot read. Everything
+ * that hides content lives behind `.js`; everything that merely moves does not.
+ *
+ * The blocks inside the "verbatim" rule are the numbers the motion brief specifies. They are not
+ * tuned per page: one curve, one duration, one stagger for the whole chapter.
+ */
+
+:root {
+  --ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-io: cubic-bezier(0.65, 0, 0.35, 1);
+}
+
+/* --- verbatim --- */
+.js .rv {
+  opacity: 0;
+  transform: translate3d(0, 28px, 0);
+  filter: blur(8px);
+}
+.rv {
+  transition:
+    opacity 1.1s var(--ease),
+    transform 1.1s var(--ease),
+    filter 1.1s var(--ease);
+  transition-delay: calc(var(--d, 0) * 90ms + var(--base, 0ms));
+}
+.js .rv-scale {
+  transform: scale(0.96) translateY(24px);
+}
+.js .rv.in {
+  opacity: 1;
+  transform: none;
+  filter: none;
+}
+.split .w {
+  display: inline-block;
+  overflow: hidden;
+  vertical-align: top;
+  padding: 0 0.02em 0.12em;
+  margin: 0 -0.02em -0.12em;
+}
+.split .w > span {
+  display: inline-block;
+  will-change: transform;
+}
+.js .split .w > span {
+  transform: translateY(110%) rotate(4deg);
+  opacity: 0;
+  transition:
+    transform 1.2s var(--ease),
+    opacity 1.2s var(--ease);
+  transition-delay: calc(var(--i) * 70ms + var(--base, 0ms));
+}
+.js .split.in .w > span {
+  transform: none;
+  opacity: 1;
+}
+html.lenis,
+html.lenis body {
+  height: auto;
+}
+.lenis.lenis-smooth {
+  scroll-behavior: auto !important;
+}
+.lenis.lenis-stopped {
+  overflow: hidden;
+}
+.media.kb {
+  animation: kb 26s var(--ease-io) infinite alternate;
+}
+@keyframes kb {
+  from {
+    transform: scale(1.04);
+  }
+  to {
+    transform: scale(1.12) translate3d(-1.5%, -1%, 0);
+  }
+}
+.ai-t {
+  display: grid;
+}
+.ai-t > span {
+  grid-area: 1/1;
+}
+.ai-t .ghost {
+  visibility: hidden;
+}
+/* --- end verbatim --- */
+
+/* A word that carries the gradient carries it itself: a wrapper would clip the run across the
+   whole line and read as one wash instead of type. */
+.split .w > span.grad {
+  background: linear-gradient(96deg, var(--esme-navy) 8%, var(--esme-orange) 62%, var(--esme-navy-light) 98%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.dark .split .w > span.grad,
+.split .w > span.grad-light {
+  background: linear-gradient(96deg, #ffffff 6%, var(--esme-orange-light) 54%, #9ec5e8 96%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* Typing indicator: five-pixel dots, one shared keyframe, three phases. */
+.dots {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  vertical-align: middle;
+}
+.dots i {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: currentColor;
+  animation: dot 1.2s infinite ease-in-out;
+}
+.dots i:nth-child(2) {
+  animation-delay: 0.15s;
+}
+.dots i:nth-child(3) {
+  animation-delay: 0.3s;
+}
+@keyframes dot {
+  0%,
+  80%,
+  100% {
+    opacity: 0.25;
+    transform: none;
+  }
+  40% {
+    opacity: 1;
+    transform: translateY(-3px);
+  }
+}
+
+/* A message arriving in the studio panel: it slides into place without taking up more room
+   than its ghost copy already reserved. Gated by `.js` for the same reason as `.rv` — with the
+   script off, the typed text is simply shown. */
+.js .chat-line {
+  opacity: 0;
+  transform: translateY(12px) scale(0.98);
+}
+.chat-line {
+  transition:
+    opacity 0.8s var(--ease),
+    transform 0.8s var(--ease);
+}
+.chat-line.in {
+  opacity: 1;
+  transform: none;
+}
+
+/* Nav: the hairline, blur and padding change are one state, read from scrollY > 20. */
+.nav-fixed {
+  transition:
+    background-color 0.5s var(--ease),
+    backdrop-filter 0.5s var(--ease),
+    padding 0.5s var(--ease),
+    box-shadow 0.5s var(--ease);
+}
+.nav-scrolled {
+  background: rgba(255, 255, 255, 0.72);
+  backdrop-filter: blur(18px) saturate(140%);
+  -webkit-backdrop-filter: blur(18px) saturate(140%);
+  padding-top: 10px;
+  padding-bottom: 10px;
+  box-shadow: 0 1px 0 rgba(15, 23, 42, 0.08);
+}
+.dark .nav-scrolled {
+  background: rgba(2, 6, 23, 0.72);
+  box-shadow: 0 1px 0 rgba(148, 163, 184, 0.16);
+}
+
+/* Primary pill: the sheen is a pseudo-element sweep so the label never re-renders. */
+.pill {
+  position: relative;
+  overflow: hidden;
+  transition:
+    transform 0.5s var(--ease),
+    box-shadow 0.5s var(--ease);
+}
+.pill::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(120deg, transparent 30%, rgba(255, 255, 255, 0.22) 50%, transparent 70%);
+  transform: translateX(-120%);
+  pointer-events: none;
+}
+.pill:hover::before,
+.pill:focus-visible::before {
+  transform: translateX(120%);
+  transition: transform 0.9s var(--ease);
+}
+.pill:hover,
+.pill:focus-visible {
+  transform: translateY(-2px);
+  box-shadow: 0 14px 34px -16px rgba(18, 59, 96, 0.55);
+}
+
+.logo-mark {
+  transition: transform 0.8s var(--ease);
+}
+a:hover .logo-mark,
+button:hover .logo-mark {
+  transform: rotate(90deg);
+}
+
+/* The burger is two bars that meet in the middle and cross: each travels half the gap between them. */
+.burger {
+  position: relative;
+  display: block;
+  width: 24px;
+  height: 14px;
+}
+.burger i {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 2px;
+  border-radius: 2px;
+  background: currentColor;
+  transition: transform 0.5s var(--ease);
+}
+.burger i:first-child {
+  top: calc(50% - 4.25px);
+}
+.burger i:last-child {
+  top: calc(50% + 2.25px);
+}
+.burger[aria-expanded="true"] i:first-child {
+  transform: translateY(3.25px) rotate(45deg);
+}
+.burger[aria-expanded="true"] i:last-child {
+  transform: translateY(-3.25px) rotate(-45deg);
+}
+
+/* Glass cards lift, and the picture inside them lifts slower than the frame. */
+.glass-card {
+  backdrop-filter: blur(22px) saturate(130%);
+  -webkit-backdrop-filter: blur(22px) saturate(130%);
+  transition:
+    transform 0.7s var(--ease),
+    box-shadow 0.7s var(--ease);
+}
+.glass-card:hover {
+  transform: translateY(-6px);
+  box-shadow: 0 30px 60px -28px rgba(15, 23, 42, 0.45);
+}
+.glass-card .card-media {
+  transition: transform 1.6s var(--ease);
+}
+.glass-card:hover .card-media {
+  transform: scale(1.05);
+}
+
+/* Single-column parallax drift: one image, twelve percent of its own height. */
+.parallax {
+  will-change: transform;
+}
+
+/* SVG gauges and rings draw in when revealed. */
+.gauge-path {
+  transition: stroke-dashoffset 2.2s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/*
+ * A ring carries `pathLength=100`, so the dash is a percentage: hidden means the whole way round, and
+ * the figure itself (`--pct`) is how far the arc travels when the block is revealed. The attribute on
+ * the element is the no-JS answer — CSS only ever overrides it while animating.
+ */
+.gauge-ring .gauge-path {
+  stroke-dasharray: 100;
+}
+.js .gauge-ring .gauge-path {
+  stroke-dashoffset: 100;
+}
+.js [data-rv].in .gauge-ring .gauge-path {
+  stroke-dashoffset: calc(100 - var(--pct, 0));
+}
+
+/* --- VELIA (§1): the six stages of the application form ---------------------------------
+ * The form is one page carrying six stages — the header band, the applicant section, the committee
+ * answer and its selectors, the account block, the pledge, and the receipt — and each travels the way
+ * a step travels in the accordion: opacity, translateX 24px, blur 6px, .5s. The same observer that
+ * reveals the public page adds `.in` here, so the `--d` a field group gets is the one the engine
+ * already hands out; nothing about the form's logic changes to pay for the movement.
+ */
+.rv.reg-step {
+  transition-duration: 0.5s;
+}
+.js .rv.reg-step {
+  transform: translateX(24px);
+  filter: blur(6px);
+}
+.js .rv.reg-step.in {
+  transform: none;
+  filter: none;
+}
+.reg-progress {
+  height: 6px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.1);
+}
+.reg-progress > span {
+  display: block;
+  height: 100%;
+  width: 0;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--esme-navy), var(--esme-orange));
+  transition: width 0.5s var(--ease);
+}
+/* A refusal says so twice: the line fades in, and the control that carries it shakes no further
+   than 6px for 300ms. Transform only — the fields under it never move. */
+.reg-error {
+  animation: reg-fade 0.3s var(--ease) backwards;
+}
+.reg-field[data-refused='1'] {
+  animation: reg-shake 0.3s cubic-bezier(0.36, 0.07, 0.19, 0.97);
+}
+@keyframes reg-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes reg-shake {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  15% {
+    transform: translateX(-6px);
+  }
+  30% {
+    transform: translateX(5px);
+  }
+  45% {
+    transform: translateX(-4px);
+  }
+  60% {
+    transform: translateX(3px);
+  }
+  75% {
+    transform: translateX(-2px);
+  }
+  90% {
+    transform: translateX(1px);
+  }
+}
+/* The receipt's check draws: circle first, then the tick, both with stroke-dashoffset. */
+.reg-draw circle {
+  stroke-dasharray: 139;
+}
+.reg-draw path {
+  stroke-dasharray: 30;
+}
+.js .reg-draw circle {
+  stroke-dashoffset: 139;
+  animation: reg-ink 0.9s var(--ease) both;
+}
+.js .reg-draw path {
+  stroke-dashoffset: 30;
+  animation: reg-ink 0.45s var(--ease) 0.6s both;
+}
+@keyframes reg-ink {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+/*
+ * --- restrained /admin motion (§8) ----------------------------------------------
+ * The workspace is a screen somebody reads, not a page they are toured through: one-shot entrances
+ * that always run to their end, no scroll runtime, no canvas, nothing pinned. None of it depends on
+ * an observer — a row the observer never reached would sit at opacity 0, and a missing name on a
+ * roster is a bug rather than a mood.
+ */
+.js .dash-row {
+  animation: dash-enter 0.8s var(--ease) backwards;
+  animation-delay: calc(min(var(--i, 0), 8) * 140ms);
+}
+@keyframes dash-enter {
+  from {
+    opacity: 0;
+    transform: translateX(-14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+/* A bar draws with scaleX, so the inline width stays the number a screen reader and the CSS agree on. */
+.dash-fill {
+  transform-origin: left center;
+}
+.js .dash-fill {
+  animation: dash-grow 0.9s var(--ease) backwards;
+}
+@keyframes dash-grow {
+  from {
+    transform: scaleX(0);
+  }
+}
+/* A status that changes mid-shift cross-fades: the badge is remounted on its own key. */
+.dash-badge {
+  transition:
+    color 0.3s var(--ease),
+    background-color 0.3s var(--ease);
+}
+.js .dash-badge {
+  animation: dash-swap 0.3s var(--ease) backwards;
+}
+@keyframes dash-swap {
+  from {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .js .dash-row,
+  .js .dash-fill,
+  .js .dash-badge {
+    animation: none !important;
+  }
+  .dash-badge {
+    transition: none;
+  }
+  .js .rv,
+  .js .rv-scale {
+    opacity: 1;
+    transform: none;
+    filter: none;
+  }
+  .js .split .w > span {
+    transform: none;
+    opacity: 1;
+  }
+  .js .rv.reg-step,
+  .js .rv.reg-step.in {
+    opacity: 1;
+    transform: none;
+    filter: none;
+  }
+  .reg-draw circle,
+  .reg-draw path {
+    animation: none !important;
+    stroke-dashoffset: 0 !important;
+  }
+  .reg-error,
+  .reg-field[data-refused='1'] {
+    animation: none !important;
+  }
+  .media.kb {
+    animation: none;
+  }
+  .dots i {
+    animation: none;
+    opacity: 0.6;
+  }
+  .js .chat-line {
+    opacity: 1;
+    transform: none;
+  }
+  .js .gauge-ring .gauge-path {
+    stroke-dashoffset: calc(100 - var(--pct, 0));
+    transition: none;
+  }
+  .burger i {
+    transition: none;
+  }
+  .glass-card:hover,
+  .pill:hover,
+  .pill:focus-visible {
+    transform: none;
+  }
+  .logo-mark,
+  a:hover .logo-mark,
+  button:hover .logo-mark {
+    transform: none;
+  }
+  .pill:hover::before,
+  .pill:focus-visible::before {
+    transform: translateX(-120%);
+    transition: none;
+  }
+}

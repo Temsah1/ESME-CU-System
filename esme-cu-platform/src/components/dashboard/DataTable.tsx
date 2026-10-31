@@ -3,6 +3,9 @@ import { ArrowDown, ArrowUp, ChevronLeft, ChevronRight, Search, type LucideIcon 
 import { ModalShell, useIsDesktop, useStickyNonNull } from '../../motion';
 import { EmptyState } from '../EmptyState';
 
+/** The row's place in the entrance; the CSS caps the run at eight so a long page is never slow. */
+const rise = (index: number) => ({ '--i': String(index) }) as React.CSSProperties;
+
 export type DataTableColumn<T> = {
   key: string;
   label: string;
@@ -216,8 +219,12 @@ export function DataTable<T>({
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                  {shown.map((row) => (
-                    <tr key={rowKey(row)} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition">
+                  {shown.map((row, index) => (
+                    <tr
+                      key={rowKey(row)}
+                      style={rise(index)}
+                      className="dash-row hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition"
+                    >
                       {columns.map((column) => (
                         <td
                           key={column.key}
@@ -242,8 +249,8 @@ export function DataTable<T>({
             </div>
           ) : (
             <ul className="divide-y divide-slate-100 dark:divide-slate-800">
-              {shown.map((row) => (
-                <li key={rowKey(row)} className="p-4 space-y-3">
+              {shown.map((row, index) => (
+                <li key={rowKey(row)} style={rise(index)} className="dash-row p-4 space-y-3">
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0 flex-1">{cardTitle ? cardTitle.render(row) : null}</div>
                     <div className="flex items-center gap-1.5 shrink-0">

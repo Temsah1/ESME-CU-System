@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { Suspense, lazy, useEffect, useMemo, useRef, useState } from 'react';
 import {
   motion,
   AnimatePresence,
@@ -8,8 +8,6 @@ import {
   useTransform,
 } from 'motion/react';
 import {
-  Menu,
-  X,
   ChevronRight,
   BookOpen,
   CheckCircle2,
@@ -24,7 +22,7 @@ import {
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import type { PublicSectionKey } from '../types';
-import { leaderAccount } from '../domain/committees';
+import { leaderAccounts, POSITION_LABELS } from '../domain/committees';
 import { hiddenSections, resolveImage, visibleFooterLinks, visibleNavigation } from '../domain/cms';
 import { seasonCovering, seasonsInOrder } from '../domain/seasons';
 import { HISTORICAL_MILESTONES, APPRECIATION_PROFILES, HISTORICAL_SOCIAL_INSIGHTS } from '../data/historyData';
@@ -34,7 +32,6 @@ import {
   Reveal,
   StaggerGroup,
   StaggerItem,
-  WordReveal,
   fadeIn,
   growX,
   groupItemScale,
@@ -43,6 +40,39 @@ import {
   transitions,
   usePremiumMotion,
 } from '../motion';
+import {
+  Counter,
+  FallingAccents,
+  GlassSquares,
+  HoverAccordion,
+  PinnedStats,
+  Reveal as RevealBlock,
+  ShipcraftCta,
+  Split,
+  ChatStudio,
+  initRevealSystem,
+  refreshReveals,
+  retainSmoothScroll,
+  scrollToTarget,
+  useCtaScroll,
+  useHeroParallax,
+  usePageIntro,
+  useWordRevealOnScroll,
+  type AccordionStep,
+  type ShipColumn,
+  type StatTicket,
+  type StudioMessage,
+} from '../lib/motion';
+import type { FolioItem } from '../lib/motion/folio';
+
+/**
+ * The two heavy canvases are pulled in only when the page that hosts them paints, and each carries a
+ * written-out fallback in the Suspense boundary: the journey stages and the committee names are text
+ * first, and a visitor on a slow connection reads them while the WebGL or the three.js chunk arrives.
+ */
+const SunTimeline = lazy(() => import('../lib/motion/SunTimeline').then((m) => ({ default: m.SunTimeline })));
+const FolioRow = lazy(() => import('../lib/motion/FolioRow').then((m) => ({ default: m.FolioRow })));
+const DistillBelt = lazy(() => import('../lib/motion/DistillBelt').then((m) => ({ default: m.DistillBelt })));
 
 interface PublicWebsiteProps {
   onNavigateToDashboard: () => void;
@@ -54,6 +84,39 @@ const heroItem = {
   hidden: { opacity: 0, y: 18 },
   visible: { opacity: 1, y: 0, transition: { duration: 0.55, ease: [0.22, 1, 0.36, 1] as const } },
 };
+
+/** The hero's typed exchange: an applicant asks what the form does not answer, the chapter replies. */
+const HERO_CHAT: StudioMessage[] = [
+  { from: 'applicant', text: 'Second year, civil. Am I too early to apply?' },
+  { from: 'chapter', text: 'No year is early. We read what you have built, not where you sit.' },
+  { from: 'applicant', text: 'What does a week actually cost?' },
+  { from: 'chapter', text: 'One workshop, one planning meeting. Two honest hours.' },
+];
+
+/** The three panels "How recruitment works" opens between. */
+const HOW_IT_WORKS: AccordionStep[] = [
+  {
+    label: '01',
+    title: 'Tell us what you build',
+    body: 'One form, six short steps, saved as you go. It asks for the work you have done and the work you want to do — committee by committee, not a cover letter.',
+  },
+  {
+    label: '02',
+    title: 'Three committees read it',
+    body: 'Each answer is routed to the committee it belongs to and read twice: the first reviewer scores it, the second checks that score before anything moves.',
+  },
+  {
+    label: '03',
+    title: 'Thirty minutes, one list',
+    body: 'An interview, one technical question and one honest one. The board signs a single list, and everyone on the shortlist is told what is on it.',
+  },
+];
+
+/** Sections this page draws itself; they are not blocks the operator can switch off. */
+const ALWAYS_PRESENT = new Set(['journey', 'how-it-works', 'process']);
+
+/** The book cloth on the FOLIO row's spines, cycled per committee. */
+const SPINE_ACCENTS = ['#123B60', '#F59A16', '#1D5485', '#D47F0A', '#0A2239', '#2E7D5B'];
 
 const SectionIntro: React.FC<{
   eyebrow: string;
@@ -102,6 +165,51 @@ const ScrollIndicator: React.FC = () => {
     </motion.div>
   );
 };
+
+/** What the journey band holds while the WebGL chunk arrives: the sentence, not a spinner. */
+const JourneyFallback: React.FC = () => (
+  <div className="py-20 text-center">
+    <p className="text-sm text-slate-300">
+      The season runs from the announcement to your first meeting. The timeline is still drawing itself.
+    </p>
+  </div>
+);
+
+/** VELIA's gauges: one ring per recorded post, each arc drawn when the block is revealed. */
+const EngagementGauges: React.FC = () => (
+  <RevealBlock className="flex flex-wrap justify-center gap-5">
+    {HISTORICAL_SOCIAL_INSIGHTS.posts.map((post) => {
+      const percent = Number.parseFloat(post.rate) || 0;
+      return (
+        <div
+          key={post.title}
+          className="gauge-ring w-[86px] text-center"
+          style={{ '--pct': String(percent) } as React.CSSProperties}
+        >
+          <svg width="72" height="72" viewBox="0 0 40 40" role="img" aria-label={`${post.title}: ${post.rate} engagement`}>
+            <circle cx="20" cy="20" r="16" fill="none" stroke="rgba(255,255,255,0.14)" strokeWidth="3" />
+            <circle
+              className="gauge-path"
+              cx="20"
+              cy="20"
+              r="16"
+              fill="none"
+              stroke="#F59A16"
+              strokeWidth="3"
+              strokeLinecap="round"
+              pathLength={100}
+              strokeDasharray="100"
+              strokeDashoffset={100 - percent}
+              transform="rotate(-90 20 20)"
+            />
+          </svg>
+          <div className="text-[10px] font-bold text-[#F59A16]">{post.rate}</div>
+          <div className="text-[9px] text-slate-400 leading-tight">{post.title}</div>
+        </div>
+      );
+    })}
+  </RevealBlock>
+);
 
 const EngineeringBackdrop: React.FC = () => {
   const reduced = useReducedMotion();
@@ -185,6 +293,53 @@ export const PublicWebsite: React.FC<PublicWebsiteProps> = ({
   const premiumMotion = usePremiumMotion();
 
   /**
+   * The motion runtime for this page and nothing else: one Lenis instance fed by the GSAP ticker, one
+   * IntersectionObserver for every reveal, and the scroll-driven scenes, which are only built once the
+   * one-time intro has finished handing over a settled DOM. `/admin` never mounts any of it.
+   */
+  const appRef = useRef<HTMLDivElement | null>(null);
+  const heroRef = useRef<HTMLElement | null>(null);
+  const sectionsRef = useRef<HTMLDivElement | null>(null);
+  const ctaRef = useRef<HTMLDivElement | null>(null);
+  const [sceneReady, setSceneReady] = useState(false);
+  const [navScrolled, setNavScrolled] = useState(false);
+
+  useEffect(() => {
+    const stopReveals = initRevealSystem();
+    const releaseScroll = retainSmoothScroll();
+    return () => {
+      stopReveals();
+      releaseScroll();
+    };
+  }, []);
+
+  // A block the operator switches on mid-visit mounts after the observer was bound, so it is handed over here.
+  useEffect(() => {
+    refreshReveals();
+  }, [content]);
+
+  useEffect(() => {
+    const onScroll = () => setNavScrolled(window.scrollY > 20);
+    onScroll();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
+
+  usePageIntro(appRef, () => setSceneReady(true));
+  useHeroParallax(heroRef, sceneReady);
+  useWordRevealOnScroll(sectionsRef, sceneReady);
+  useCtaScroll(ctaRef, sceneReady);
+
+  /** Anchors move through Lenis so the header never covers the heading it lands on. */
+  const followAnchor = (event: React.MouseEvent<HTMLAnchorElement>, href: string) => {
+    if (!href.startsWith('#')) return;
+    if (!document.getElementById(href.slice(1))) return;
+    event.preventDefault();
+    scrollToTarget(href);
+    setMobileMenuOpen(false);
+  };
+
+  /**
    * Everything below is read off the published document: the links the header offers, the blocks the
    * operator switched off, and the picture behind each slot — an upload from this device's library if
    * the slot names one, the asset shipped with the build otherwise.
@@ -234,6 +389,78 @@ export const PublicWebsite: React.FC<PublicWebsiteProps> = ({
     return show(link.href.slice(1) as PublicSectionKey);
   });
 
+  /** A footer link to a block the operator switched off would go nowhere, so it is left out. */
+  const reachable = (href: string) =>
+    !href.startsWith('#') || ALWAYS_PRESENT.has(href.slice(1)) || show(href.slice(1) as PublicSectionKey);
+
+  // ---- the numbers and names the motion families draw from --------------------------------
+  const folioItems = useMemo<FolioItem[]>(
+    () =>
+      committees.map((comm, index) => ({
+        id: comm.id,
+        name: comm.name,
+        code: comm.shortCode,
+        accent: SPINE_ACCENTS[index % SPINE_ACCENTS.length],
+      })),
+    [committees]
+  );
+
+  /** Real counts off this device's records, pinned as tickets through the last viewport of scroll. */
+  const seasonStats = useMemo<StatTicket[]>(
+    () => [
+      { label: 'Recorded views across the sample posts', to: HISTORICAL_SOCIAL_INSIGHTS.totalViews },
+      { label: 'Reactions, clicks and shares', to: HISTORICAL_SOCIAL_INSIGHTS.totalInteractions },
+      { label: 'Major events on the season plan', to: majorEvents.length },
+      { label: 'Committees recruiting this season', to: committees.filter((comm) => comm.status === 'active').length },
+    ],
+    [committees, majorEvents.length]
+  );
+
+  const shipColumns: ShipColumn[] = [
+    {
+      heading: 'Recruitment',
+      links: [
+        { label: 'How it works', href: '#how-it-works' },
+        { label: 'The six steps', href: '#process' },
+        { label: 'The season journey', href: '#journey' },
+        { label: 'Apply now', href: '#contact' },
+      ],
+    },
+    {
+      heading: 'Chapter',
+      links: [
+        { label: 'Committees', href: '#committees' },
+        { label: 'Season calendar', href: '#events' },
+        { label: 'Publications', href: '#magazine' },
+        { label: 'Recorded insights', href: '#insights' },
+      ],
+    },
+    {
+      heading: 'About',
+      links: [
+        { label: 'Chapter profile', href: '#about' },
+        { label: 'The 2026-2027 vision', href: '#vision' },
+        { label: 'History', href: '#history' },
+        { label: 'Appreciation', href: '#appreciation' },
+      ],
+    },
+  ]
+    .map((column) => ({ ...column, links: column.links.filter((link) => reachable(link.href)) }))
+    .filter((column) => column.links.length > 0);
+
+  const shipSocials = useMemo(
+    () =>
+      (content.socials ?? [])
+        .filter((social) => social.visible && social.handle !== '')
+        .map((social) => ({ id: social.id, label: `${social.network}: ${social.handle}`, href: social.url || '#' })),
+    [content.socials]
+  );
+
+  /** A book click lands on the same card the written list links to. */
+  const openCommittee = (id: string) => {
+    document.getElementById(`committee-${id}`)?.scrollIntoView({ block: 'center' });
+  };
+
   /**
    * What a pasted link shows. The wording comes from the published document, not from the build, so
    * an operator who retitles the page changes the card the next person sees — and an unfinished draft
@@ -264,7 +491,11 @@ export const PublicWebsite: React.FC<PublicWebsiteProps> = ({
   }, [content.sharing.title, content.sharing.description, shareImage.src]);
 
   return (
-    <div className="min-h-screen bg-[#FDFBF7] text-slate-900 selection:bg-[#F59A16] selection:text-white font-sans">
+    <div
+      id="app"
+      ref={appRef}
+      className="min-h-screen bg-[#FDFBF7] text-slate-900 selection:bg-[#F59A16] selection:text-white font-sans"
+    >
       {/* Top Banner */}
       <div className="bg-[#123B60] text-white text-xs py-2 px-4 border-b border-[#1D5485]">
         <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-2">
@@ -289,19 +520,24 @@ export const PublicWebsite: React.FC<PublicWebsiteProps> = ({
       </div>
 
       {/* Main Sticky Navbar */}
-      <nav className="sticky top-0 z-50 bg-[#123B60]/95 backdrop-blur-md border-b border-white/10 text-white shadow-lg">
+      <nav
+        className={`dark nav-fixed sticky top-0 z-50 py-4 border-b border-white/10 text-white shadow-lg ${
+          navScrolled ? 'nav-scrolled' : 'bg-[#123B60]/95 backdrop-blur-md'
+        }`}
+      >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-20">
+          <div className="flex items-center justify-between h-[52px]">
             {/* Logo */}
             <motion.a
               href="#home"
+              onClick={(event) => followAnchor(event, '#home')}
               className="flex items-center gap-3 group"
               initial={{ opacity: 0, x: -16 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1], delay: 0.1 }}
               whileHover={{ scale: 1.02 }}
             >
-              <div className="bg-white p-1.5 rounded-lg shadow-md border border-white/20 transition group-hover:scale-105">
+              <div className="logo-mark bg-white p-1.5 rounded-lg shadow-md border border-white/20">
                 <img
                   src="/branding/esme_logo.png"
                   alt="ESME Logo"
@@ -320,6 +556,7 @@ export const PublicWebsite: React.FC<PublicWebsiteProps> = ({
                 <motion.a
                   key={link.label}
                   href={link.href}
+                  onClick={(event) => followAnchor(event, link.href)}
                   initial={{ opacity: 0, y: -8 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.35, delay: 0.2 + i * 0.04, ease: [0.22, 1, 0.36, 1] }}
@@ -348,7 +585,7 @@ export const PublicWebsite: React.FC<PublicWebsiteProps> = ({
               <MagneticButton
                 onClick={onNavigateToJoin}
                 strength={0.18}
-                className="px-5 py-2 text-xs font-bold text-white bg-[#F59A16] hover:bg-[#D47F0A] rounded-lg shadow-md shadow-[#F59A16]/20 flex items-center gap-1.5"
+                className="pill px-5 py-2 text-xs font-bold text-white bg-[#F59A16] hover:bg-[#D47F0A] rounded-lg shadow-md shadow-[#F59A16]/20 flex items-center gap-1.5"
                 initial={{ opacity: 0, y: -8 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.35, delay: 0.45 }}
@@ -369,22 +606,13 @@ export const PublicWebsite: React.FC<PublicWebsiteProps> = ({
               <motion.button
                 onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
                 className="p-2 rounded-md text-slate-300 hover:text-white hover:bg-white/10"
-                whileTap={{ scale: 0.9 }}
                 aria-expanded={mobileMenuOpen}
                 aria-label="Toggle navigation menu"
               >
-                <AnimatePresence mode="wait" initial={false}>
-                  <motion.span
-                    key={mobileMenuOpen ? 'close' : 'open'}
-                    initial={{ rotate: -60, opacity: 0 }}
-                    animate={{ rotate: 0, opacity: 1 }}
-                    exit={{ rotate: 60, opacity: 0 }}
-                    transition={{ duration: 0.15 }}
-                    className="block"
-                  >
-                    {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
-                  </motion.span>
-                </AnimatePresence>
+                <span className="burger" aria-expanded={mobileMenuOpen} aria-hidden="true">
+                  <i />
+                  <i />
+                </span>
               </motion.button>
             </div>
           </div>
@@ -405,10 +633,10 @@ export const PublicWebsite: React.FC<PublicWebsiteProps> = ({
                   <motion.a
                     key={link.label}
                     href={link.href}
-                    onClick={() => setMobileMenuOpen(false)}
+                    onClick={(event) => followAnchor(event, link.href)}
                     initial={{ opacity: 0, x: -14 }}
                     animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: 0.05 + i * 0.04, duration: 0.25 }}
+                    transition={{ delay: Math.min(i, 3) * 0.06, duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
                     className="block px-3 py-2 rounded-md text-sm font-medium text-slate-200 hover:text-white hover:bg-white/10 transition-colors"
                   >
                     {link.label}
@@ -438,6 +666,7 @@ export const PublicWebsite: React.FC<PublicWebsiteProps> = ({
       {show('home') && (
       <section
         id="home"
+        ref={heroRef}
         className="relative overflow-hidden bg-gradient-to-b from-[#123B60] via-[#0E2F4D] to-[#0A2239] text-white pt-16 pb-28"
         onMouseMove={handleHeroPointer}
         onMouseLeave={resetHeroPointer}
@@ -453,6 +682,7 @@ export const PublicWebsite: React.FC<PublicWebsiteProps> = ({
           style={{ x: blobBlueX, y: blobBlueY }}
         />
         <EngineeringBackdrop />
+        <GlassSquares />
 
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
           <motion.div
@@ -472,9 +702,13 @@ export const PublicWebsite: React.FC<PublicWebsiteProps> = ({
                 <span>{content.hero.badge}</span>
               </motion.div>
 
-              <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black tracking-tight text-white leading-tight">
-                <WordReveal text={content.hero.headline} step={0.07} delayChildren={0.25} />
-              </h1>
+              <Split
+                as="h1"
+                label={content.hero.headline}
+                className="text-4xl sm:text-5xl lg:text-6xl font-black tracking-tight text-white leading-tight"
+              >
+                {content.hero.headline}
+              </Split>
 
               <motion.p
                 variants={heroItem}
@@ -512,23 +746,24 @@ export const PublicWebsite: React.FC<PublicWebsiteProps> = ({
                 </motion.button>
               </motion.div>
 
-              {/* Quick credibility counters */}
+              {/* Quick credibility counters — VELIA's count-up: the finished number is in the markup,
+                  and it only starts rolling when the row is on screen. */}
               <motion.div variants={heroItem} className="pt-8 grid grid-cols-3 gap-6 border-t border-white/15">
                 <div>
                   <div className="text-2xl sm:text-3xl font-extrabold text-[#F59A16]">
-                    <AnimatedNumber value={2009} format={(n) => String(Math.round(n))} />
+                    <Counter to={2009} />
                   </div>
                   <div className="text-xs text-slate-300">Society Founded</div>
                 </div>
                 <div>
                   <div className="text-2xl sm:text-3xl font-extrabold text-white">
-                    <AnimatedNumber value={2015} format={(n) => String(Math.round(n))} />
+                    <Counter to={2015} />
                   </div>
                   <div className="text-xs text-slate-300">Cairo Chapter Active</div>
                 </div>
                 <div>
                   <div className="text-2xl sm:text-3xl font-extrabold text-[#F59A16]">
-                    <AnimatedNumber value={4} /> Major
+                    <Counter to={4} /> Major
                   </div>
                   <div className="text-xs text-slate-300">Annual Summits</div>
                 </div>
@@ -537,11 +772,11 @@ export const PublicWebsite: React.FC<PublicWebsiteProps> = ({
 
             {/* Right Column Official Brand Imagery */}
             <motion.div className="lg:col-span-5 space-y-4" style={{ x: cardX, y: cardY }} variants={scaleIn}>
-              <div className="relative rounded-2xl overflow-hidden border-2 border-white/20 shadow-2xl bg-[#0A2239] group">
+              <div className="glass-card relative rounded-2xl overflow-hidden border-2 border-white/20 shadow-2xl bg-[#0A2239]" data-par="media">
                 <img
                   src={heroImage.src}
                   alt={heroImage.alt}
-                  className="w-full h-80 object-cover object-center filter saturate-105 transition-transform duration-700 ease-out group-hover:scale-[1.04]"
+                  className="media kb w-full h-80 object-cover object-center filter saturate-105"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-[#0A2239] via-transparent to-transparent"></div>
                 <div className="absolute bottom-4 left-4 right-4 text-white">
@@ -566,6 +801,9 @@ export const PublicWebsite: React.FC<PublicWebsiteProps> = ({
                   <div className="text-slate-300">Materials Science • NDT Inspection • AI Systems • Industry 4.0</div>
                 </div>
               </motion.div>
+
+              {/* VELIA's typed chat studio: the two threads type at once, and the panel never moves. */}
+              <ChatStudio messages={HERO_CHAT} />
             </motion.div>
 
           </motion.div>
@@ -574,6 +812,35 @@ export const PublicWebsite: React.FC<PublicWebsiteProps> = ({
         <ScrollIndicator />
       </section>
       )}
+
+      {/* PETALYX (f): the headings inside this pair lift out of a blur as they reach the viewport. */}
+      <div ref={sectionsRef}>
+      {/*
+        * SUN TIMELINE — the season as one scrubbable band. It sits between the hero and the chapter
+        * profile with its own black, so the seam is a gradient out of the hero's navy and back into the
+        * page's cream rather than a hard edge. The WebGL star is decoration; the stage names, the dates
+        * and the sentence for the current stage are drawn by the component itself.
+        */}
+      <section id="journey" className="relative bg-[#050505] text-white">
+        <div className="h-24 bg-gradient-to-b from-[#0A2239] to-transparent pointer-events-none" aria-hidden="true" />
+        <Suspense fallback={<JourneyFallback />}>
+          <SunTimeline openStageWhen={activeSeasonLabel ? `Open now · ${activeSeasonLabel}` : undefined} onApply={onNavigateToJoin} />
+        </Suspense>
+        <div className="h-24 bg-gradient-to-b from-transparent to-[#FDFBF7] pointer-events-none" aria-hidden="true" />
+      </section>
+
+      {/* How recruitment works — PETALYX's hover accordion: three panels, one open at a time. */}
+      <section id="how-it-works" className="py-20 bg-[#FDFBF7] border-b border-slate-200">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <SectionIntro
+            eyebrow="Three panels"
+            title={<Split as="span" label="How recruitment works">How recruitment works</Split>}
+            subtitle="Hover a panel, or tab to it and press the arrow keys. Nothing here is hidden behind a click you have to guess."
+          />
+          <HoverAccordion steps={HOW_IT_WORKS} />
+        </div>
+      </section>
+      </div>
 
       {/* About Section */}
       {show('about') && (
@@ -932,6 +1199,26 @@ export const PublicWebsite: React.FC<PublicWebsiteProps> = ({
       </section>
       )}
 
+      {/*
+        * DISTILL — the six steps on a belt, cut by a scanner. Drag it, scroll it, or read the cards
+        * where they stand; the counter tracks the card crossing the line and the dissolve only runs on
+        * the card under the scanner.
+        */}
+      <section id="process" className="py-20 bg-[#0d0d0d] text-white border-b border-black/40">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <SectionIntro
+            dark
+            divider={false}
+            eyebrow="Six steps"
+            title={<Split as="span" label="The application, step by step" gradient>The application, step by step</Split>}
+            subtitle="From the form to the welcome mail, in the order the chapter actually works in."
+          />
+        </div>
+        <Suspense fallback={<p className="py-16 text-center text-sm text-slate-400">The six steps are loading.</p>}>
+          <DistillBelt />
+        </Suspense>
+      </section>
+
       {/* Committees Section */}
       {show('committees') && (
       <section id="committees" className="py-20 bg-white border-b border-slate-200">
@@ -943,11 +1230,23 @@ export const PublicWebsite: React.FC<PublicWebsiteProps> = ({
             subtitle="The operational engines driving workshops, design templates, field marketing, and technical publications."
           />
 
+          {/*
+            * FOLIO — one standing book per committee, twice over, with a CSS cursor wave that lifts the
+            * spines near the pointer. Clicking a book opens the same card the written list below links to,
+            * so the row is a way in, never the only way in.
+            */}
+          <div className="mb-10">
+            <Suspense fallback={null}>
+              <FolioRow items={folioItems} title="Chapter committees" onOpen={openCommittee} />
+            </Suspense>
+          </div>
+
           <StaggerGroup className="grid grid-cols-1 md:grid-cols-2 gap-8" step={0.12}>
             {committees.map((comm) => (
               <StaggerItem key={comm.id} variants={groupItemScale}>
                 <motion.div
-                  className="bg-[#FDFBF7] border border-slate-200 rounded-2xl p-6 sm:p-8 hover:shadow-lg hover:border-[#123B60]/25 transition-shadow flex flex-col justify-between"
+                  id={`committee-${comm.id}`}
+                  className="scroll-mt-28 bg-[#FDFBF7] border border-slate-200 rounded-2xl p-6 sm:p-8 hover:shadow-lg hover:border-[#123B60]/25 transition-shadow flex flex-col justify-between"
                   whileHover={{ y: -4 }}
                   transition={transitions.standard}
                 >
@@ -965,8 +1264,25 @@ export const PublicWebsite: React.FC<PublicWebsiteProps> = ({
                     <p className="text-xs text-slate-600 leading-relaxed mb-4">{comm.description}</p>
 
                     <div className="p-4 bg-white rounded-xl border border-slate-200 mb-4 text-xs space-y-1.5">
-                      <div className="text-slate-500">Director: <strong className="text-slate-800">{leaderAccount(comm, 'director', users)?.name ?? 'Assigned by Admin'}</strong></div>
-                      <div className="text-slate-500">Head: <strong className="text-slate-800">{leaderAccount(comm, 'head', users)?.name ?? 'Assigned by Admin'}</strong></div>
+                      {(['director', 'head'] as const).map((position) => {
+                        const holders = leaderAccounts(comm, position, users);
+                        return (
+                          <div key={position} className="text-slate-500">
+                            {POSITION_LABELS[position]}
+                            {holders.length === 1 ? '' : 's'}:{' '}
+                            <strong className="text-slate-800">
+                              {holders.length === 0
+                                ? 'Assigned by Admin'
+                                : holders.map(({ account }) => account?.name ?? 'Assigned by Admin').join(', ')}
+                            </strong>
+                            {holders.length > 1 && (
+                              <span className="block text-[11px] text-slate-400">
+                                {holders.length} people currently hold this position.
+                              </span>
+                            )}
+                          </div>
+                        );
+                      })}
                     </div>
 
                     <div className="space-y-2 mb-4">
@@ -1204,6 +1520,13 @@ export const PublicWebsite: React.FC<PublicWebsiteProps> = ({
             </StaggerItem>
           </StaggerGroup>
 
+          {/*
+            * PETALYX pins the four season numbers as tickets and scrubs them through one viewport; the
+            * rings beside them are VELIA's gauges, each arc drawn by stroke-dashoffset over 2.2s. Under
+            * 900px the pin is released and the same four figures count up where they stand.
+            */}
+          <PinnedStats items={seasonStats} art={<EngagementGauges />} />
+
           {/* Recommendations from Report */}
           <StaggerGroup className="grid grid-cols-1 md:grid-cols-3 gap-6" step={0.1}>
             {HISTORICAL_SOCIAL_INSIGHTS.strategicRecommendations.map((rec, i) => (
@@ -1222,8 +1545,12 @@ export const PublicWebsite: React.FC<PublicWebsiteProps> = ({
 
       {/* Contact Section */}
       {show('contact') && (
-      <section id="contact" className="py-20 bg-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <section id="contact" ref={ctaRef} className="relative py-20 bg-white overflow-hidden">
+        {/* PETALYX (g): the band behind the CTA drifts down as you scroll and eighteen accents fall in it. */}
+        <div data-cta="background" className="absolute inset-x-0 -top-[12%] bottom-0 pointer-events-none bg-gradient-to-b from-slate-50 to-white" aria-hidden="true">
+          <FallingAccents />
+        </div>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
 
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
             <div className="lg:col-span-6 space-y-6">
@@ -1302,7 +1629,7 @@ export const PublicWebsite: React.FC<PublicWebsiteProps> = ({
 
             {/* Quick Inquiry / Recruitment CTA Box */}
             <Reveal delay={0.1} y={32} className="lg:col-span-6">
-              <div className="bg-gradient-to-br from-[#123B60] to-[#0A2239] rounded-3xl p-8 sm:p-10 text-white shadow-2xl relative overflow-hidden">
+              <div data-cta="card" className="bg-gradient-to-br from-[#123B60] to-[#0A2239] rounded-3xl p-8 sm:p-10 text-white shadow-2xl relative overflow-hidden">
                 <div className="absolute inset-0 bg-grid-pattern-dark opacity-10 pointer-events-none"></div>
                 <div className="relative z-10">
                   <span className="text-xs font-bold text-[#F59A16] uppercase tracking-wider">Recruitment 2026-2027</span>
@@ -1344,40 +1671,26 @@ export const PublicWebsite: React.FC<PublicWebsiteProps> = ({
       </section>
       )}
 
-      {/* Footer */}
-      <footer className="bg-[#0A2239] text-white py-12 border-t border-white/10 text-xs">
-        <Reveal y={16}>
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex flex-col md:flex-row items-center justify-between gap-6">
-              <div className="flex items-center gap-3">
-                <div className="bg-white p-1 rounded-md">
-                  <img src="/branding/esme_logo.png" alt="ESME" className="h-8 w-auto object-contain" />
-                </div>
-                <div>
-                  <div className="font-bold text-white text-sm">{content.footer.blurb}</div>
-                  {footerLinks.length > 0 && (
-                    <nav aria-label="Footer links" className="mt-2 flex flex-wrap gap-x-4 gap-y-1">
-                      {footerLinks.map((link) => (
-                        <a key={link.id} href={link.href} className="text-slate-300 hover:text-[#F59A16] transition-colors">
-                          {link.label}
-                        </a>
-                      ))}
-                    </nav>
-                  )}
-                </div>
-              </div>
-
-              <div className="text-center md:text-right text-slate-400 space-y-1">
-                <div>{content.footer.copyright}</div>
-                <div className="text-[11px] text-slate-500">
-                  Chapter operations are managed from privileged accounts. If you believe an account needs attention,
-                  contact {content.contact.email}.
-                </div>
-              </div>
-            </div>
-          </div>
-        </Reveal>
-      </footer>
+      {/*
+        * SHIPCRAFT — the closing band and the footer, one composition: the pill, the headline lines,
+        * the copy and the amber button stage in, then the tilted editor panel, then the four columns,
+        * the hands that reach over the copyright line and the wordmark that sinks as you go.
+        */}
+      <ShipcraftCta
+        eyebrow={`Recruitment ${activeSeasonLabel ?? '2026-2027'}`}
+        headline={['Bring something you have', 'built and show us how it works.']}
+        copy="One form, six steps, read by the committee it belongs to. The chapter is small enough that you will know who reviewed you, and busy enough that the work is real from the first week."
+        applyLabel="Apply for membership"
+        onApply={onNavigateToJoin}
+        loginLabel="Leadership portal"
+        onLogin={onNavigateToDashboard}
+        columns={shipColumns}
+        blurb={content.footer.blurb}
+        copyright={content.footer.copyright}
+        legal={`Chapter operations are managed from privileged accounts. If you believe an account needs attention, contact ${content.contact.email}.`}
+        footerLinks={footerLinks}
+        socials={shipSocials}
+      />
 
     </div>
   );

@@ -176,7 +176,9 @@ export const SubmissionReviewCenter: React.FC = () => {
                   <span className="px-2.5 py-0.5 rounded-full bg-[#123B60] text-white font-bold text-[10px] uppercase">
                     {sub.committeeName}
                   </span>
-                  <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                  <span
+                    key={sub.status}
+                    className={`dash-badge px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
                     sub.status === 'approved' ? 'bg-emerald-100 text-emerald-700' :
                     sub.status === 'revision_requested' ? 'bg-amber-100 text-amber-700' :
                     sub.status === 'rejected' ? 'bg-red-100 text-red-700' :

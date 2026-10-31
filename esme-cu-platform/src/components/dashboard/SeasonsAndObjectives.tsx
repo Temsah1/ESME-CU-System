@@ -357,7 +357,7 @@ export const SeasonsAndObjectives: React.FC<{ onNavigate: (view: DashboardView) 
                               <div className="mt-3">
                                 <div className="h-1.5 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
                                   <div
-                                    className="h-full bg-[#F59A16]"
+                                    className="dash-fill h-full bg-[#F59A16]"
                                     style={{ width: `${Math.round(rollup.attainment * 100)}%` }}
                                     role="progressbar"
                                     aria-valuenow={Math.round(rollup.attainment * 100)}

@@ -1,9 +1,10 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { motion } from 'motion/react';
-import { Eye, EyeOff, Loader2, ArrowLeft, ShieldCheck, KeyRound } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { ArrowLeft, Loader2, ShieldCheck } from 'lucide-react';
 import { useAuth } from '../auth/AuthProvider';
+import { useApp } from '../context/AppContext';
 import { ThemeToggle } from './ThemeToggle';
 import { passwordChecks, validatePassword, normalizeEmail } from '../domain/registration';
+import '../lib/motion/cutora.css';
 
 type Props = {
   onBackToHome: () => void;
@@ -13,11 +14,65 @@ type Props = {
 
 type Panel = 'signin' | 'forgot' | 'bootstrap';
 
-const fieldClass =
-  'w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3.5 py-2.5 text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:border-[#F59A16] focus:outline-none';
+/**
+ * The three slides the hero side carries. Nothing here auto-plays: a visitor who asks for calm, and a
+ * visitor who is busy typing a password, both get a still page until they click a dot.
+ */
+const SLIDES = [
+  {
+    kicker: 'Recruitment season',
+    headline: ['Where the chapter', 'keeps its momentum.'],
+    sub: 'One workspace for the whole season — applications, committees, tasks and the record of who did what, written once into the chapter database instead of emailed around as a spreadsheet.',
+    caption: '01 · Recruitment season, start to finish',
+  },
+  {
+    kicker: 'Committees',
+    headline: ['Every board,', 'one source of truth.'],
+    sub: 'Heads, directors and rosters are read from the same record by everyone, so a handover is a change of status rather than a search through last year’s files.',
+    caption: '02 · Committees and people',
+  },
+  {
+    kicker: 'Access',
+    headline: ['Sign in,', 'pick up the thread.'],
+    sub: 'What you may open follows the role the provider holds for you. This screen decides none of it, and no account inside the chapter has to approve yours first.',
+    caption: '03 · Roles and permissions',
+  },
+];
 
-const labelClass = 'block text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5';
+const HEADING: Record<Panel, string> = {
+  signin: 'Sign in',
+  forgot: 'Reset your password',
+  bootstrap: 'Create the first administrator',
+};
 
+const cx = (...parts: (string | false | null | undefined)[]) => parts.filter(Boolean).join(' ');
+
+/** What "remember me" is allowed to keep: the identifier that opens the next visit, never the password. */
+const REMEMBER_KEY = 'ESME_CU_REMEMBER_ID_V1';
+
+const readRemembered = () => {
+  try {
+    return window.localStorage.getItem(REMEMBER_KEY) ?? '';
+  } catch {
+    return '';
+  }
+};
+
+const writeRemembered = (keep: boolean, identifier: string) => {
+  try {
+    if (keep) window.localStorage.setItem(REMEMBER_KEY, identifier);
+    else window.localStorage.removeItem(REMEMBER_KEY);
+  } catch {
+    // A browser that refuses storage just never remembers. The sign-in itself is unaffected.
+  }
+};
+
+/**
+ * CUTORA (§6): one CSS entrance for the whole sheet — the stylesheet in `lib/motion/cutora.css` holds
+ * the seventeen staged delays, the clip-wipe headline, the amber slider pill, the eye's drawn slash and
+ * the ≤6px rejection shake. `entered` exists so that a panel switch after the opening does not replay
+ * the page-load timing: those contents arrive on their own 0.45s rise instead.
+ */
 export const LoginScreen: React.FC<Props> = ({ onBackToHome, onNavigateToJoin, onLoginSuccess }) => {
   const {
     signIn,
@@ -30,14 +85,20 @@ export const LoginScreen: React.FC<Props> = ({ onBackToHome, onNavigateToJoin, o
     notice,
     clearNotice,
   } = useAuth();
+  const { resolvedTheme } = useApp();
 
   const [panel, setPanel] = useState<Panel>('signin');
-  const [identifier, setIdentifier] = useState('');
+  const [slide, setSlide] = useState(0);
+  const [identifier, setIdentifier] = useState(readRemembered);
+  const [remember, setRemember] = useState(() => readRemembered() !== '');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
+  const [rejects, setRejects] = useState(0);
+  const [shaking, setShaking] = useState(false);
+  const [entered, setEntered] = useState(false);
 
   const [boot, setBoot] = useState({ fullName: '', email: '', username: '', password: '', confirmPassword: '' });
 
@@ -50,7 +111,20 @@ export const LoginScreen: React.FC<Props> = ({ onBackToHome, onNavigateToJoin, o
     setInfo(null);
   }, [panel]);
 
-  const checks = useMemo(() => passwordChecks(panel === 'bootstrap' ? boot.password : password), [panel, boot.password, password]);
+  // The entrance ends when the last staged element ends — the footer rises last — and from there a
+  // panel switch rises on its own instead of replaying the page-load timing.
+  const dropStages = () => setEntered(true);
+
+  // The attribute has to leave and come back for the shake to play a second time.
+  useEffect(() => {
+    if (rejects === 0) return;
+    setShaking(true);
+    const timer = setTimeout(() => setShaking(false), 320);
+    return () => clearTimeout(timer);
+  }, [rejects]);
+
+  const seq = (step: number) => (entered ? null : `seq-${step}`);
+  const checks = passwordChecks(panel === 'bootstrap' ? boot.password : password);
 
   const submitSignIn = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -60,10 +134,12 @@ export const LoginScreen: React.FC<Props> = ({ onBackToHome, onNavigateToJoin, o
     const result = await signIn(identifier, password);
     setBusy(false);
     if (result.ok) {
+      writeRemembered(remember, identifier);
       onLoginSuccess();
       return;
     }
     setError(result.message);
+    setRejects((n) => n + 1);
     setPassword('');
   };
 
@@ -103,233 +179,300 @@ export const LoginScreen: React.FC<Props> = ({ onBackToHome, onNavigateToJoin, o
     }
   };
 
+  // One reserved box, one message at a time: an error arriving must not move the fields below it.
+  const message: { kind: 'error' | 'notice' | 'info'; text: string } | null = error
+    ? { kind: 'error', text: error }
+    : notice
+      ? { kind: 'notice', text: notice }
+      : info
+        ? { kind: 'info', text: info }
+        : configurationError
+          ? { kind: 'notice', text: configurationError }
+          : null;
+
+  const current = SLIDES[slide];
+
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col">
-      <header className="flex items-center justify-between gap-3 px-5 py-4 border-b border-slate-200 dark:border-slate-800">
-        <button
-          type="button"
-          onClick={onBackToHome}
-          className="inline-flex items-center gap-2 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:text-[#123B60] dark:hover:text-[#F59A16]"
-        >
-          <ArrowLeft className="w-4 h-4" aria-hidden /> Back to the website
-        </button>
-        <ThemeToggle />
+    <div
+      className="cutora"
+      data-tone={resolvedTheme === 'dark' ? 'dark' : 'light'}
+      data-rejected={shaking ? '1' : undefined}
+    >
+      <header className={cx('cut-top', seq(1))}>
+        <span className="cut-mark">
+          <img src="/branding/esme_logo.png" alt="ESME" />
+          ESME CU Chapter
+        </span>
+        <span className="cut-toplinks">
+          <button type="button" className="cut-back" onClick={onBackToHome}>
+            <ArrowLeft className="w-4 h-4" aria-hidden /> Back to the website
+          </button>
+          <ThemeToggle />
+        </span>
       </header>
 
-      <main className="flex-1 flex items-center justify-center px-4 py-10">
-        <motion.div
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
-          className="w-full max-w-md"
-        >
-          <div className="rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xl shadow-slate-200/60 dark:shadow-black/40 p-7">
-            <div className="flex items-center gap-3 mb-1">
-              <img src="/branding/esme_logo.png" alt="ESME" className="h-11 w-11 object-contain" />
-              <div className="min-w-0">
-                <h1 className="text-lg font-black text-[#123B60] dark:text-white leading-tight truncate">
-                  ESME CU Chapter
-                </h1>
-                <p className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">
-                  {panel === 'bootstrap' ? 'First administrator setup' : 'Member & board workspace'}
-                </p>
-              </div>
-            </div>
+      <main className="cut-stage">
+        <section className="cut-hero" aria-label="What the chapter workspace holds">
+          <span className="cut-drift" aria-hidden />
+          <p key={`kicker-${slide}`} className="cut-kicker">
+            {current.kicker}
+          </p>
+          {current.headline.map((line, index) => (
+            <h2 key={`${slide}-${index}`} className={cx('cut-line', seq(index === 0 ? 3 : 4))}>
+              <span>{line}</span>
+            </h2>
+          ))}
+          <p key={`sub-${slide}`} className={cx('cut-sub', seq(5))}>
+            {current.sub}
+          </p>
+          <div className={cx('cut-dots', seq(6))} role="group" aria-label="Chapter highlights">
+            {SLIDES.map((item, index) => (
+              <button
+                key={item.caption}
+                type="button"
+                aria-pressed={index === slide}
+                aria-label={item.caption}
+                onClick={() => setSlide(index)}
+              />
+            ))}
+          </div>
+          <p className={cx('cut-caption', seq(7))}>{current.caption}</p>
+        </section>
 
-            {configurationError && (
-              <p className="mt-4 rounded-xl bg-slate-100 dark:bg-slate-800 px-3.5 py-3 text-xs text-slate-700 dark:text-slate-200">
-                {configurationError}
+        <div className={cx('cut-card', seq(2))}>
+          <h1 className={cx('cut-h', seq(8))}>{HEADING[panel]}</h1>
+          <p className={cx('cut-card-sub', seq(9))}>
+            {panel === 'bootstrap' ? 'First administrator setup' : 'Member & board workspace'}
+          </p>
+
+          <div className="cut-msg">
+            {message && (
+              <p
+                key={message.text}
+                data-kind={message.kind}
+                role={message.kind === 'error' ? 'alert' : 'status'}
+              >
+                {message.text}
               </p>
-            )}
-
-            {notice && (
-              <p role="status" className="mt-4 rounded-xl bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/30 px-3.5 py-3 text-xs text-amber-900 dark:text-amber-200">
-                {notice}
-              </p>
-            )}
-
-            {info && (
-              <p role="status" className="mt-4 rounded-xl bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/30 px-3.5 py-3 text-xs text-emerald-800 dark:text-emerald-200">
-                {info}
-              </p>
-            )}
-
-            {error && (
-              <p role="alert" className="mt-4 rounded-xl bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/30 px-3.5 py-3 text-xs text-rose-800 dark:text-rose-200">
-                {error}
-              </p>
-            )}
-
-            {panel === 'signin' && (
-              <form onSubmit={submitSignIn} className="mt-5 space-y-4" noValidate>
-                <div>
-                  <label htmlFor="identifier" className={labelClass}>Email or username</label>
-                  <input
-                    id="identifier"
-                    name="identifier"
-                    autoComplete="username"
-                    required
-                    value={identifier}
-                    onChange={(e) => setIdentifier(e.target.value)}
-                    className={fieldClass}
-                    placeholder="you@esme.edu.eg"
-                  />
-                </div>
-
-                <div>
-                  <label htmlFor="password" className={labelClass}>Password</label>
-                  <div className="relative">
-                    <input
-                      id="password"
-                      name="password"
-                      type={showPassword ? 'text' : 'password'}
-                      autoComplete="current-password"
-                      required
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      className={`${fieldClass} pr-11`}
-                      placeholder="Your password"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword((v) => !v)}
-                      aria-label={showPassword ? 'Hide password' : 'Show password'}
-                      className="absolute right-2 top-1/2 -translate-y-1/2 rounded-lg p-2 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800"
-                    >
-                      {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                    </button>
-                  </div>
-                </div>
-
-                <button
-                  type="submit"
-                  disabled={busy || status === 'unavailable'}
-                  className="w-full rounded-xl bg-[#F59A16] hover:bg-[#e0890f] text-[#123B60] font-bold py-2.5 text-sm disabled:opacity-60 inline-flex items-center justify-center gap-2"
-                >
-                  {busy && <Loader2 className="w-4 h-4 animate-spin" aria-hidden />}
-                  {busy ? 'Checking credentials…' : 'Sign in'}
-                </button>
-
-                <div className="flex items-center justify-between text-xs pt-1">
-                  <button
-                    type="button"
-                    onClick={() => setPanel('forgot')}
-                    className="font-semibold text-slate-600 dark:text-slate-300 hover:text-[#123B60] dark:hover:text-[#F59A16] inline-flex items-center gap-1.5"
-                  >
-                    <KeyRound className="w-3.5 h-3.5" aria-hidden /> Forgot password
-                  </button>
-                  <button
-                    type="button"
-                    onClick={onNavigateToJoin}
-                    className="font-semibold text-[#123B60] dark:text-[#F59A16] hover:underline"
-                  >
-                    Apply to join
-                  </button>
-                </div>
-              </form>
-            )}
-
-            {panel === 'forgot' && (
-              <form onSubmit={submitReset} className="mt-5 space-y-4">
-                <p className="text-xs text-slate-600 dark:text-slate-300">
-                  Enter the address on your chapter account. A reset link goes to it if an account exists —
-                  the response is the same either way.
-                </p>
-                <div>
-                  <label htmlFor="reset-email" className={labelClass}>Account email</label>
-                  <input
-                    id="reset-email"
-                    type="email"
-                    autoComplete="email"
-                    required
-                    value={identifier}
-                    onChange={(e) => setIdentifier(e.target.value)}
-                    className={fieldClass}
-                  />
-                </div>
-                <button
-                  type="submit"
-                  disabled={busy}
-                  className="w-full rounded-xl bg-[#123B60] text-white font-bold py-2.5 text-sm disabled:opacity-60"
-                >
-                  {busy ? 'Sending…' : 'Send reset link'}
-                </button>
-                <button type="button" onClick={() => setPanel('signin')} className="w-full text-xs font-semibold text-slate-500 hover:text-[#123B60] dark:hover:text-[#F59A16]">
-                  Back to sign in
-                </button>
-              </form>
-            )}
-
-            {panel === 'bootstrap' && adapter?.kind === 'supabase' && (
-              <div className="mt-5 space-y-3">
-                <p className="text-xs text-slate-600 dark:text-slate-300">
-                  No administrator exists in this project yet. The first Super Admin is provisioned inside the
-                  database, because until it exists every browser caller would be anonymous. This screen does not
-                  submit the password; run these two statements in the Supabase SQL editor:
-                </p>
-                <pre className="overflow-x-auto rounded-xl bg-slate-100 dark:bg-slate-800 p-3 text-[11px] leading-relaxed text-slate-700 dark:text-slate-200">
-{`select esme_arm_bootstrap(interval '15 minutes');
-
-select esme_bootstrap_primary_admin(
-  'Full name', 'email@address', 'username', 'password'
-);`}
-                </pre>
-                <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                  The window closes after one success or when it expires. Return here and sign in once it has run.
-                </p>
-                <button type="button" onClick={() => void refresh()} className="w-full text-xs font-semibold text-[#123B60] dark:text-[#F59A16]">
-                  Check again
-                </button>
-              </div>
-            )}
-
-            {panel === 'bootstrap' && adapter?.kind !== 'supabase' && (
-              <form onSubmit={submitBootstrap} className="mt-5 space-y-4">
-                <p className="text-xs text-slate-600 dark:text-slate-300">
-                  No administrator exists yet. Choose the password for the chapter's primary account now.
-                  It is never stored in this repository and cannot be recovered here — keep it in your password manager.
-                </p>
-                <div>
-                  <label htmlFor="boot-name" className={labelClass}>Full name</label>
-                  <input id="boot-name" required value={boot.fullName} onChange={(e) => setBoot({ ...boot, fullName: e.target.value })} className={fieldClass} />
-                </div>
-                <div>
-                  <label htmlFor="boot-email" className={labelClass}>Email</label>
-                  <input id="boot-email" type="email" required value={boot.email} onChange={(e) => setBoot({ ...boot, email: e.target.value })} className={fieldClass} />
-                </div>
-                <div>
-                  <label htmlFor="boot-username" className={labelClass}>Username</label>
-                  <input id="boot-username" required value={boot.username} onChange={(e) => setBoot({ ...boot, username: e.target.value })} className={fieldClass} />
-                </div>
-                <div>
-                  <label htmlFor="boot-password" className={labelClass}>Password</label>
-                  <input id="boot-password" type="password" required value={boot.password} onChange={(e) => setBoot({ ...boot, password: e.target.value })} className={fieldClass} autoComplete="new-password" />
-                </div>
-                <div>
-                  <label htmlFor="boot-confirm" className={labelClass}>Confirm password</label>
-                  <input id="boot-confirm" type="password" required value={boot.confirmPassword} onChange={(e) => setBoot({ ...boot, confirmPassword: e.target.value })} className={fieldClass} autoComplete="new-password" />
-                </div>
-                <PasswordChecklist checks={checks} />
-                <button
-                  type="submit"
-                  disabled={busy || boot.password !== boot.confirmPassword}
-                  className="w-full rounded-xl bg-[#123B60] text-white font-bold py-2.5 text-sm disabled:opacity-60 inline-flex items-center justify-center gap-2"
-                >
-                  {busy && <Loader2 className="w-4 h-4 animate-spin" aria-hidden />}
-                  {busy ? 'Provisioning…' : 'Create primary administrator'}
-                </button>
-              </form>
             )}
           </div>
 
-          <p className="mt-4 text-center text-[11px] text-slate-500 dark:text-slate-400 inline-flex items-center justify-center gap-1.5">
-            <ShieldCheck className="w-3.5 h-3.5" aria-hidden />
-            Signing in is the only step: no account inside the chapter has to approve you. Entry follows
-            the status the provider holds — only a suspension or a rejection keeps you out — and what you
-            may do follows your role. Neither is decided by this browser.
+          {panel === 'signin' && (
+            <form className="cut-panel" onSubmit={submitSignIn} noValidate>
+              <div className={cx('cut-field', seq(10))}>
+                <label htmlFor="identifier">Email or username</label>
+                <input
+                  id="identifier"
+                  name="identifier"
+                  autoComplete="username"
+                  required
+                  value={identifier}
+                  onChange={(e) => setIdentifier(e.target.value)}
+                  placeholder="you@esme.edu.eg"
+                />
+              </div>
+
+              <div className={cx('cut-field', seq(11))}>
+                <label htmlFor="password">Password</label>
+                <div className="cut-field--pad">
+                  <input
+                    id="password"
+                    name="password"
+                    type={showPassword ? 'text' : 'password'}
+                    autoComplete="current-password"
+                    required
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="Your password"
+                  />
+                  <button
+                    type="button"
+                    className="cut-eye"
+                    aria-pressed={showPassword}
+                    aria-label={showPassword ? 'Hide password' : 'Show password'}
+                    onClick={() => setShowPassword((v) => !v)}
+                  >
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} aria-hidden>
+                      <path d="M2.6 12s3.6-6.2 9.4-6.2 9.4 6.2 9.4 6.2-3.6 6.2-9.4 6.2S2.6 12 2.6 12Z" />
+                      <circle cx="12" cy="12" r="2.9" />
+                      <path className="slash" d="M4.4 19.6 19.6 4.4" strokeLinecap="round" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+
+              <div className={cx('cut-opt', seq(12))}>
+                <label className="cut-check">
+                  <input
+                    type="checkbox"
+                    name="remember"
+                    checked={remember}
+                    onChange={(e) => setRemember(e.target.checked)}
+                  />
+                  <svg viewBox="0 0 20 20" aria-hidden>
+                    <rect className="box" x="1" y="1" width="18" height="18" rx="5" />
+                    <path className="tick" d="M5.4 10.3 8.6 13.5 14.6 6.9" />
+                  </svg>
+                  <span>Remember me</span>
+                </label>
+                <button type="button" onClick={() => setPanel('forgot')}>
+                  Forgot password
+                </button>
+              </div>
+
+              <button
+                type="submit"
+                className={cx('cut-submit', seq(13))}
+                disabled={busy || status === 'unavailable'}
+              >
+                {busy && <Loader2 className="w-4 h-4 animate-spin" aria-hidden />}
+                {busy ? 'Checking credentials…' : 'Sign in'}
+              </button>
+            </form>
+          )}
+
+          {panel === 'forgot' && (
+            <form className="cut-panel" onSubmit={submitReset}>
+              <p className="cut-text">
+                Enter the address on your chapter account. A reset link goes to it if an account exists —
+                the response is the same either way.
+              </p>
+              <div className="cut-field">
+                <label htmlFor="reset-email">Account email</label>
+                <input
+                  id="reset-email"
+                  type="email"
+                  autoComplete="email"
+                  required
+                  value={identifier}
+                  onChange={(e) => setIdentifier(e.target.value)}
+                />
+              </div>
+              <button type="submit" className="cut-submit" disabled={busy}>
+                {busy ? 'Sending…' : 'Send reset link'}
+              </button>
+              <button type="button" className="cut-link" onClick={() => setPanel('signin')}>
+                Back to sign in
+              </button>
+            </form>
+          )}
+
+          {panel === 'bootstrap' && adapter?.kind === 'supabase' && (
+            <div className="cut-panel">
+              <p className="cut-text">
+                No administrator exists in this project yet. The first Super Admin is provisioned inside the
+                database, because until it exists every browser caller would be anonymous. This screen does not
+                submit the password; run these two statements in the Supabase SQL editor:
+              </p>
+              <pre className="cut-pre">{`select esme_arm_bootstrap(interval '15 minutes');
+
+select esme_bootstrap_primary_admin(
+  'Full name', 'email@address', 'username', 'password'
+);`}</pre>
+              <p className="cut-text">
+                The window closes after one success or when it expires. Return here and sign in once it has run.
+              </p>
+              <button type="button" className="cut-secondary" onClick={() => void refresh()}>
+                Check again
+              </button>
+            </div>
+          )}
+
+          {panel === 'bootstrap' && adapter?.kind !== 'supabase' && (
+            <form className="cut-panel" onSubmit={submitBootstrap}>
+              <p className="cut-text">
+                No administrator exists yet. Choose the password for the chapter's primary account now. It is
+                never stored in this repository and cannot be recovered here — keep it in your password manager.
+              </p>
+              <div className="cut-field">
+                <label htmlFor="boot-name">Full name</label>
+                <input
+                  id="boot-name"
+                  required
+                  value={boot.fullName}
+                  onChange={(e) => setBoot({ ...boot, fullName: e.target.value })}
+                />
+              </div>
+              <div className="cut-field">
+                <label htmlFor="boot-email">Email</label>
+                <input
+                  id="boot-email"
+                  type="email"
+                  required
+                  value={boot.email}
+                  onChange={(e) => setBoot({ ...boot, email: e.target.value })}
+                />
+              </div>
+              <div className="cut-field">
+                <label htmlFor="boot-username">Username</label>
+                <input
+                  id="boot-username"
+                  required
+                  value={boot.username}
+                  onChange={(e) => setBoot({ ...boot, username: e.target.value })}
+                />
+              </div>
+              <div className="cut-field">
+                <label htmlFor="boot-password">Password</label>
+                <input
+                  id="boot-password"
+                  type="password"
+                  required
+                  autoComplete="new-password"
+                  value={boot.password}
+                  onChange={(e) => setBoot({ ...boot, password: e.target.value })}
+                />
+              </div>
+              <div className="cut-field">
+                <label htmlFor="boot-confirm">Confirm password</label>
+                <input
+                  id="boot-confirm"
+                  type="password"
+                  required
+                  autoComplete="new-password"
+                  value={boot.confirmPassword}
+                  onChange={(e) => setBoot({ ...boot, confirmPassword: e.target.value })}
+                />
+              </div>
+              <PasswordChecklist checks={checks} />
+              <button
+                type="submit"
+                className="cut-submit"
+                disabled={busy || boot.password !== boot.confirmPassword}
+              >
+                {busy && <Loader2 className="w-4 h-4 animate-spin" aria-hidden />}
+                {busy ? 'Provisioning…' : 'Create primary administrator'}
+              </button>
+            </form>
+          )}
+
+          {panel === 'signin' && (
+            <>
+              <div className={cx('cut-divider', seq(14))}>New to the chapter?</div>
+              <button
+                type="button"
+                className={cx('cut-secondary', seq(15))}
+                onClick={onNavigateToJoin}
+              >
+                Apply to join
+              </button>
+            </>
+          )}
+
+          <p className={cx('cut-foot', seq(16))}>
+            <ShieldCheck aria-hidden />
+            <span>
+              Signing in is the only step: no account inside the chapter has to approve you. Entry follows the
+              status the provider holds — only a suspension or a rejection keeps you out — and what you may do
+              follows your role. Neither is decided by this browser.
+            </span>
           </p>
-        </motion.div>
+        </div>
       </main>
+
+      <footer className={cx('cut-pagefoot', seq(17))} onAnimationEnd={dropStages}>
+        ESME · Cairo University chapter · Recruitment OS
+      </footer>
     </div>
   );
 };

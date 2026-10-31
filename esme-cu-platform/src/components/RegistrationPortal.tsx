@@ -1,8 +1,10 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { motion } from 'motion/react';
-import { CheckCircle2, ArrowLeft, Send, Loader2, ShieldCheck, MailCheck, LogIn } from 'lucide-react';
+import { ArrowLeft, Send, Loader2, ShieldCheck, MailCheck, LogIn } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { useToast } from '../motion';
+import { Split } from '../lib/motion/components';
+import { initRevealSystem, refreshReveals } from '../lib/motion/reveal';
 import { useAuth } from '../auth/AuthProvider';
 import { PasswordChecklist } from './LoginScreen';
 import { ThemeToggle } from './ThemeToggle';
@@ -25,10 +27,13 @@ interface RegistrationPortalProps {
 
 type FieldErrorKey = keyof RegistrationInput;
 
+/** The account trio is asked on every schema, so the progress count always includes it. */
+const ACCOUNT_FIELDS = ['username', 'password', 'confirmPassword'] as const;
+
 /** One validation message, under the control it belongs to. */
 const FieldErrorNote: React.FC<{ id: string; message?: string }> = ({ id, message }) =>
   message ? (
-    <p id={`${id}-error`} className="text-[11px] font-bold text-rose-700">
+    <p id={`${id}-error`} className="reg-error text-[11px] font-bold text-rose-700">
       {message}
     </p>
   ) : null;
@@ -137,6 +142,33 @@ export const RegistrationPortal: React.FC<RegistrationPortalProps> = ({
       : f
   );
 
+  // The same observer the public page uses, bound here so the blocks of this sheet can travel.
+  useEffect(() => initRevealSystem(), []);
+
+  /**
+   * A field the operator switched on, or a committee selector a radio button opens, is not in the
+   * observer's list yet — and a reveal that never sees its element leaves the answer at opacity 0
+   * forever. Every redraw of the questionnaire hands the new controls over.
+   */
+  useEffect(() => {
+    refreshReveals();
+  }, [visibleFields, fieldErrors, submitted]);
+
+  /**
+   * The bar counts what the applicant was actually asked, so switching a question off cannot leave it
+   * reading full while an answer is still missing.
+   */
+  const progress = useMemo(() => {
+    const asked: string[] = [...visibleFields.filter((f) => f.required).map((f) => f.name), ...ACCOUNT_FIELDS];
+    const answerOf = (name: string) =>
+      name in account ? account[name as (typeof ACCOUNT_FIELDS)[number]] : formData[name];
+    const isAnswered = (name: string) => {
+      const value = answerOf(name);
+      return typeof value === 'boolean' ? value : String(value ?? '').trim().length > 0;
+    };
+    return { total: asked.length, done: asked.filter(isAnswered).length };
+  }, [visibleFields, formData, account]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormError(null);
@@ -217,6 +249,7 @@ export const RegistrationPortal: React.FC<RegistrationPortalProps> = ({
 
   if (submitted) {
     const needsVerification = Boolean(receipt?.emailVerificationRequired);
+    const reference = receipt?.reference || formData.universityEmail;
     // True only when the open session belongs to *this* new account. A Super Admin who registers
     // somebody else from the same device must not be offered a button that would carry them into
     // the workspace on their own, unchanged session.
@@ -230,7 +263,23 @@ export const RegistrationPortal: React.FC<RegistrationPortalProps> = ({
           className="max-w-md w-full bg-white rounded-3xl border border-slate-200 shadow-xl p-8 text-center"
         >
           <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
-            {needsVerification ? <MailCheck className="w-10 h-10" /> : <CheckCircle2 className="w-10 h-10" />}
+            {needsVerification ? (
+              <MailCheck className="w-10 h-10" />
+            ) : (
+              <svg
+                className="reg-draw w-10 h-10"
+                viewBox="0 0 48 48"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="3"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden
+              >
+                <circle cx="24" cy="24" r="22" />
+                <path d="M14.5 24.5 L21 31 L33 17.5" />
+              </svg>
+            )}
           </div>
           <h2 className="text-2xl font-bold text-[#123B60]">
             {needsVerification ? 'One step left: confirm your email' : 'Account created'}
@@ -250,7 +299,12 @@ export const RegistrationPortal: React.FC<RegistrationPortalProps> = ({
             )}
           </p>
           <div className="mt-6 p-4 bg-slate-50 rounded-xl border border-slate-200 text-xs text-slate-600 text-left space-y-2">
-            <div><strong>Reference:</strong> <span className="font-mono">{receipt?.reference || formData.universityEmail}</span></div>
+            <div>
+              <strong>Reference:</strong>{' '}
+              <Split as="span" className="font-mono" label={reference}>
+                {reference}
+              </Split>
+            </div>
             <div><strong>Preferred Committee:</strong> {formData.committeeMembership === 'no' ? 'None — you told us you do not belong to one yet' : (committees.find(c => c.id === formData.preferredCommitteeId)?.name ?? 'Not recorded')}</div>
             <div><strong>Department:</strong> {formData.department || 'Not recorded'} · <strong>Year:</strong> {formData.academicYear || 'Not recorded'}</div>
             <div><strong>Email:</strong> {formData.universityEmail}</div>
@@ -334,7 +388,7 @@ export const RegistrationPortal: React.FC<RegistrationPortalProps> = ({
         </div>
 
         {/* Header */}
-        <div className="bg-gradient-to-r from-[#123B60] to-[#0A2239] text-white rounded-3xl p-8 sm:p-10 shadow-xl mb-8 relative overflow-hidden">
+        <div data-rv className="rv reg-step bg-gradient-to-r from-[#123B60] to-[#0A2239] text-white rounded-3xl p-8 sm:p-10 shadow-xl mb-8 relative overflow-hidden">
           <div className="relative z-10">
             <span className="px-3 py-1 bg-[#F59A16] text-[10px] font-black uppercase rounded tracking-wider">
               Student Registration Portal
@@ -348,6 +402,17 @@ export const RegistrationPortal: React.FC<RegistrationPortalProps> = ({
           </div>
         </div>
 
+        <div
+          className="reg-progress mb-8"
+          role="progressbar"
+          aria-label="Required answers completed"
+          aria-valuemin={0}
+          aria-valuemax={progress.total}
+          aria-valuenow={progress.done}
+        >
+          <span style={{ width: `${Math.round((progress.done / Math.max(1, progress.total)) * 100)}%` }} />
+        </div>
+
         {/* Dynamic Form Builder Renderer.
             `noValidate` keeps one voice: the chapter's rules report every refusal at once, instead of
             the browser stopping the click at the first empty control and hiding the rest. The
@@ -356,12 +421,12 @@ export const RegistrationPortal: React.FC<RegistrationPortalProps> = ({
         <form onSubmit={handleSubmit} noValidate className="bg-white rounded-3xl border border-slate-200 shadow-sm p-6 sm:p-10 space-y-6">
           {/* The summary sits above the fields it points at, so a refusal is read before the form. */}
           {formError && (
-            <p role="alert" className="rounded-xl border border-rose-200 bg-rose-50 px-3.5 py-2.5 text-xs text-rose-800">
+            <p role="alert" className="reg-error rounded-xl border border-rose-200 bg-rose-50 px-3.5 py-2.5 text-xs text-rose-800">
               {formError}
             </p>
           )}
 
-          <div className="border-b border-slate-100 pb-4">
+          <div data-rv className="rv reg-step border-b border-slate-100 pb-4">
             <h2 className="text-base font-bold text-[#123B60]">Applicant Information</h2>
             <p className="text-xs text-slate-500">All fields marked with an asterisk are required.</p>
           </div>
@@ -385,7 +450,12 @@ export const RegistrationPortal: React.FC<RegistrationPortalProps> = ({
 
               if (field.type === 'textarea') {
                 return (
-                  <div key={field.id} className="sm:col-span-2 space-y-1.5">
+                  <div
+                    key={field.id}
+                    data-rv
+                    data-refused={fieldMessage ? '1' : '0'}
+                    className="rv reg-field sm:col-span-2 space-y-1.5"
+                  >
                     <label htmlFor={inputId} className="block text-xs font-bold text-slate-700">
                       {field.label} {field.required && <span className="text-red-500">*</span>}
                     </label>
@@ -410,7 +480,12 @@ export const RegistrationPortal: React.FC<RegistrationPortalProps> = ({
                 // If this is committee preference, populate from live committees
                 if (field.name === 'committeeMembership') {
                   return (
-                    <div key={field.id} className="sm:col-span-2 space-y-1.5">
+                    <div
+                      key={field.id}
+                      data-rv
+                      data-refused={fieldMessage ? '1' : '0'}
+                      className="rv reg-field sm:col-span-2 space-y-1.5"
+                    >
                       <span id={`${inputId}-label`} className="block text-xs font-bold text-slate-700">
                         {field.label} {field.required && <span className="text-red-500">*</span>}
                       </span>
@@ -458,7 +533,12 @@ export const RegistrationPortal: React.FC<RegistrationPortalProps> = ({
                           ? 'Choose the committee you belong to'
                           : 'No preference — an administrator will discuss where I fit';
                   return (
-                    <div key={field.id} className="space-y-1.5">
+                    <div
+                      key={field.id}
+                      data-rv
+                      data-refused={fieldMessage ? '1' : '0'}
+                      className="rv reg-field space-y-1.5"
+                    >
                       <label htmlFor={inputId} className="block text-xs font-bold text-slate-700">
                         {field.label} {mustChoose && <span className="text-red-500">*</span>}
                       </label>
@@ -491,7 +571,12 @@ export const RegistrationPortal: React.FC<RegistrationPortalProps> = ({
                 }
 
                 return (
-                  <div key={field.id} className="space-y-1.5">
+                  <div
+                    key={field.id}
+                    data-rv
+                    data-refused={fieldMessage ? '1' : '0'}
+                    className="rv reg-field space-y-1.5"
+                  >
                     <label htmlFor={inputId} className="block text-xs font-bold text-slate-700">
                       {field.label} {field.required && <span className="text-red-500">*</span>}
                     </label>
@@ -519,7 +604,12 @@ export const RegistrationPortal: React.FC<RegistrationPortalProps> = ({
 
               if (field.type === 'checkbox') {
                 return (
-                  <div key={field.id} className="sm:col-span-2 space-y-1.5 pt-2">
+                  <div
+                    key={field.id}
+                    data-rv
+                    data-refused={fieldMessage ? '1' : '0'}
+                    className="rv reg-field sm:col-span-2 space-y-1.5 pt-2"
+                  >
                     {helpNote}
                     <label className="flex items-start gap-3 cursor-pointer">
                       <input
@@ -542,7 +632,12 @@ export const RegistrationPortal: React.FC<RegistrationPortalProps> = ({
               }
 
               return (
-                <div key={field.id} className="space-y-1.5">
+                <div
+                  key={field.id}
+                  data-rv
+                  data-refused={fieldMessage ? '1' : '0'}
+                  className="rv reg-field space-y-1.5"
+                >
                   <label htmlFor={inputId} className="block text-xs font-bold text-slate-700">
                     {field.label} {field.required && <span className="text-red-500">*</span>}
                   </label>
@@ -565,7 +660,7 @@ export const RegistrationPortal: React.FC<RegistrationPortalProps> = ({
           </div>
 
           {/* Account credentials — created on the provider, never stored here */}
-          <div className="pt-6 border-t border-slate-100 space-y-4">
+          <div data-rv className="rv reg-step pt-6 border-t border-slate-100 space-y-4">
             <div>
               <h2 className="text-base font-bold text-[#123B60]">Chapter account</h2>
               <p className="text-xs text-slate-500">
@@ -575,7 +670,7 @@ export const RegistrationPortal: React.FC<RegistrationPortalProps> = ({
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-              <div className="space-y-1.5">
+              <div data-rv data-refused={fieldErrors.username ? '1' : '0'} className="rv reg-field space-y-1.5">
                 <label htmlFor="reg-username" className="block text-xs font-bold text-slate-700">
                   Username <span className="text-red-500">*</span>
                 </label>
@@ -595,7 +690,7 @@ export const RegistrationPortal: React.FC<RegistrationPortalProps> = ({
                 />
                 <FieldErrorNote id="reg-username" message={fieldErrors.username} />
               </div>
-              <div className="space-y-1.5">
+              <div data-rv data-refused={fieldErrors.password ? '1' : '0'} className="rv reg-field space-y-1.5">
                 <label htmlFor="reg-password" className="block text-xs font-bold text-slate-700">
                   Password <span className="text-red-500">*</span>
                 </label>
@@ -615,7 +710,7 @@ export const RegistrationPortal: React.FC<RegistrationPortalProps> = ({
                 />
                 <FieldErrorNote id="reg-password" message={fieldErrors.password} />
               </div>
-              <div className="space-y-1.5 sm:col-span-2">
+              <div data-rv data-refused={fieldErrors.confirmPassword ? '1' : '0'} className="rv reg-field space-y-1.5 sm:col-span-2">
                 <label htmlFor="reg-confirm" className="block text-xs font-bold text-slate-700">
                   Confirm password <span className="text-red-500">*</span>
                 </label>
@@ -639,7 +734,7 @@ export const RegistrationPortal: React.FC<RegistrationPortalProps> = ({
             </div>
           </div>
 
-          <div className="pt-4 border-t border-slate-100 flex items-center justify-between gap-4">
+          <div data-rv className="rv reg-step pt-4 border-t border-slate-100 flex items-center justify-between gap-4">
             <span className="text-[11px] text-slate-400">
               No approval step — your account is active as soon as you submit.
             </span>

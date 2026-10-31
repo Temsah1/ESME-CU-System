@@ -1,0 +1,152 @@
+/*
+ * The hero is black on purpose: the ball is the only light source, and anything behind it would
+ * read as a photograph rather than a rendered one. The seam at the bottom is the handoff — the page
+ * brightens into the ivory sections instead of stopping.
+ */
+
+.sun-hero {
+  position: relative;
+  background: #000;
+  min-height: min(100svh, 860px);
+  overflow: hidden;
+  color: #fff;
+  touch-action: pan-y;
+}
+.sun-hero canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+/* The caption swaps lines without reflowing: both live in the same box, and only paint changes. */
+.sun-caption {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 14%;
+  height: clamp(120px, 22vh, 220px);
+  pointer-events: none;
+}
+.sun-caption .line {
+  position: absolute;
+  inset: 0;
+  text-align: center;
+  transition:
+    opacity 0.2s linear,
+    filter 0.2s linear;
+}
+.sun-caption .line.off {
+  opacity: 0;
+  filter: blur(5px);
+}
+/* The stage label, not a document heading: this page already carries exactly one h1. */
+.sun-caption .when {
+  display: block;
+  margin: 0;
+  font-size: clamp(13px, 1.4vw, 17px);
+  font-weight: 500;
+  letter-spacing: 0.32em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.62);
+}
+.sun-caption p {
+  margin: 0.6em auto 0;
+  max-width: 22ch;
+  font-size: clamp(24px, 4.4vw, 52px);
+  line-height: 1.06;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+.sun-caption p b {
+  display: block;
+  font-family: 'Newsreader', Georgia, serif;
+  font-weight: 500;
+  font-size: 0.46em;
+  letter-spacing: 0.01em;
+  color: var(--esme-orange-light);
+  margin-bottom: 0.35em;
+}
+
+.sun-track {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: clamp(22px, 5vh, 56px);
+  padding: 0 clamp(16px, 4vw, 48px);
+  outline: none;
+}
+.sun-ticks {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: clamp(2px, 0.7vw, 8px);
+}
+.sun-ticks i {
+  display: block;
+  width: 1.5px;
+  height: 44px;
+  transform-origin: 50% 100%;
+  background: linear-gradient(to top, rgba(255, 255, 255, 0.85), rgba(255, 255, 255, 0.25));
+  border-radius: 2px;
+}
+.sun-ends {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 10px;
+  font-family: 'IBM Plex Mono', ui-monospace, monospace;
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.34);
+}
+.sun-ends span.on {
+  color: var(--esme-orange-light);
+}
+
+/* Without WebGL, or on a device that asked to save data, the same moment is drawn in CSS. */
+.sun-fallback {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle at 50% 62%, rgba(255, 196, 120, 0.9) 0 6%, rgba(255, 138, 61, 0.35) 14%, rgba(120, 40, 10, 0.18) 30%, transparent 52%),
+    #000;
+}
+.sun-static .sun-ticks i {
+  transition:
+    transform 0.3s linear,
+    opacity 0.3s linear;
+}
+
+.sun-seam {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 120px;
+  pointer-events: none;
+  background: linear-gradient(to bottom, rgba(0, 0, 0, 0), var(--esme-page));
+}
+
+.sun-hero:focus-visible {
+  outline: 2px solid var(--esme-orange);
+  outline-offset: -6px;
+}
+
+@media (max-width: 760px) {
+  .sun-caption {
+    top: 10%;
+  }
+  .sun-ticks i {
+    height: 30px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sun-caption .line {
+    transition: none;
+  }
+  .sun-ticks i {
+    transition: none;
+  }
+}

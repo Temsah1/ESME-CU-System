@@ -457,7 +457,7 @@ export const SocialMediaInsightsView: React.FC = () => {
                     </div>
                     <div className="h-2 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
                       <div
-                        className={`h-full rounded-full ${demo.primary ? 'bg-[#F59A16]' : 'bg-[#123B60]'}`}
+                        className={`dash-fill h-full rounded-full ${demo.primary ? 'bg-[#F59A16]' : 'bg-[#123B60]'}`}
                         style={{ width: `${demo.percentage}%` }}
                       />
                     </div>

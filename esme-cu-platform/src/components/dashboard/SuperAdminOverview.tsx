@@ -14,7 +14,7 @@ import {
   Plus
 } from 'lucide-react';
 import { useApp, useActor } from '../../context/AppContext';
-import { leaderAccount } from '../../domain/committees';
+import { leaderAccounts } from '../../domain/committees';
 import { seasonCovering, seasonsInOrder } from '../../domain/seasons';
 import type { DashboardView } from './DashboardShell';
 import { AnimatedNumber, MagneticButton, StaggerGroup, StaggerItem, groupItemScale, transitions } from '../../motion';
@@ -369,7 +369,14 @@ export const SuperAdminOverview: React.FC<SuperAdminOverviewProps> = ({ onNaviga
                     </span>
                     <div>
                       <div className="font-bold text-slate-800 dark:text-slate-100">{comm.name}</div>
-                      <div className="text-[10px] text-slate-400">{leaderAccount(comm, 'director', users)?.name ?? 'Director not assigned'}</div>
+                      <div className="text-[10px] text-slate-400">
+                        {(() => {
+                          const holders = leaderAccounts(comm, 'director', users);
+                          if (holders.length === 0) return 'No Director assigned';
+                          const names = holders.map(({ account }) => account?.name ?? 'unresolved account').slice(0, 2).join(', ');
+                          return `${holders.length} Director${holders.length === 1 ? '' : 's'}: ${names}${holders.length > 2 ? ` +${holders.length - 2}` : ''}`;
+                        })()}
+                      </div>
                     </div>
                   </div>
                   <div className="text-right">

@@ -1,0 +1,771 @@
+/*
+ * CUTORA — the one cinematic entrance in the product, and it belongs to a single screen: the sign-in.
+ *
+ * Everything below is CSS keyframes with `animation-fill-mode: backwards`, so the page is painted once
+ * and the sequence plays out of the stylesheet rather than being driven frame by frame. `--u` is the
+ * design unit (the reference art is 1672×941), and every size in the composition is a multiple of it —
+ * which is what lets the same layout hold on a 1920×1080 desktop and on a landscape phone.
+ *
+ * Type sizes carry a pixel floor. `--u` falls to 0.62px on a narrow screen, and a form nobody can read
+ * is not a responsive layout; spacing, radii and the display headline still scale with the unit.
+ */
+.cutora {
+  --u: max(0.62px, min(calc(100vw / 1672), calc(100dvh / 941)));
+  --amber: #f59a16;
+  --ink: #0b0b0d;
+  --paper: #f6f3ee;
+  --text: #171310;
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  background: var(--paper);
+  color: var(--text);
+}
+.cutora[data-tone='dark'] {
+  --paper: #0b0a0c;
+  --text: #f8f5f0;
+}
+
+/* --- the entrance: one keyframe, seventeen staged users -------------------------------- */
+@keyframes cutora-rise {
+  from {
+    opacity: 0;
+    transform: translateY(calc(var(--u) * 18));
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes cutora-settle {
+  from {
+    opacity: 0;
+    transform: translateY(calc(var(--u) * 34)) scale(0.99);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+/* `seq-` is spelled out rather than matched loosely: every `cut-` class contains "u-", and a
+   selector that caught them would animate the whole sheet. */
+.cutora [class*='seq-'] {
+  animation: cutora-rise 0.62s cubic-bezier(0.22, 1, 0.36, 1) backwards;
+}
+/* Only while the entrance is still staged. If the settled card kept an animation-name of its own,
+   dropping the `seq-` class — or the rejection attribute — would change the name back and replay the
+   whole rise, so a refused password would flash the card out and up again when the shake ended. */
+.cutora .cut-card[class*='seq-'] {
+  animation-name: cutora-settle;
+  animation-duration: 0.74s;
+}
+/* Order from the brief: logo and top link → card rises and settles → each headline line wipes out of
+   its clip → subline → slider dots → card heading → card subline → fields → options → button →
+   divider → secondary → footer. 60–90ms apart, and the last rise lands at ~1.58s. */
+.cutora .seq-1 { animation-delay: 0ms; }
+.cutora .seq-2 { animation-delay: 90ms; }
+.cutora .seq-3 { animation-delay: 200ms; }
+.cutora .seq-4 { animation-delay: 265ms; }
+.cutora .seq-5 { animation-delay: 330ms; }
+.cutora .seq-6 { animation-delay: 390ms; }
+.cutora .seq-7 { animation-delay: 450ms; }
+.cutora .seq-8 { animation-delay: 510ms; }
+.cutora .seq-9 { animation-delay: 570ms; }
+.cutora .seq-10 { animation-delay: 630ms; }
+.cutora .seq-11 { animation-delay: 690ms; }
+.cutora .seq-12 { animation-delay: 745ms; }
+.cutora .seq-13 { animation-delay: 800ms; }
+.cutora .seq-14 { animation-delay: 850ms; }
+.cutora .seq-15 { animation-delay: 900ms; }
+.cutora .seq-16 { animation-delay: 930ms; }
+.cutora .seq-17 { animation-delay: 960ms; }
+
+/* A panel that mounts after the page (forgot, bootstrap) still arrives with the same movement. */
+.cutora .cut-panel {
+  animation: cutora-rise 0.45s cubic-bezier(0.22, 1, 0.36, 1) backwards;
+}
+
+/* --- top bar --------------------------------------------------------------------------- */
+.cut-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: calc(var(--u) * 16);
+  padding: calc(var(--u) * 20) calc(var(--u) * 28);
+}
+.cut-mark {
+  display: flex;
+  align-items: center;
+  gap: calc(var(--u) * 10);
+  font-size: max(12px, calc(var(--u) * 14));
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+.cut-mark img {
+  height: calc(var(--u) * 34);
+  width: calc(var(--u) * 34);
+  object-fit: contain;
+}
+.cut-toplinks {
+  display: flex;
+  align-items: center;
+  gap: calc(var(--u) * 12);
+}
+.cut-back {
+  display: inline-flex;
+  align-items: center;
+  gap: calc(var(--u) * 7);
+  border: none;
+  background: transparent;
+  padding: calc(var(--u) * 7) 0;
+  font-size: max(11px, calc(var(--u) * 12.5));
+  font-weight: 700;
+  color: rgba(23, 19, 16, 0.66);
+  cursor: pointer;
+  transition: color 0.4s var(--ease), transform 0.4s var(--ease);
+}
+.cut-back:hover {
+  color: var(--amber);
+  transform: translateY(calc(var(--u) * -2));
+}
+.cutora[data-tone='dark'] .cut-back {
+  color: rgba(248, 245, 240, 0.66);
+}
+
+/* --- stage ----------------------------------------------------------------------------- */
+.cut-stage {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 1fr;
+  align-items: center;
+  gap: calc(var(--u) * 40);
+  padding: calc(var(--u) * 20) calc(var(--u) * 28) calc(var(--u) * 40);
+}
+@media (min-width: 900px) {
+  .cut-stage {
+    grid-template-columns: 1.05fr 0.95fr;
+    gap: calc(var(--u) * 90);
+    padding: calc(var(--u) * 40) calc(var(--u) * 90) calc(var(--u) * 60);
+  }
+}
+
+/* The warm dark side, painted in CSS: three radial lights over a slow drift, no picture, no video. */
+.cut-hero {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  border-radius: calc(var(--u) * 34);
+  min-height: calc(var(--u) * 520);
+  padding: calc(var(--u) * 60) calc(var(--u) * 54);
+  color: #f8f5f0;
+  background: radial-gradient(120% 90% at 12% 8%, #3a2a1c 0%, transparent 55%),
+    radial-gradient(90% 80% at 92% 22%, #55381d 0%, transparent 52%),
+    radial-gradient(140% 120% at 50% 120%, #1b1512 0%, transparent 60%), #171310;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  gap: calc(var(--u) * 14);
+}
+.cut-drift {
+  position: absolute;
+  inset: -8%;
+  z-index: -1;
+  background: conic-gradient(
+    from 210deg at 62% 38%,
+    rgba(245, 154, 22, 0.16),
+    rgba(0, 0, 0, 0) 42%,
+    rgba(120, 70, 20, 0.22) 72%,
+    rgba(0, 0, 0, 0)
+  );
+  animation: kb 26s var(--ease-io) infinite alternate;
+  will-change: transform;
+}
+.cut-kicker {
+  font-family: 'IBM Plex Mono', ui-monospace, monospace;
+  font-size: max(10px, calc(var(--u) * 12));
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: rgba(248, 245, 240, 0.6);
+  animation: cutora-rise 0.62s cubic-bezier(0.22, 1, 0.36, 1) backwards;
+  animation-delay: 150ms;
+}
+/* A line wipes up out of its own box: the clip is the element, the movement is the span inside it. */
+.cut-line {
+  overflow: hidden;
+  font-family: 'Newsreader', Georgia, serif;
+  font-weight: 500;
+  font-size: calc(var(--u) * 62);
+  line-height: 1.04;
+  letter-spacing: -0.02em;
+  margin: 0;
+}
+.cut-line[class*='seq-'] {
+  animation: none;
+}
+.cut-line > span {
+  display: block;
+  animation: cutora-wipe 0.72s cubic-bezier(0.22, 1, 0.36, 1) backwards;
+}
+.cutora .seq-3 > span {
+  animation-delay: 200ms;
+}
+.cutora .seq-4 > span {
+  animation-delay: 265ms;
+}
+@keyframes cutora-wipe {
+  from {
+    transform: translateY(110%);
+  }
+  to {
+    transform: none;
+  }
+}
+.cut-sub {
+  font-size: max(14px, calc(var(--u) * 16));
+  line-height: 1.6;
+  color: rgba(248, 245, 240, 0.72);
+  max-width: 46ch;
+  margin: 0;
+}
+.cut-caption {
+  font-family: 'IBM Plex Mono', ui-monospace, monospace;
+  font-size: max(11px, calc(var(--u) * 13));
+  color: rgba(248, 245, 240, 0.62);
+  min-height: calc(var(--u) * 20);
+  margin: 0;
+}
+
+/* Slider dots: one amber pill and two dots at 55%. */
+.cut-dots {
+  display: flex;
+  align-items: center;
+  gap: calc(var(--u) * 9);
+  margin-top: calc(var(--u) * 8);
+}
+.cut-dots button {
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  height: calc(var(--u) * 9);
+  border-radius: 999px;
+  width: calc(var(--u) * 9);
+  background: rgba(248, 245, 240, 0.55);
+  transition:
+    width 0.4s var(--ease),
+    background-color 0.4s var(--ease);
+}
+.cut-dots button[aria-pressed='true'] {
+  width: calc(var(--u) * 34.5);
+  background: var(--amber);
+}
+.cut-dots button:focus-visible {
+  outline: 2px solid var(--amber);
+  outline-offset: 3px;
+}
+
+/* --- the card -------------------------------------------------------------------------- */
+.cut-card {
+  width: 100%;
+  max-width: calc(var(--u) * 460);
+  justify-self: center;
+  border-radius: calc(var(--u) * 26);
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  background: #ffffff;
+  box-shadow: 0 calc(var(--u) * 40) calc(var(--u) * 90) -50px rgba(23, 19, 16, 0.45);
+  padding: calc(var(--u) * 40);
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--u) * 14);
+}
+.cutora[data-tone='dark'] .cut-card {
+  background: #0f0e11;
+  border-color: rgba(255, 255, 255, 0.08);
+  color: #f8f5f0;
+  box-shadow: 0 calc(var(--u) * 40) calc(var(--u) * 90) -50px rgba(0, 0, 0, 0.7);
+}
+.cut-h {
+  font-size: max(19px, calc(var(--u) * 26));
+  font-weight: 800;
+  letter-spacing: -0.015em;
+  margin: 0;
+}
+.cut-card-sub {
+  font-size: max(12px, calc(var(--u) * 13));
+  color: rgba(15, 23, 42, 0.55);
+  margin: calc(var(--u) * -8) 0 0;
+}
+.cutora[data-tone='dark'] .cut-card-sub {
+  color: rgba(248, 245, 240, 0.6);
+}
+
+/* The message slot reserves its own height, so an error can arrive without moving anything. A
+   message longer than the box scrolls inside it rather than pushing the fields down. */
+.cut-msg {
+  position: relative;
+  min-height: max(58px, calc(var(--u) * 68));
+}
+.cut-msg > p {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  display: block;
+  overflow-y: auto;
+  border-radius: calc(var(--u) * 12);
+  padding: calc(var(--u) * 10) calc(var(--u) * 12);
+  font-size: max(11px, calc(var(--u) * 12.5));
+  line-height: 1.45;
+  animation: cutora-fade 0.3s var(--ease) backwards;
+}
+.cut-msg > p[data-kind='error'] {
+  background: rgba(190, 40, 60, 0.09);
+  border: 1px solid rgba(190, 40, 60, 0.28);
+  color: #8f1f2e;
+}
+.cut-msg > p[data-kind='notice'] {
+  background: rgba(245, 154, 22, 0.1);
+  border: 1px solid rgba(245, 154, 22, 0.32);
+  color: #7a4d05;
+}
+.cut-msg > p[data-kind='info'] {
+  background: rgba(16, 140, 90, 0.09);
+  border: 1px solid rgba(16, 140, 90, 0.28);
+  color: #0d6b45;
+}
+.cutora[data-tone='dark'] .cut-msg > p[data-kind='error'] {
+  color: #ffb3bd;
+}
+.cutora[data-tone='dark'] .cut-msg > p[data-kind='notice'] {
+  color: #ffd8a0;
+}
+.cutora[data-tone='dark'] .cut-msg > p[data-kind='info'] {
+  color: #a6e6c5;
+}
+@keyframes cutora-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* Fields: the label sits above a 1px hairline that lights amber, and every control takes a ring. */
+.cut-field {
+  position: relative;
+}
+.cut-field label {
+  display: block;
+  font-size: max(10px, calc(var(--u) * 11));
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(15, 23, 42, 0.55);
+  margin-bottom: calc(var(--u) * 7);
+}
+.cut-field input {
+  width: 100%;
+  border: 1px solid rgba(15, 23, 42, 0.14);
+  border-radius: calc(var(--u) * 14);
+  background: transparent;
+  padding: calc(var(--u) * 13) calc(var(--u) * 15);
+  font-size: 16px;
+  color: inherit;
+  transition:
+    border-color 0.4s var(--ease),
+    box-shadow 0.4s var(--ease);
+}
+.cut-field input::placeholder {
+  color: rgba(15, 23, 42, 0.34);
+}
+.cut-field input:focus {
+  outline: none;
+  border-color: var(--amber);
+  box-shadow: 0 0 0 3px rgba(245, 154, 22, 0.16);
+}
+.cut-field--pad {
+  position: relative;
+}
+.cut-field--pad input {
+  padding-right: calc(var(--u) * 46);
+}
+.cutora[data-tone='dark'] .cut-field label {
+  color: rgba(248, 245, 240, 0.55);
+}
+.cutora[data-tone='dark'] .cut-field input {
+  border-color: rgba(255, 255, 255, 0.16);
+  color: #f8f5f0;
+}
+.cutora[data-tone='dark'] .cut-field input::placeholder {
+  color: rgba(248, 245, 240, 0.34);
+}
+.cutora :is(button, a, input, [tabindex]):focus-visible {
+  outline: 2px solid var(--amber);
+  outline-offset: 2px;
+}
+
+/* The eye: one icon, and the slash draws itself across it when the password is shown. */
+.cut-eye {
+  position: absolute;
+  right: calc(var(--u) * 10);
+  top: 50%;
+  transform: translateY(-50%);
+  display: grid;
+  place-items: center;
+  width: calc(var(--u) * 34);
+  height: calc(var(--u) * 34);
+  border: none;
+  border-radius: calc(var(--u) * 10);
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+.cut-eye svg {
+  width: calc(var(--u) * 19);
+  height: calc(var(--u) * 19);
+}
+.cut-eye .slash {
+  stroke-dasharray: 22;
+  stroke-dashoffset: 22;
+  transition: stroke-dashoffset 0.25s var(--ease);
+}
+.cut-eye[aria-pressed='true'] .slash {
+  stroke-dashoffset: 0;
+}
+
+/* Options row: forgot password on one side, apply on the other. */
+.cut-opt {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: calc(var(--u) * 12);
+  font-size: max(11px, calc(var(--u) * 13));
+  font-weight: 700;
+}
+.cut-opt button {
+  border: none;
+  background: transparent;
+  padding: calc(var(--u) * 4) 0;
+  font: inherit;
+  color: rgba(15, 23, 42, 0.62);
+  cursor: pointer;
+  transition: color 0.4s var(--ease);
+}
+.cut-opt button:hover {
+  color: var(--amber);
+}
+.cutora[data-tone='dark'] .cut-opt button {
+  color: rgba(248, 245, 240, 0.62);
+}
+
+/* Remember me: the box fills and the tick draws itself into the fill, the same stroke-dashoffset
+   trick the eye uses for its slash. On the dark card a black fill would disappear, so there the
+   box fills light and the tick goes dark. */
+.cut-check {
+  display: inline-flex;
+  align-items: center;
+  gap: calc(var(--u) * 9);
+  cursor: pointer;
+  color: rgba(15, 23, 42, 0.62);
+  transition: color 0.4s var(--ease);
+}
+.cut-check:hover {
+  color: var(--text);
+}
+.cutora[data-tone='dark'] .cut-check {
+  color: rgba(248, 245, 240, 0.62);
+}
+.cutora[data-tone='dark'] .cut-check:hover {
+  color: var(--text);
+}
+/* The real checkbox stays the thing that is checked and focused; only its picture is drawn. */
+.cut-check input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+.cut-check svg {
+  width: calc(var(--u) * 18);
+  height: calc(var(--u) * 18);
+  flex: none;
+  border-radius: calc(var(--u) * 6);
+}
+.cut-check .box {
+  fill: transparent;
+  stroke: rgba(15, 23, 42, 0.28);
+  stroke-width: 1.4;
+  transition:
+    fill 0.4s var(--ease),
+    stroke 0.4s var(--ease);
+}
+.cut-check .tick {
+  fill: none;
+  stroke: #ffffff;
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 14;
+  stroke-dashoffset: 14;
+  transition: stroke-dashoffset 0.25s var(--ease);
+}
+.cut-check input:checked ~ svg .box {
+  fill: var(--ink);
+  stroke: var(--ink);
+}
+.cut-check input:checked ~ svg .tick {
+  stroke-dashoffset: 0;
+}
+.cutora[data-tone='dark'] .cut-check .box {
+  stroke: rgba(248, 245, 240, 0.34);
+}
+.cutora[data-tone='dark'] .cut-check input:checked ~ svg .box {
+  fill: #f8f5f0;
+  stroke: #f8f5f0;
+}
+.cutora[data-tone='dark'] .cut-check input:checked ~ svg .tick {
+  stroke: #0f0e11;
+}
+.cut-check input:focus-visible ~ svg {
+  outline: 2px solid var(--amber);
+  outline-offset: 2px;
+}
+
+/* Login: amber on near-black, and the hover deepens to black with a soft shadow. */
+.cut-submit {
+  width: 100%;
+  border: none;
+  border-radius: calc(var(--u) * 14);
+  padding: calc(var(--u) * 14);
+  background: var(--amber);
+  color: var(--ink);
+  font-weight: 800;
+  font-size: max(14px, calc(var(--u) * 15));
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: calc(var(--u) * 8);
+  transition:
+    background-color 0.4s var(--ease),
+    color 0.4s var(--ease),
+    box-shadow 0.4s var(--ease),
+    transform 0.4s var(--ease);
+}
+.cut-submit:hover,
+.cut-submit:focus-visible {
+  background: var(--ink);
+  color: var(--amber);
+  box-shadow: 0 calc(var(--u) * 18) calc(var(--u) * 36) -18px rgba(11, 11, 13, 0.55);
+}
+.cut-submit:disabled {
+  opacity: 0.6;
+  cursor: progress;
+}
+.cut-divider {
+  display: flex;
+  align-items: center;
+  gap: calc(var(--u) * 12);
+  font-size: max(10px, calc(var(--u) * 11));
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: rgba(15, 23, 42, 0.4);
+}
+.cut-divider::before,
+.cut-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: currentColor;
+  opacity: 0.35;
+}
+.cut-secondary {
+  width: 100%;
+  border-radius: calc(var(--u) * 14);
+  border: 1px solid rgba(15, 23, 42, 0.16);
+  background: transparent;
+  padding: calc(var(--u) * 13);
+  font-size: max(13px, calc(var(--u) * 14));
+  font-weight: 700;
+  color: inherit;
+  cursor: pointer;
+  transition:
+    border-color 0.4s var(--ease),
+    transform 0.4s var(--ease);
+}
+.cut-secondary:hover {
+  border-color: var(--amber);
+  transform: translateY(calc(var(--u) * -2));
+}
+.cutora[data-tone='dark'] .cut-secondary {
+  border-color: rgba(255, 255, 255, 0.16);
+}
+
+/* Two lines of the card's own small print, then the sheet's footer. */
+.cut-foot {
+  display: flex;
+  align-items: flex-start;
+  gap: calc(var(--u) * 8);
+  font-size: max(10px, calc(var(--u) * 12));
+  line-height: 1.55;
+  color: rgba(15, 23, 42, 0.55);
+  margin: 0;
+}
+.cutora[data-tone='dark'] .cut-foot {
+  color: rgba(248, 245, 240, 0.55);
+}
+.cut-foot svg {
+  width: calc(var(--u) * 15);
+  height: calc(var(--u) * 15);
+  flex: none;
+  margin-top: calc(var(--u) * 3);
+}
+.cut-pagefoot {
+  padding: calc(var(--u) * 14) calc(var(--u) * 28) calc(var(--u) * 22);
+  text-align: center;
+  font-family: 'IBM Plex Mono', ui-monospace, monospace;
+  font-size: max(10px, calc(var(--u) * 11));
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(15, 23, 42, 0.42);
+}
+.cutora[data-tone='dark'] .cut-pagefoot {
+  color: rgba(248, 245, 240, 0.42);
+}
+
+/* Body copy and the SQL block the provider-bootstrap panel shows. */
+.cut-text {
+  font-size: max(12px, calc(var(--u) * 13.5));
+  line-height: 1.6;
+  color: rgba(15, 23, 42, 0.62);
+  margin: 0;
+}
+.cutora[data-tone='dark'] .cut-text {
+  color: rgba(248, 245, 240, 0.62);
+}
+.cut-pre {
+  overflow-x: auto;
+  border-radius: calc(var(--u) * 14);
+  background: rgba(15, 23, 42, 0.06);
+  padding: calc(var(--u) * 14);
+  font-family: 'IBM Plex Mono', ui-monospace, monospace;
+  font-size: max(11px, calc(var(--u) * 12));
+  line-height: 1.6;
+  margin: 0;
+}
+.cutora[data-tone='dark'] .cut-pre {
+  background: rgba(255, 255, 255, 0.06);
+  color: #f8f5f0;
+}
+.cut-link {
+  border: none;
+  background: transparent;
+  padding: 0;
+  font: inherit;
+  font-weight: 700;
+  color: var(--amber);
+  cursor: pointer;
+}
+
+/* A rejected password shakes the card, never further than 6px, and never for longer than 300ms. */
+@keyframes cutora-shake {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  15% {
+    transform: translateX(-6px);
+  }
+  30% {
+    transform: translateX(5px);
+  }
+  45% {
+    transform: translateX(-4px);
+  }
+  60% {
+    transform: translateX(3px);
+  }
+  75% {
+    transform: translateX(-2px);
+  }
+  90% {
+    transform: translateX(1px);
+  }
+}
+.cutora[data-rejected='1'] .cut-card {
+  animation: cutora-shake 0.3s cubic-bezier(0.36, 0.07, 0.19, 0.97);
+  animation-delay: 0ms;
+}
+
+/* Phones: portrait stacks the card under a short hero, landscape keeps them side by side. */
+@media (max-width: 899px) {
+  .cut-stage {
+    gap: calc(var(--u) * 22);
+    padding: calc(var(--u) * 16) calc(var(--u) * 18) calc(var(--u) * 32);
+    align-items: start;
+  }
+  .cut-hero {
+    min-height: calc(var(--u) * 260);
+    padding: calc(var(--u) * 34) calc(var(--u) * 26);
+  }
+  .cut-line {
+    font-size: max(26px, calc(var(--u) * 40));
+  }
+  .cut-card {
+    padding: calc(var(--u) * 30) calc(var(--u) * 26);
+  }
+}
+@media (max-height: 720px) and (max-width: 899px) {
+  .cut-hero {
+    min-height: calc(var(--u) * 190);
+  }
+  .cut-sub,
+  .cut-caption {
+    display: none;
+  }
+}
+@media (min-width: 900px) and (max-height: 560px) {
+  .cut-stage {
+    gap: calc(var(--u) * 34);
+    padding: calc(var(--u) * 22) calc(var(--u) * 44);
+  }
+  .cut-hero {
+    min-height: calc(var(--u) * 300);
+    padding: calc(var(--u) * 30);
+  }
+  .cut-card {
+    max-width: none;
+    padding: calc(var(--u) * 26);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cutora [class*='seq-'],
+  .cutora .cut-kicker,
+  .cutora .cut-panel,
+  .cut-line > span {
+    animation: none;
+  }
+  .cut-drift {
+    animation: none;
+  }
+  .cutora[data-rejected='1'] .cut-card {
+    animation: none;
+  }
+  .cut-msg > p {
+    animation: none;
+  }
+  .cut-submit:hover,
+  .cut-secondary:hover,
+  .cut-back:hover {
+    transform: none;
+  }
+  .cut-eye .slash {
+    transition: none;
+  }
+  .cut-check .box,
+  .cut-check .tick {
+    transition: none;
+  }
+}

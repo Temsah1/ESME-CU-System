@@ -31,9 +31,22 @@
   }
 }
 
+/*
+ * No `scroll-behavior: smooth` here. Smooth scrolling belongs to the single Lenis instance in
+ * src/lib/motion/lenis.ts; a browser-level smooth scroll and Lenis on the same page fight over one
+ * position and the result is a rubber-band on every anchor click.
+ */
 html {
-  scroll-behavior: smooth;
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+  font-family: 'Inter Tight', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+}
+
+/* The three faces the motion system typesets with: UI, serif accents, and numbers that align. */
+.font-serif-accent {
+  font-family: 'Newsreader', Georgia, 'Times New Roman', serif;
+}
+.font-numbers {
+  font-family: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-variant-numeric: tabular-nums;
 }
 
 :focus-visible {
@@ -42,9 +55,6 @@ html {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  html {
-    scroll-behavior: auto;
-  }
   *, *::before, *::after {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
