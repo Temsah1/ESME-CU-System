@@ -1,8 +1,10 @@
 import type { AccountStatus } from '../domain/accountState';
+import type { CommitteeInput, LeadershipPosition } from '../domain/committees';
 import type { EmailPreferences } from '../domain/email';
 import type { Capability, Role } from '../domain/roles';
 import type { RewardKind, RewardEntry, WarningSeverity } from '../domain/rewards';
 import type { TestAccountReport } from '../domain/testAccounts';
+import type { Committee } from '../types';
 
 /**
  * Identity as returned by the trusted side of the integration. The client never
@@ -250,6 +252,33 @@ export interface AuthAdapter {
    * that saves happily until the next reload.
    */
   listAccounts(): Promise<AuthAccount[]>;
+
+  /**
+   * Committee storage. Optional so a provider that cannot persist committees (the local
+   * development vault) keeps its browser-only behaviour; the Supabase adapter implements
+   * every method, which is what makes the dashboard's writes real database rows.
+   *
+   * `assignments` is the authoritative leadership list. It is never sent as part of a
+   * create/update: assignments move through the two RPC methods below, so a routine text
+   * edit cannot overwrite a list of Heads or Directors.
+   */
+  listCommittees?(): Promise<Committee[]>;
+  createCommittee?(input: CommitteeInput): Promise<Committee>;
+  updateCommittee?(id: string, updates: Partial<CommitteeInput>, expectedUpdatedAt?: string): Promise<Committee>;
+  archiveCommittee?(id: string): Promise<Committee>;
+  addCommitteeAssignments?(input: {
+    committeeId: string;
+    position: LeadershipPosition;
+    profileIds: string[];
+    expectedUpdatedAt?: string;
+  }): Promise<Committee>;
+  removeCommitteeAssignment?(input: {
+    committeeId: string;
+    position: LeadershipPosition;
+    profileId: string;
+    expectedUpdatedAt?: string;
+  }): Promise<Committee>;
+
   /**
    * `id` must be the queue row id (`RegistrationRecord.id`), never the profile or auth user id.
    * A provider that cannot find the row answers `not_found`; one that has already decided it

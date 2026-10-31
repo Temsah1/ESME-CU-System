@@ -34,8 +34,7 @@ export const RosterPanel: React.FC<Props> = ({ committee, committees, users, may
       .filter((u) =>
         needle.length === 0 ? true : [u.name, u.email, u.username].some((f) => (f ?? '').toLowerCase().includes(needle))
       )
-      .sort((a, b) => a.name.localeCompare(b.name))
-      .slice(0, 40);
+      .sort((a, b) => a.name.localeCompare(b.name));
   }, [committee.id, term, users]);
 
   return (
@@ -126,8 +125,8 @@ export const RosterPanel: React.FC<Props> = ({ committee, committees, users, may
                   </p>
                   {seats.length > 0 && (
                     <p className="mt-0.5 text-[10px] text-amber-600">
-                      Leads {seats.map((s) => `${POSITION_LABELS[s.position]} of ${s.committee.name}`).join(', ')} — moving them out
-                      would be refused until the seat is reassigned.
+                      Leads {seats.map((s) => `${POSITION_LABELS[s.position]} of ${s.committee.name}`).join(', ')} — leadership rows are
+                      independent, so changing this account’s committee does not remove those assignments.
                     </p>
                   )}
                 </div>

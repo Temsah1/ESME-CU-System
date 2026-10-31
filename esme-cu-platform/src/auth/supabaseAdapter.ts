@@ -3,6 +3,8 @@ import { canAccessErp, repairStoredStatus } from '../domain/accountState';
 import { normalizeEmail, normalizeUsername, validatePassword, DUPLICATE_IDENTITY_MESSAGE } from '../domain/registration';
 import { emptyTestAccountReport, testAccountSeedRefusal } from '../domain/testAccounts';
 import { AccessRevokedError, AuthFailedError, AuthMisconfiguredError, AuthNotConfiguredError, ProfileResolutionError, RateLimitedError } from './errors';
+import type { Committee, CommitteeAssignment } from '../types';
+import type { CommitteeInput } from '../domain/committees';
 import type {
   AuthAccount,
   AuthAdapter,
@@ -274,6 +276,144 @@ function rewardFailureOf(error: unknown): AdminActionFailure {
     };
   }
   return { code: 'reward_write_failed', message: 'The chapter could not record this entry. Nothing was filed — try again.' };
+}
+
+// ============================================================ committees ====
+// Committee rows and leadership assignments are ordinary database rows. The page reads them
+// through RLS and writes them through the functions in 0020; the browser never becomes the
+// store, and no code below trusts a local copy after a mutation. The read-back after every
+// write is deliberate: an RPC that returned without error still has to show the rows it says
+// it wrote.
+
+const COMMITTEE_COLUMNS =
+  'id, name, short_code, description, category, objectives, sub_teams, is_public, status, updated_at';
+const ASSIGNMENT_COLUMNS = 'committee_id, position, profile_id, assigned_at';
+const READ_PAGE = 1000;
+
+function committeeFailureOf(error: unknown, fallback: string): Error {
+  const message = messageOf(error);
+  if (/ESME_STALE_WRITE/.test(message)) {
+    return new Error(message.replace(/^[\s\S]*?ESME_STALE_WRITE:\s*/, ''));
+  }
+  if (/ESME_DUPLICATE_ASSIGNMENT/.test(message)) {
+    return new Error(message.replace(/^[\s\S]*?ESME_DUPLICATE_ASSIGNMENT:\s*/, ''));
+  }
+  if (/ESME_INVALID_POSITION|ESME_INVALID_ASSIGNMENT/.test(message)) {
+    return new Error(message.replace(/^[\s\S]*?(ESME_INVALID_POSITION|ESME_INVALID_ASSIGNMENT):\s*/, ''));
+  }
+  if (/ESME_NOT_FOUND/.test(message)) {
+    return new Error('That record no longer exists. Refresh the page before trying again.');
+  }
+  if (/ESME_INACTIVE_ACCOUNT/.test(message)) {
+    return new Error(message.replace(/^[\s\S]*?ESME_INACTIVE_ACCOUNT:\s*/, ''));
+  }
+  if (/ESME_FORBIDDEN|ESME_UNAUTHORIZED/.test(message)) {
+    return new Error('Your role does not allow this committee change.');
+  }
+  if (/duplicate key/i.test(message)) {
+    return new Error('That committee identity is already in use.');
+  }
+  if (errorCodeOf(error) === 'PGRST202' || /could not find the function|does not exist/i.test(message)) {
+    return new Error('The committee database is missing its leadership migration (0020). Apply the migrations, then retry.');
+  }
+  return new Error(message || fallback);
+}
+
+function committeeRowOf(row: Record<string, unknown>, assignments: CommitteeAssignment[]): Committee {
+  const category = String(row.category ?? 'technical');
+  return {
+    id: String(row.id),
+    name: String(row.name ?? ''),
+    shortCode: String(row.short_code ?? ''),
+    description: String(row.description ?? ''),
+    assignments,
+    objectives: Array.isArray(row.objectives) ? row.objectives.map(String) : [],
+    subTeams: Array.isArray(row.sub_teams) ? row.sub_teams.map(String) : [],
+    isPublic: row.is_public !== false,
+    status: row.status === 'archived' ? 'archived' : 'active',
+    category: ['technical', 'media', 'marketing', 'operations', 'management'].includes(category)
+      ? (category as Committee['category'])
+      : 'technical',
+    updatedAt: String(row.updated_at ?? ''),
+  };
+}
+
+function assignmentOf(row: Record<string, unknown>): CommitteeAssignment | null {
+  const position = row.position === 'director' || row.position === 'head' ? row.position : null;
+  if (!position) return null;
+  return {
+    profileId: String(row.profile_id ?? ''),
+    position,
+    assignedAt: typeof row.assigned_at === 'string' ? row.assigned_at : undefined,
+  };
+}
+
+/** Reads all pages, so a committee with hundreds of assignments is not truncated by a page cap. */
+async function readAllRows(
+  sb: SupabaseClient,
+  table: string,
+  columns: string,
+  order: string[]
+): Promise<Record<string, unknown>[]> {
+  const rows: Record<string, unknown>[] = [];
+  for (let from = 0; ; from += READ_PAGE) {
+    const builder = order.reduce(
+      (query, column) => query.order(column),
+      sb.from(table).select(columns)
+    );
+    const { data, error } = await builder.range(from, from + READ_PAGE - 1);
+    if (error) throw committeeFailureOf(error, `${table} could not be read.`);
+    const page = (data ?? []) as unknown as Record<string, unknown>[];
+    rows.push(...page);
+    if (page.length < READ_PAGE) break;
+  }
+  return rows;
+}
+
+async function readCommitteeById(sb: SupabaseClient, id: string): Promise<Committee> {
+  const { data: row, error } = await sb.from('esme_committees').select(COMMITTEE_COLUMNS).eq('id', id).maybeSingle();
+  if (error) throw committeeFailureOf(error, 'The committee could not be read.');
+  if (!row) throw new Error('That committee no longer exists. Refresh the page.');
+  const { data: seats, error: seatsError } = await sb
+    .from('esme_leadership_seats')
+    .select(ASSIGNMENT_COLUMNS)
+    .eq('committee_id', id)
+    .order('position')
+    .order('profile_id');
+  if (seatsError) throw committeeFailureOf(seatsError, 'The committee leadership could not be read.');
+  return committeeRowOf(
+    row as Record<string, unknown>,
+    ((seats ?? []) as Record<string, unknown>[]).map(assignmentOf).filter((a): a is CommitteeAssignment => a !== null)
+  );
+}
+
+function committeePayload(updates: Partial<CommitteeInput>): Record<string, unknown> {
+  const payload: Record<string, unknown> = {};
+  if (updates.name !== undefined) payload.name = updates.name;
+  if (updates.shortCode !== undefined) payload.short_code = updates.shortCode;
+  if (updates.description !== undefined) payload.description = updates.description;
+  if (updates.category !== undefined) payload.category = updates.category;
+  if (updates.objectives !== undefined) payload.objectives = updates.objectives;
+  if (updates.subTeams !== undefined) payload.sub_teams = updates.subTeams;
+  if (updates.isPublic !== undefined) payload.is_public = updates.isPublic;
+  if (updates.status !== undefined) payload.status = updates.status;
+  return payload;
+}
+
+function assignmentComplaint(
+  committee: Committee,
+  position: 'director' | 'head',
+  expected: 'present' | 'absent',
+  profileIds: string[]
+): void {
+  const ids = committee.assignments.filter((a) => a.position === position).map((a) => a.profileId);
+  const wrong =
+    expected === 'present'
+      ? profileIds.filter((id) => !ids.includes(id))
+      : profileIds.filter((id) => ids.includes(id));
+  if (wrong.length > 0) {
+    throw new Error('The database accepted the request but did not store the expected leadership rows. Refresh before trying again.');
+  }
 }
 
 /**
@@ -593,6 +733,111 @@ export function createSupabaseAdapter(): AuthAdapter {
             createdAt: String(row.created_at ?? ''),
           }) satisfies AuthAccount
       );
+    },
+
+    /**
+     * The committee page reads rows, never a browser copy. Seats are fetched in the same pass
+     * and grouped by committee so a committee with many Heads/Directors is not truncated by a
+     * fixed page of assignments — `readAllRows` walks every page.
+     */
+    async listCommittees() {
+      const sb = await client();
+      const [committeeRows, seatRows] = await Promise.all([
+        readAllRows(sb, 'esme_committees', COMMITTEE_COLUMNS, ['name']),
+        readAllRows(sb, 'esme_leadership_seats', ASSIGNMENT_COLUMNS, ['committee_id', 'position', 'profile_id']),
+      ]);
+      const byCommittee = new Map<string, CommitteeAssignment[]>();
+      for (const row of seatRows) {
+        const assignment = assignmentOf(row);
+        if (!assignment) continue;
+        const key = String(row.committee_id ?? '');
+        const list = byCommittee.get(key) ?? [];
+        list.push(assignment);
+        byCommittee.set(key, list);
+      }
+      return committeeRows.map((row) => committeeRowOf(row, byCommittee.get(String(row.id)) ?? []));
+    },
+
+    async createCommittee(input) {
+      const sb = await client();
+      const { data, error } = await sb
+        .from('esme_committees')
+        .insert(committeePayload(input))
+        .select(COMMITTEE_COLUMNS)
+        .single();
+      if (error) throw committeeFailureOf(error, 'The committee could not be created.');
+      if (!data) throw new Error('The database accepted the committee but returned no row. Refresh before trying again.');
+      return readCommitteeById(sb, String((data as Record<string, unknown>).id));
+    },
+
+    /**
+     * The stamp is a compare-and-set guard: when the caller read a row and another officer saved
+     * it first, `updated_at` no longer matches, the update affects no rows, and the caller is told
+     * to refresh instead of overwriting the other officer’s work.
+     */
+    async updateCommittee(id, updates, expectedUpdatedAt) {
+      const sb = await client();
+      const payload = committeePayload(updates);
+      if (Object.keys(payload).length === 0) return readCommitteeById(sb, id);
+
+      let query = sb.from('esme_committees').update(payload).eq('id', id);
+      if (expectedUpdatedAt !== undefined) query = query.eq('updated_at', expectedUpdatedAt);
+      const { data, error } = await query.select(COMMITTEE_COLUMNS).maybeSingle();
+      if (error) throw committeeFailureOf(error, 'The committee could not be saved.');
+      if (!data) {
+        const current = await readCommitteeById(sb, id);
+        if (expectedUpdatedAt !== undefined && current.updatedAt !== expectedUpdatedAt) {
+          throw new Error('Another officer saved this committee after you opened it. Refresh to see their version before saving yours.');
+        }
+        throw new Error('That committee no longer exists. Refresh the page.');
+      }
+      return readCommitteeById(sb, id);
+    },
+
+    async archiveCommittee(id) {
+      const sb = await client();
+      const { data, error } = await sb
+        .from('esme_committees')
+        .update({ status: 'archived' })
+        .eq('id', id)
+        .select(COMMITTEE_COLUMNS)
+        .maybeSingle();
+      if (error) throw committeeFailureOf(error, 'The committee could not be archived.');
+      if (!data) throw new Error('That committee no longer exists. Refresh the page.');
+      return readCommitteeById(sb, id);
+    },
+
+    /**
+     * Seats are rows, not a list stored on the committee: adding one person never rewrites
+     * another. The function returns the rows it wrote and the adapter then reads the committee
+     * back, so “accepted” and “stored” are two separate confirmations.
+     */
+    async addCommitteeAssignments({ committeeId, position, profileIds, expectedUpdatedAt }) {
+      const sb = await client();
+      const { error } = await sb.rpc('esme_add_committee_assignments', {
+        p_committee_id: committeeId,
+        p_position: position,
+        p_profile_ids: profileIds,
+        p_expected_updated_at: expectedUpdatedAt ?? null,
+      });
+      if (error) throw committeeFailureOf(error, 'The leadership seats could not be saved.');
+      const committee = await readCommitteeById(sb, committeeId);
+      assignmentComplaint(committee, position, 'present', profileIds);
+      return committee;
+    },
+
+    async removeCommitteeAssignment({ committeeId, position, profileId, expectedUpdatedAt }) {
+      const sb = await client();
+      const { error } = await sb.rpc('esme_remove_committee_assignment', {
+        p_committee_id: committeeId,
+        p_position: position,
+        p_profile_id: profileId,
+        p_expected_updated_at: expectedUpdatedAt ?? null,
+      });
+      if (error) throw committeeFailureOf(error, 'The leadership seat could not be cleared.');
+      const committee = await readCommitteeById(sb, committeeId);
+      assignmentComplaint(committee, position, 'absent', [profileId]);
+      return committee;
     },
 
     /**

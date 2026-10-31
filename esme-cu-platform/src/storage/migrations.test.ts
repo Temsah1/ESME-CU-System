@@ -181,8 +181,13 @@ describe('V2 to V3 committee shape upgrade', () => {
 
     expect(stored[0]).not.toHaveProperty('directorName');
     expect(stored[0]).not.toHaveProperty('headName');
-    expect(stored[0].directorId).toBe('usr_1');
-    expect(stored[0].headId).toBe('usr_2');
+    // The two columns the old row carried are gone; the same two people are now assignments.
+    expect(stored[0]).not.toHaveProperty('directorId');
+    expect(stored[0]).not.toHaveProperty('headId');
+    expect(stored[0].assignments).toEqual([
+      { profileId: 'usr_1', position: 'director', assignedAt: undefined },
+      { profileId: 'usr_2', position: 'head', assignedAt: undefined },
+    ]);
     expect(stored[0].name).toBe('Technical & Engineering Committee');
     expect(stored[0].objectives).toEqual(['Deliver 4 major events']);
     expect(stored[0].subTeams).toEqual(['NDT & Inspection']);
@@ -192,11 +197,26 @@ describe('V2 to V3 committee shape upgrade', () => {
   it('leaves an assignment that points at a missing account alone instead of clearing the seat', () => {
     seedV2([{ id: 'comm_mc', name: 'Media', shortCode: 'M&C', description: 'Editorial.', directorId: 'usr_deleted', objectives: [], subTeams: [], isPublic: true, status: 'active', category: 'media' }]);
     runStorageMigrations();
-    expect(readV2<Record<string, unknown>[]>('committees', [])[0].directorId).toBe('usr_deleted');
+    expect(readV2<Record<string, unknown>[]>('committees', [])[0].assignments).toEqual([
+      { profileId: 'usr_deleted', position: 'director', assignedAt: undefined },
+    ]);
   });
 
   it('leaves the content of a row that is already current untouched', () => {
-    const clean = [{ id: 'comm_te', name: 'T&E', shortCode: 'T&E', description: 'd', objectives: [], subTeams: [], isPublic: true, status: 'active', category: 'technical' }];
+    const clean = [
+      {
+        id: 'comm_te',
+        name: 'T&E',
+        shortCode: 'T&E',
+        description: 'd',
+        assignments: [{ profileId: 'usr_7', position: 'head', assignedAt: '2026-01-04T09:00:00.000Z' }],
+        objectives: [],
+        subTeams: [],
+        isPublic: true,
+        status: 'active',
+        category: 'technical',
+      },
+    ];
     seedV2(clean);
     const report = runStorageMigrations();
     expect(readV2('committees', null)).toEqual(clean);

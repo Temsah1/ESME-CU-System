@@ -79,6 +79,7 @@ function committee(patch: Partial<Committee> & Pick<Committee, 'id'>): Committee
     name: `Committee ${patch.id}`,
     shortCode: 'C',
     description: '',
+    assignments: [],
     objectives: [],
     subTeams: [],
     isPublic: true,

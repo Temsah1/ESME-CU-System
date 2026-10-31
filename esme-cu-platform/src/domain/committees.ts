@@ -1,4 +1,11 @@
-import type { AuditLogItem, Committee, Role, User } from '../types';
+import type {
+  AuditLogItem,
+  Committee,
+  CommitteeAssignment,
+  CommitteePosition,
+  Role,
+  User,
+} from '../types';
 import { ACCOUNT_STATUS_LABELS } from './accountState';
 import { canActOn } from './roles';
 
@@ -6,12 +13,14 @@ import { canActOn } from './roles';
  * Committee structure and leadership rules, kept away from React so the same checks can be
  * mirrored by the Supabase policies in supabase/migrations.
  *
- * The rule that drove this module: leadership is a reference to an account. Names used to be
- * copied onto the committee row, so every reader (the public site included) displayed the
- * name the committee remembered, not the name the account has now.
+ * Leadership is a list of assignments, not two seats. The database table
+ * `esme_leadership_seats` holds one row per (committee, position, profile), so a committee can
+ * have any number of Heads and Directors and one person can hold both roles or lead several
+ * committees. Nothing in this module caps a list: the only refusals are authorization,
+ * eligibility and duplicate-assignment checks.
  */
 
-export type LeadershipPosition = 'director' | 'head';
+export type LeadershipPosition = CommitteePosition;
 
 export const LEADERSHIP_POSITIONS: LeadershipPosition[] = ['director', 'head'];
 
@@ -72,41 +81,70 @@ export function asCommitteeProblem(error: unknown): { code: string; reason: stri
 const accountById = (users: readonly User[], id?: string): User | null =>
   id === undefined || id === '' ? null : users.find((u) => u.id === id) ?? null;
 
-/** Read through the account, never through a stored copy. */
-export function leaderAccount(committee: Committee, position: LeadershipPosition, users: readonly User[]): User | null {
-  return accountById(users, position === 'director' ? committee.directorId : committee.headId);
+export function assignmentsFor(committee: Committee, position: LeadershipPosition): CommitteeAssignment[] {
+  return committee.assignments.filter((assignment) => assignment.position === position);
 }
 
-export function leadershipFor(
+export function assignedProfileIds(committee: Committee, position: LeadershipPosition): string[] {
+  return assignmentsFor(committee, position).map((assignment) => assignment.profileId);
+}
+
+export type ResolvedAssignment = {
+  assignment: CommitteeAssignment;
+  account: User | null;
+};
+
+/** Every assignment in the position, including ids the directory cannot resolve. */
+export function leaderAccounts(
   committee: Committee,
+  position: LeadershipPosition,
   users: readonly User[]
-): Record<LeadershipPosition, User | null> {
-  return {
-    director: leaderAccount(committee, 'director', users),
-    head: leaderAccount(committee, 'head', users),
-  };
+): ResolvedAssignment[] {
+  return assignmentsFor(committee, position).map((assignment) => ({
+    assignment,
+    account: accountById(users, assignment.profileId),
+  }));
 }
 
-export function seatId(committee: Committee, position: LeadershipPosition): string | undefined {
-  return position === 'director' ? committee.directorId : committee.headId;
+/** The first resolvable holder, kept for compact summaries. Full lists use leaderAccounts(). */
+export function leaderAccount(committee: Committee, position: LeadershipPosition, users: readonly User[]): User | null {
+  return leaderAccounts(committee, position, users).find((entry) => entry.account !== null)?.account ?? null;
+}
+
+export function leaderNames(committee: Committee, position: LeadershipPosition, users: readonly User[]): string[] {
+  return leaderAccounts(committee, position, users).map(
+    ({ assignment, account }) => account?.name ?? `Unknown account (${assignment.profileId})`
+  );
 }
 
 /** A dangling id is a data-integrity finding, not an empty seat: report it, never hide it. */
+export function unresolvedAssignments(
+  committee: Committee,
+  users: readonly User[]
+): { position: LeadershipPosition; profileId: string }[] {
+  return LEADERSHIP_POSITIONS.flatMap((position) =>
+    leaderAccounts(committee, position, users)
+      .filter(({ account }) => account === null)
+      .map(({ assignment }) => ({ position, profileId: assignment.profileId }))
+  );
+}
+
 export function unresolvedLeaders(committee: Committee, users: readonly User[]): LeadershipPosition[] {
-  return LEADERSHIP_POSITIONS.filter((position) => {
-    const id = seatId(committee, position);
-    return id !== undefined && id !== '' && accountById(users, id) === null;
-  });
+  return LEADERSHIP_POSITIONS.filter((position) =>
+    leaderAccounts(committee, position, users).some(({ account }) => account === null)
+  );
 }
 
 export function leadershipPostsOf(
   userId: string,
   committees: readonly Committee[]
-): { committee: Committee; position: LeadershipPosition }[] {
-  const posts: { committee: Committee; position: LeadershipPosition }[] = [];
+): { committee: Committee; position: LeadershipPosition; profileId: string }[] {
+  const posts: { committee: Committee; position: LeadershipPosition; profileId: string }[] = [];
   for (const committee of committees) {
-    for (const position of LEADERSHIP_POSITIONS) {
-      if (seatId(committee, position) === userId) posts.push({ committee, position });
+    for (const assignment of committee.assignments) {
+      if (assignment.profileId === userId) {
+        posts.push({ committee, position: assignment.position, profileId: userId });
+      }
     }
   }
   return posts;
@@ -125,21 +163,25 @@ export type AssignmentVerdict =
   | { allowed: false; reason: string; code: string };
 
 /**
- * Who may hold a seat, and what this operation is allowed to touch.
+ * Who may hold an assignment.
  *
  * Deliberately absent: this never reads or writes `User.role`. A leadership assignment is a
  * committee record; an account's role and its capabilities are a separate privileged
  * operation (`users.role.assign`), so appointing a Head cannot smuggle in elevated access.
+ *
+ * Also absent: any maximum. A person may hold both positions in one committee or lead several
+ * committees; the only refusals are the capability check, an inactive account and an exact
+ * duplicate (same committee, same position, same person).
  */
 export function validateLeadershipAssignment(input: {
   committees: readonly Committee[];
   users: readonly User[];
   committeeId: string;
   position: LeadershipPosition;
-  userId: string | null;
+  profileId: string;
   actor: CommitteeActor;
 }): AssignmentVerdict {
-  const { committees, users, committeeId, position, userId, actor } = input;
+  const { committees, users, committeeId, position, profileId, actor } = input;
 
   if (!canActOn(actor, 'committees.write', { committeeId })) {
     return { allowed: false, code: 'forbidden', reason: 'Your role does not allow you to change this committee’s leadership.' };
@@ -148,9 +190,9 @@ export function validateLeadershipAssignment(input: {
   const committee = committees.find((c) => c.id === committeeId);
   if (!committee) return { allowed: false, code: 'no_committee', reason: 'That committee does not exist.' };
 
-  if (userId === null) return { allowed: true };
+  if (!profileId) return { allowed: false, code: 'no_account', reason: 'Choose an account to appoint.' };
 
-  const account = accountById(users, userId);
+  const account = accountById(users, profileId);
   if (!account) {
     return { allowed: false, code: 'no_account', reason: 'That account does not exist, so it cannot be appointed.' };
   }
@@ -162,21 +204,19 @@ export function validateLeadershipAssignment(input: {
     };
   }
 
-  const otherPosition = position === 'director' ? 'head' : 'director';
-  if (seatId(committee, otherPosition) === account.id) {
+  if (assignedProfileIds(committee, position).includes(account.id)) {
     return {
       allowed: false,
-      code: 'double_seat',
-      reason: `${account.name} is already this committee’s ${POSITION_LABELS[otherPosition]}. One person holds one seat.`,
+      code: 'already_assigned',
+      reason: `${account.name} is already ${position === 'director' ? 'a Director' : 'a Head'} of ${committee.name}.`,
     };
   }
 
-  const elsewhere = leadershipPostsOf(account.id, committees).filter((post) => post.committee.id !== committee.id);
-  if (elsewhere.length > 0) {
+  const otherPosition: LeadershipPosition = position === 'director' ? 'head' : 'director';
+  if (assignedProfileIds(committee, otherPosition).includes(account.id)) {
     return {
-      allowed: false,
-      code: 'already_leads',
-      reason: `${account.name} already leads ${elsewhere.map((p) => `${POSITION_LABELS[p.position]} of ${p.committee.name}`).join(', ')}. Appointing them here would leave two committees claiming the same accountable person.`,
+      allowed: true,
+      warning: `${account.name} also holds the ${POSITION_LABELS[otherPosition]} assignment here. The two assignments are independent.`,
     };
   }
 
@@ -190,7 +230,7 @@ export function validateLeadershipAssignment(input: {
   return { allowed: true };
 }
 
-export type CommitteeInput = Omit<Committee, 'id' | 'memberCount' | 'updatedAt'>;
+export type CommitteeInput = Omit<Committee, 'id' | 'memberCount' | 'updatedAt' | 'assignments'>;
 
 export type DraftField = 'name' | 'shortCode' | 'description' | 'category' | 'status' | 'objectives' | 'subTeams';
 
@@ -248,7 +288,7 @@ export function validateCommitteeDraft(
   return issues;
 }
 
-export function normalizeDraft(draft: CommitteeDraft): CommitteeDraft {
+export function normalizeDraft(draft: CommitteeInput): CommitteeInput {
   return {
     ...draft,
     name: draft.name.trim(),
@@ -256,8 +296,6 @@ export function normalizeDraft(draft: CommitteeDraft): CommitteeDraft {
     description: draft.description.trim(),
     objectives: draft.objectives.map((o) => o.trim()).filter(Boolean),
     subTeams: draft.subTeams.map((s) => s.trim()).filter(Boolean),
-    directorId: draft.directorId ? draft.directorId : undefined,
-    headId: draft.headId ? draft.headId : undefined,
   };
 }
 
@@ -265,7 +303,11 @@ export type RosterVerdict =
   | { allowed: true }
   | { allowed: false; reason: string; code: string };
 
-/** Moving a member must not silently orphan the seat they may hold elsewhere. */
+/**
+ * Moving a member. Leadership assignments are independent rows, so a home-committee change
+ * no longer has to be refused because the person holds a seat: the assignment stays attached
+ * to the committee it names. The move still requires users.update reach and an active account.
+ */
 export function validateRosterMove(input: {
   committees: readonly Committee[];
   users: readonly User[];
@@ -289,37 +331,29 @@ export function validateRosterMove(input: {
       reason: `${account.name} is ${ACCOUNT_STATUS_LABELS[account.status].toLowerCase()}. Only an active account is given a committee home.`,
     };
   }
-  const seats = leadershipPostsOf(account.id, committees).filter(
-    (post) => toCommitteeId === null || post.committee.id !== toCommitteeId
-  );
-  if (seats.length > 0) {
-    return {
-      allowed: false,
-      code: 'holds_seat',
-      reason: `${account.name} is ${seats.map((s) => `${POSITION_LABELS[s.position]} of ${s.committee.name}`).join(', ')}. Reassign the seat first, or the committee would keep listing a leader who no longer belongs to it.`,
-    };
-  }
   return { allowed: true };
 }
 
-/** Used when an account is deleted: the seat empties, the person's other records are untouched. */
+/** Used when an account is deleted: every assignment it held empties; other rows are untouched. */
 export function releaseLeadership(committees: readonly Committee[], userId: string): Committee[] {
   return committees.map((committee) => {
-    if (committee.directorId !== userId && committee.headId !== userId) return committee;
-    return {
-      ...committee,
-      directorId: committee.directorId === userId ? undefined : committee.directorId,
-      headId: committee.headId === userId ? undefined : committee.headId,
-    };
+    const assignments = committee.assignments.filter((assignment) => assignment.profileId !== userId);
+    return assignments.length === committee.assignments.length ? committee : { ...committee, assignments };
   });
 }
 
-export function releasedSeats(committees: readonly Committee[], userId: string): { committeeId: string; position: LeadershipPosition }[] {
+export function releasedSeats(
+  committees: readonly Committee[],
+  userId: string
+): { committeeId: string; position: LeadershipPosition; profileId: string }[] {
   return committees.flatMap((committee) =>
-    LEADERSHIP_POSITIONS.filter((position) => seatId(committee, position) === userId).map((position) => ({
-      committeeId: committee.id,
-      position,
-    }))
+    committee.assignments
+      .filter((assignment) => assignment.profileId === userId)
+      .map((assignment) => ({
+        committeeId: committee.id,
+        position: assignment.position,
+        profileId: assignment.profileId,
+      }))
   );
 }
 
@@ -340,16 +374,55 @@ export function leadershipHistory(audit: readonly AuditLogItem[], committeeId: s
   );
 }
 
+const asPosition = (value: unknown): LeadershipPosition | null =>
+  value === 'director' || value === 'head' ? value : null;
+
 /**
  * Reads a stored committee row into the current shape. Cached `directorName` / `headName`
  * values are dropped rather than trusted, and an id that no longer resolves stays in place so
- * `unresolvedLeaders` can report it instead of pretending the seat is empty.
+ * `unresolvedAssignments` can report it instead of pretending the seat is empty.
+ *
+ * Rows cached by an older build carry `directorId` / `headId`; they are converted into
+ * assignments on read so a browser upgrade does not lose an existing holder.
  */
-export function normalizeCommitteeRow(raw: unknown): Committee | null {  if (typeof raw !== 'object' || raw === null) return null;
+export function normalizeCommitteeRow(raw: unknown): Committee | null {
+  if (typeof raw !== 'object' || raw === null) return null;
   const row = raw as Record<string, unknown>;
   if (typeof row.id !== 'string' || row.id.length === 0) return null;
   const asText = (value: unknown, fallback = '') => (typeof value === 'string' ? value : fallback);
   const asList = (value: unknown) => (Array.isArray(value) ? value.map((v) => asText(v)).filter(Boolean) : []);
+
+  const assignments: CommitteeAssignment[] = [];
+  const seen = new Set<string>();
+  const push = (profileId: unknown, position: unknown, assignedAt?: unknown) => {
+    const id = asText(profileId);
+    const seat = asPosition(position);
+    if (!id || !seat) return;
+    const key = `${seat}:${id}`;
+    if (seen.has(key)) return;
+    seen.add(key);
+    assignments.push({
+      profileId: id,
+      position: seat,
+      assignedAt: typeof assignedAt === 'string' && assignedAt.length > 0 ? assignedAt : undefined,
+    });
+  };
+
+  if (Array.isArray(row.assignments)) {
+    for (const entry of row.assignments) {
+      if (typeof entry !== 'object' || entry === null) continue;
+      const assignment = entry as Record<string, unknown>;
+      push(
+        assignment.profileId ?? assignment.profile_id,
+        assignment.position,
+        assignment.assignedAt ?? assignment.assigned_at
+      );
+    }
+  }
+  // Legacy rows from the two-column shape.
+  push(row.directorId, 'director');
+  push(row.headId, 'head');
+
   const status = asText(row.status, 'active');
   const category = asText(row.category, 'technical');
   return {
@@ -357,8 +430,7 @@ export function normalizeCommitteeRow(raw: unknown): Committee | null {  if (typ
     name: asText(row.name),
     shortCode: asText(row.shortCode),
     description: asText(row.description),
-    directorId: asText(row.directorId) || undefined,
-    headId: asText(row.headId) || undefined,
+    assignments,
     memberCount: typeof row.memberCount === 'number' ? row.memberCount : undefined,
     objectives: asList(row.objectives),
     subTeams: asList(row.subTeams),

@@ -12,6 +12,8 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vite
 const PASSWORD = 'Str0ng#Committee1';
 const ADMIN = { fullName: 'Kareem Tamer', email: 'kareem.tamer@example.test', username: 'temsah1' };
 
+type StoredAssignment = { profileId: string; position: string; assignedAt?: string };
+
 type StoredRow = {
   id: string;
   name: string;
@@ -22,8 +24,7 @@ type StoredRow = {
   objectives: string[];
   subTeams: string[];
   isPublic: boolean;
-  directorId?: string;
-  headId?: string;
+  assignments?: StoredAssignment[];
   updatedAt?: string;
 };
 
@@ -45,7 +46,7 @@ const COMMITTEES: StoredRow[] = [
   row({ id: 'comm_mc', name: 'Media & Content Committee', shortCode: 'MC', category: 'media' }),
 ];
 
-const member = (id: string, name: string, email: string) => ({
+const member = (id: string, name: string, email: string, over: Record<string, unknown> = {}) => ({
   id,
   name,
   email,
@@ -56,6 +57,7 @@ const member = (id: string, name: string, email: string) => ({
   approvedTasksCount: 0,
   joinedDate: '2026-01-01',
   lastActive: 'Never signed in',
+  ...over,
 });
 
 let TL: typeof import('@testing-library/react');
@@ -157,15 +159,47 @@ const dialog = () => {
   return TL.within(dialogs[dialogs.length - 1] as HTMLElement);
 };
 
-/** Opens a card's leadership modal and the account picker for the Director seat. */
-async function openDirectorPicker(user: Awaited<ReturnType<typeof openPage>>, index = 0) {
+/** Opens a card's leadership modal. */
+async function openLeadership(user: Awaited<ReturnType<typeof openPage>>, index = 0) {
   await user.click(TL.screen.getAllByRole('button', { name: 'Leadership & history' })[index]);
-  await user.click((await TL.screen.findAllByRole('button', { name: 'Appoint' }))[0]);
-  await dialog().findByLabelText('Search accounts to appoint as Director');
-  return TL.screen.getByRole('dialog');
+  await TL.screen.findByText(/Leadership: /);
 }
 
-const appointButtonIn = (li: Element) => li.querySelector('button') as HTMLButtonElement;
+/** The picker for one position, opened from that position's own block in the modal. */
+async function openPicker(user: Awaited<ReturnType<typeof openPage>>, position: Position) {
+  const block = positionBlock(position);
+  await user.click(TL.within(block).getByRole('button', { name: 'Add' }));
+  await TL.screen.findByLabelText(`Search accounts to appoint as ${position}`);
+}
+
+type Position = 'Director' | 'Head';
+
+const positionBlock = (position: Position) => {
+  const label = TL.screen.getByText(position, { exact: true });
+  const block = label.closest('div.rounded-2xl');
+  if (!block) throw new Error(`No ${position} block is on the screen`);
+  return block as HTMLElement;
+};
+
+/** Ticks each named account and writes them in one operation; the picker closes when it sticks. */
+async function appoint(user: Awaited<ReturnType<typeof openPage>>, position: Position, names: string[]) {
+  for (const name of names) {
+    await user.click(TL.screen.getByLabelText(`Select ${name} as ${position}`));
+  }
+  await user.click(
+    TL.screen.getByRole('button', { name: `Appoint ${names.length} as ${position}${names.length === 1 ? '' : 's'}` }),
+  );
+  await TL.waitFor(() => expect(TL.screen.queryByLabelText(`Search accounts to appoint as ${position}`)).toBeNull());
+}
+
+const seats = (id: string, position: Position) =>
+  (rowOf(id)?.assignments ?? []).filter((entry) => entry.position === position.toLowerCase());
+
+/** The candidate row the picker prints for one account. */
+const candidateRow = (name: string, position: Position) => {
+  const box = TL.screen.getByLabelText(`Select ${name} as ${position}`);
+  return (box.closest('li') ?? box) as HTMLElement;
+};
 
 /**
  * Each case signs in through the local-dev vault, which derives a PBKDF2 hash at 210,000
@@ -225,53 +259,100 @@ describe('committee CMS', { timeout: 20_000 }, () => {
   it('seats a Director chosen from the directory, shows the account behind the seat, and leaves their role alone', async () => {
     const user = await openPage();
 
-    await openDirectorPicker(user);
-    await user.type(dialog().getByLabelText('Search accounts to appoint as Director'), 'nada');
+    await openLeadership(user);
+    await openPicker(user, 'Director');
+    await user.type(TL.screen.getByLabelText('Search accounts to appoint as Director'), 'nada');
 
-    const candidate = await withinDialogText('Nada Yehia');
-    expect(appointButtonIn(candidate).disabled).toBe(false);
-    await user.click(appointButtonIn(candidate));
+    expect((TL.screen.getByLabelText('Select Nada Yehia as Director') as HTMLInputElement).disabled).toBe(false);
+    expect(candidateRow('Nada Yehia', 'Director').textContent).toMatch(/Eligible — appointing adds one row/);
+    await appoint(user, 'Director', ['Nada Yehia']);
 
-    await TL.waitFor(() => expect(rowOf('comm_te')?.directorId).toBe('usr_nada'));
-    expect(await dialog().findByText(/nada@esme.test/)).toBeTruthy();
-    expect(dialog().getByText(/Holds this seat by committee record only\. Their Member access is unchanged\./)).toBeTruthy();
+    await TL.waitFor(() => expect(seats('comm_te', 'Director').map((s) => s.profileId)).toEqual(['usr_nada']));
+    const block = TL.within(positionBlock('Director'));
+    expect(block.getByText('1 assigned')).toBeTruthy();
+    expect(block.getByText('Nada Yehia')).toBeTruthy();
+    expect(block.getByText(/nada@esme\.test/)).toBeTruthy();
+    expect(block.getByText(/Holds this position by committee record only\. Their Member access is unchanged\./)).toBeTruthy();
 
     const body = card('Technical & Engineering Committee');
-    expect(body.getByText('Nada Yehia')).toBeTruthy();
-    expect(body.getByText('Member · Active')).toBeTruthy();
+    expect(body.getByText('1 assigned')).toBeTruthy();
+    expect(body.getByText(/Nada Yehia/)).toBeTruthy();
 
     // The seat must not have promoted the account in the directory either.
     const profiles = JSON.parse(localStorage.getItem(`${V2}userProfiles`) ?? '[]') as { id: string; role: string }[];
     expect(profiles.find((p) => p.id === 'usr_nada')?.role).toBe('member');
   });
 
-  it('blocks a second seat for a person who already leads another committee', async () => {
+  it('refuses the same person twice in one seat, and still lets them lead a second committee', async () => {
+    localStorage.setItem(
+      `${V2}userProfiles`,
+      JSON.stringify([
+        member('usr_nada', 'Nada Yehia', 'nada@esme.test'),
+        member('usr_omar', 'Omar Mohamed', 'omar@esme.test', { committeeId: 'comm_mc' }),
+      ]),
+    );
     localStorage.setItem(
       `${V2}committees`,
-      JSON.stringify([row({}), row({ id: 'comm_mc', name: 'Media & Content Committee', shortCode: 'MC', category: 'media', directorId: 'usr_omar' })])
+      JSON.stringify([
+        row({ assignments: [{ profileId: 'usr_nada', position: 'head', assignedAt: '2026-01-04T09:00:00.000Z' }] }),
+        row({
+          id: 'comm_mc',
+          name: 'Media & Content Committee',
+          shortCode: 'MC',
+          category: 'media',
+          assignments: [{ profileId: 'usr_omar', position: 'director', assignedAt: '2026-01-04T09:00:00.000Z' }],
+        }),
+      ]),
     );
     const user = await openPage();
 
-    await openDirectorPicker(user);
-    await user.type(dialog().getByLabelText('Search accounts to appoint as Director'), 'omar');
+    await openLeadership(user);
+    await openPicker(user, 'Head');
 
-    const candidate = await withinDialogText('Omar Mohamed');
-    expect(candidate.textContent).toMatch(/already leads/);
-    expect(appointButtonIn(candidate).disabled).toBe(true);
-    expect(rowOf('comm_te')?.directorId).toBeUndefined();
+    // The exact duplicate — same committee, same position, same person — is the only refusal here.
+    expect((TL.screen.getByLabelText('Select Nada Yehia as Head') as HTMLInputElement).disabled).toBe(true);
+    expect(candidateRow('Nada Yehia', 'Head').textContent).toMatch(/is already a Head of Technical & Engineering Committee/);
+
+    // Leading another committee is not a reason to refuse anyone.
+    await user.type(TL.screen.getByLabelText('Search accounts to appoint as Head'), 'omar');
+    expect((TL.screen.getByLabelText('Select Omar Mohamed as Head') as HTMLInputElement).disabled).toBe(false);
+    expect(candidateRow('Omar Mohamed', 'Head').textContent).toMatch(/belongs to another committee/);
+
+    await appoint(user, 'Head', ['Omar Mohamed']);
+    await TL.waitFor(() => expect(seats('comm_te', 'Head').map((s) => s.profileId)).toEqual(['usr_nada', 'usr_omar']));
+    // The committee Omar already directs keeps its own row untouched.
+    expect(rowOf('comm_mc')?.assignments).toEqual([{ profileId: 'usr_omar', position: 'director', assignedAt: '2026-01-04T09:00:00.000Z' }]);
   });
 
-  it('clearing a seat leaves the committee unassigned instead of keeping a stale name', async () => {
-    localStorage.setItem(`${V2}committees`, JSON.stringify([row({ headId: 'usr_nada' })]));
+  it('removes one holder without disturbing the others, and clears the seat when the last one goes', async () => {
+    localStorage.setItem(
+      `${V2}committees`,
+      JSON.stringify([
+        row({
+          assignments: [
+            { profileId: 'usr_nada', position: 'head', assignedAt: '2026-01-04T09:00:00.000Z' },
+            { profileId: 'usr_omar', position: 'head', assignedAt: '2026-01-04T09:00:00.000Z' },
+          ],
+        }),
+      ]),
+    );
     const user = await openPage();
-    expect(card('Technical & Engineering Committee').getByText('Nada Yehia')).toBeTruthy();
+    expect(card('Technical & Engineering Committee').getByText('2 assigned')).toBeTruthy();
 
-    await user.click(TL.screen.getByRole('button', { name: 'Leadership & history' }));
-    await dialog().findByText('Nada Yehia');
-    await user.click(dialog().getByRole('button', { name: 'Clear seat' }));
+    await openLeadership(user);
+    await user.click(TL.screen.getByRole('button', { name: 'Remove Omar Mohamed as Head' }));
 
-    await TL.waitFor(() => expect(rowOf('comm_te')?.headId).toBeUndefined());
-    expect(dialog().getAllByText('Vacant — nobody is accountable for this seat.').length).toBeGreaterThan(0);
+    await TL.waitFor(() => expect(seats('comm_te', 'Head').map((s) => s.profileId)).toEqual(['usr_nada']));
+    const block = TL.within(positionBlock('Head'));
+    expect(block.getByText('1 assigned')).toBeTruthy();
+    expect(block.queryByText('Omar Mohamed')).toBeNull();
+    expect(block.getByText('Nada Yehia')).toBeTruthy();
+
+    await user.click(TL.screen.getByRole('button', { name: 'Remove Nada Yehia as Head' }));
+    await TL.waitFor(() => expect(seats('comm_te', 'Head')).toEqual([]));
+    expect(
+      TL.within(positionBlock('Head')).getByText('Nobody holds this position. Add as many accounts as the committee needs.'),
+    ).toBeTruthy();
 
     await user.click(dialog().getByRole('button', { name: 'Close' }));
     expect(card('Technical & Engineering Committee').getAllByText('Unassigned')).toHaveLength(2);
@@ -289,11 +370,10 @@ describe('committee CMS', { timeout: 20_000 }, () => {
     await user.type(form.getByLabelText('Objectives — one per line'), 'Run the open-call cycle');
     await user.click(form.getByRole('button', { name: 'Create committee' }));
 
-    // Creation stops at the row: the leadership panel opens next, and both seats are still vacant.
-    const seats = await findDialog('Leadership: Human Resources Committee');
-    expect(seats.getAllByText('Vacant — nobody is accountable for this seat.')).toHaveLength(2);
-    expect(stored().find((c) => c.shortCode === 'HR')?.directorId).toBeUndefined();
-    expect(stored().find((c) => c.shortCode === 'HR')?.headId).toBeUndefined();
+    // Creation stops at the row: the leadership panel opens next, and both positions are still empty.
+    const seatsModal = await findDialog('Leadership: Human Resources Committee');
+    expect(seatsModal.getAllByText('Nobody holds this position. Add as many accounts as the committee needs.')).toHaveLength(2);
+    expect(stored().find((c) => c.shortCode === 'HR')?.assignments ?? []).toEqual([]);
 
     // A reopening is a fresh form, not the previous attempt left on the screen. The page is
     // remounted rather than waited on because a modal that is animating out stays in the
@@ -314,13 +394,69 @@ describe('committee CMS', { timeout: 20_000 }, () => {
     expect(reopened.getAllByText(/already uses that acronym/).length).toBeGreaterThan(0);
     expect(JSON.stringify(stored())).toBe(before);
   });
-});
 
-/** The candidate row for one account inside the open picker. */
-async function withinDialogText(name: string) {
-  await TL.waitFor(() => {
-    const li = Array.from(document.querySelectorAll('ul.max-h-64 li')).find((el) => el.textContent?.includes(name));
-    if (!li) throw new Error(`No candidate row for ${name}`);
+  it.each([
+    [1, 1],
+    [5, 5],
+    [10, 10],
+    [20, 15],
+  ])('holds %i Directors and %i Heads at once, each written as its own row', async (directorCount, headCount) => {
+    const people = Array.from({ length: directorCount + headCount }, (_, i) =>
+      member(`usr_${i + 1}`, `Chapter Member ${String(i + 1).padStart(3, '0')}`, `member${i + 1}@esme.test`),
+    );
+    localStorage.setItem(`${V2}userProfiles`, JSON.stringify(people));
+    const user = await openPage();
+
+    await openLeadership(user);
+    await openPicker(user, 'Director');
+    await appoint(user, 'Director', people.slice(0, directorCount).map((p) => p.name));
+    await TL.waitFor(() => expect(seats('comm_te', 'Director')).toHaveLength(directorCount));
+
+    await openPicker(user, 'Head');
+    await appoint(user, 'Head', people.slice(directorCount).map((p) => p.name));
+    await TL.waitFor(() => expect(seats('comm_te', 'Head')).toHaveLength(headCount));
+
+    // Nobody overwrote a neighbour: every appointment is still a distinct row of its own.
+    expect(new Set(seats('comm_te', 'Director').map((s) => s.profileId)).size).toBe(directorCount);
+    expect(new Set(seats('comm_te', 'Head').map((s) => s.profileId)).size).toBe(headCount);
+    expect(TL.within(positionBlock('Director')).getByText(`${directorCount} assigned`)).toBeTruthy();
+    expect(TL.within(positionBlock('Head')).getByText(`${headCount} assigned`)).toBeTruthy();
   });
-  return Array.from(document.querySelectorAll('ul.max-h-64 li')).find((el) => el.textContent?.includes(name))!;
-}
+
+  it('takes a 21st Director and a 16th Head without rewriting the rows already seated', async () => {
+    const people = Array.from({ length: 37 }, (_, i) =>
+      member(`usr_${i + 1}`, `Chapter Member ${String(i + 1).padStart(3, '0')}`, `member${i + 1}@esme.test`),
+    );
+    localStorage.setItem(`${V2}userProfiles`, JSON.stringify(people));
+    const user = await openPage();
+
+    await openLeadership(user);
+    await openPicker(user, 'Director');
+    await appoint(user, 'Director', people.slice(0, 20).map((p) => p.name));
+    await openPicker(user, 'Head');
+    await appoint(user, 'Head', people.slice(20, 35).map((p) => p.name));
+
+    const before = rowOf('comm_te')?.assignments ?? [];
+    expect(before).toHaveLength(35);
+
+    await openPicker(user, 'Director');
+    await appoint(user, 'Director', ['Chapter Member 021']);
+    await openPicker(user, 'Head');
+    await appoint(user, 'Head', ['Chapter Member 036']);
+
+    const after = rowOf('comm_te')?.assignments ?? [];
+    expect(after).toHaveLength(37);
+    // The earlier rows stand exactly where they were written.
+    expect(after.slice(0, 35)).toEqual(before);
+    expect(after.filter((s) => s.position === 'director')).toHaveLength(21);
+    expect(after.filter((s) => s.position === 'head')).toHaveLength(16);
+    expect(TL.within(positionBlock('Director')).getByText('21 assigned')).toBeTruthy();
+    expect(TL.within(positionBlock('Head')).getByText('16 assigned')).toBeTruthy();
+
+    // Removing one of the twenty-one leaves the other twenty and all sixteen Heads alone.
+    await user.click(TL.screen.getByRole('button', { name: 'Remove Chapter Member 011 as Director' }));
+    await TL.waitFor(() => expect(seats('comm_te', 'Director')).toHaveLength(20));
+    expect(seats('comm_te', 'Director').some((s) => s.profileId === 'usr_11')).toBe(false);
+    expect(seats('comm_te', 'Head')).toHaveLength(16);
+  });
+});

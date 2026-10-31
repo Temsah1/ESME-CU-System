@@ -68,6 +68,7 @@ const highBoardCommittee: Committee = {
   name: 'High Board',
   shortCode: 'HB',
   description: 'The chapter-wide body its officers sit on. Naming it on an application records where the applicant thinks they belong; it appoints nobody and grants no office, no administrative access and no role.',
+  assignments: [],
   objectives: [
     'Hold the chapter-wide direction the committee objectives serve',
     'Keep the continuity of decisions across seasons'
@@ -99,7 +100,8 @@ export const REFERENCE_COMMITTEES: Committee[] = [
     name: 'Technical & Engineering Committee',
     shortCode: 'T&E',
     description: 'Core engineering backbone responsible for external technical workshops, major summits (ESME Metrix, EMSC, ETC, EISC), internal capability building, and quarterly scientific reviews.',
-    objectives: [
+    assignments: [],
+  objectives: [
       'Deliver 4 major seasonal events: ESME Metrix, EMSC, ETC, and EISC',
       'Execute 10 hands-on workshops across NDT, Materials Testing, Automation/AI, and Sustainability',
       'Conduct 32 professional sessions (cadence: 4 sessions/month)',
@@ -115,7 +117,8 @@ export const REFERENCE_COMMITTEES: Committee[] = [
     name: 'Media & Content Committee',
     shortCode: 'M&C',
     description: 'Orchestrates the chapter editorial engine, publishing weekly technical and soft-skill insights, coordinating video reels, and compiling the quarterly scientific magazine.',
-    objectives: [
+    assignments: [],
+  objectives: [
       'Maintain weekly publishing target of 2 posts (1 technical + 1 general soft skills)',
       'Produce 3 issues of the ESME Scientific Magazine (Dec, Mar, Jun)',
       'Coordinate 24 hours of committee competency training (45m general + 75m specialized)',
@@ -131,7 +134,8 @@ export const REFERENCE_COMMITTEES: Committee[] = [
     name: 'Marketing Committee',
     shortCode: 'MKT',
     description: 'Leads direct offline activations on Cairo University engineering campus, sticker and brand recall campaigns, and data-driven audience engagement.',
-    objectives: [
+    assignments: [],
+  objectives: [
       'Execute 3 high-impact field marketing campaigns with sticker distributions and student engagement',
       'Drive student recruitment and maintain strong brand recall among 18-24 target audience',
       'Coordinate campus booth presence and event logistical promotion',
@@ -147,7 +151,8 @@ export const REFERENCE_COMMITTEES: Committee[] = [
     name: 'Design Committee',
     shortCode: 'DES',
     description: 'Crafts the visual identity across all media, delivering 6 approved templates for magazine layouts, technical slides, conference visuals, and brand guidelines.',
-    objectives: [
+    assignments: [],
+  objectives: [
       'Deliver 6 approved design templates (3 Scientific Magazine + 3 Scientific Slides)',
       'Maintain rigorous brand standards with Navy (#123B60) and Orange (#F59A16) palette',
       'Produce high-impact graphics for post announcements and summit materials',

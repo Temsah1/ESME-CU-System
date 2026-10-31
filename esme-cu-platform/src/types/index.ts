@@ -22,19 +22,31 @@ export interface User {
   lastActive: string;
 }
 
+export type CommitteePosition = 'director' | 'head';
+
+/**
+ * One leadership assignment. A committee stores a list of these, never a single Head or
+ * Director column: the database row is `esme_leadership_seats`, keyed by committee, position
+ * and profile, so the number of holders is limited only by the valid accounts in the directory.
+ */
+export interface CommitteeAssignment {
+  profileId: string;
+  position: CommitteePosition;
+  assignedAt?: string;
+}
+
 export interface Committee {
   id: string;
   name: string;
   shortCode: string;
   description: string;
   /**
-   * Leadership is stored as a reference to the account only. A person's name is read from
-   * that account, never copied onto the committee: an earlier shape cached `directorName`
-   * and `headName`, so renaming or replacing an office-holder left the old name on the
-   * public site and in the dashboard forever.
+   * Leadership is stored as references to accounts only. A person's name is read from that
+   * account, never copied onto the committee: an earlier shape cached `directorName` and
+   * `headName`, so renaming or replacing an office-holder left the old name on the public
+   * site and in the dashboard forever.
    */
-  directorId?: string;
-  headId?: string;
+  assignments: CommitteeAssignment[];
   /** Computed from real memberships; never typed in. Absent until members exist. */
   memberCount?: number;
   objectives: string[];

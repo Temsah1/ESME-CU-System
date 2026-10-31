@@ -108,7 +108,7 @@ import {
   LEADERSHIP_AUDIT_PREFIX,
   POSITION_LABELS,
   isStaleWrite,
-  leaderAccount,
+  leaderAccounts,
   normalizeCommitteeRow,
   normalizeDraft,
   releaseLeadership,
@@ -222,16 +222,31 @@ interface AppContextType {
   removeTestAccounts: () => Promise<TestAccountReport>;
 
   committees: Committee[];
+  /** Reads the committee rows and every leadership assignment back from the database. */
+  refreshCommittees: () => Promise<void>;
+  /** Where the committee list came from, so a screen can say so instead of implying a server. */
+  committeeSource: { from: 'provider' | 'local'; error: string | null };
   /** Every committee write returns the stored row so the caller keeps the current stamp. */
-  addCommittee: (committee: CommitteeInput) => Committee;
-  updateCommittee: (id: string, updates: Partial<Committee>, expected?: { updatedAt?: string }) => Committee;
-  archiveCommittee: (id: string) => void;
-  assignLeader: (input: {
+  addCommittee: (committee: CommitteeInput) => Promise<Committee>;
+  updateCommittee: (id: string, updates: Partial<Committee>, expected?: { updatedAt?: string }) => Promise<Committee>;
+  archiveCommittee: (id: string) => Promise<void>;
+  /**
+   * Appoints any number of people to one position in one write. Each person becomes a row, so
+   * an existing assignment is never rewritten by adding another.
+   */
+  addCommitteeAssignments: (input: {
     committeeId: string;
     position: LeadershipPosition;
-    userId: string | null;
+    profileIds: string[];
     expectedUpdatedAt?: string;
-  }) => Committee;
+  }) => Promise<Committee>;
+  /** Removes one person from one position and leaves every other assignment untouched. */
+  removeCommitteeAssignment: (input: {
+    committeeId: string;
+    position: LeadershipPosition;
+    profileId: string;
+    expectedUpdatedAt?: string;
+  }) => Promise<Committee>;
 
   tasks: Task[];
   addTask: (task: Omit<Task, 'id' | 'createdAt'>) => void;
@@ -475,6 +490,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     accounts: 0,
   });
   const [committees, setCommittees] = useState<Committee[]>(readStoredCommittees);
+  const [committeeSource, setCommitteeSource] = useState<{ from: 'provider' | 'local'; error: string | null }>({
+    from: 'local',
+    error: null,
+  });
   const [tasks, setTasks] = useState<Task[]>(() => readV2('tasks', EMPTY_TASKS));
   const [submissions, setSubmissions] = useState<TaskSubmission[]>(() => readV2('submissions', EMPTY_SUBMISSIONS));
   const [scoreLedger, setScoreLedger] = useState<ScoreLedgerEntry[]>(() => readV2('scoreLedger', EMPTY_LEDGER));
@@ -757,30 +776,33 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       });
     }
 
-    // A Head's assignment is visible to the committee's Director. Nobody is mailed about their
-    // own action, so an actor who holds both seats is skipped.
+    // A Head's assignment is visible to every Director of the committee, however many hold the
+    // position. Nobody is mailed about their own action, so the actor is skipped.
     if (currentUser?.role !== 'head') return;
-    const director = users.find((u) => u.id === committees.find((c) => c.id === task.committeeId)?.directorId);
-    if (!director || director.id === currentUser.id) return;
-    announce({
-      payload: {
-        event: 'task_assigned_to_team',
-        supervisorName: director.name,
-        assigneeName: memberNames,
-        taskTitle: task.title,
-        deadline: task.deadline,
-        leaderName: currentUser.name,
-        taskUrl: recordUrl('task', task.id),
-      },
-      recipientId: director.id,
-      recipientName: director.name,
-      recipientEmail: director.email,
-      ref: `${task.id}:supervisor`,
-      title: 'Task assigned in your committee',
-      message: `${currentUser.name} assigned "${task.title}" to ${memberNames}, due ${task.deadline}.`,
-      type: 'info',
-      link: 'tasks',
-    });
+    const committee = committees.find((c) => c.id === task.committeeId);
+    if (!committee) return;
+    for (const { account: director } of leaderAccounts(committee, 'director', users)) {
+      if (!director || director.id === currentUser.id) continue;
+      announce({
+        payload: {
+          event: 'task_assigned_to_team',
+          supervisorName: director.name,
+          assigneeName: memberNames,
+          taskTitle: task.title,
+          deadline: task.deadline,
+          leaderName: currentUser.name,
+          taskUrl: recordUrl('task', task.id),
+        },
+        recipientId: director.id,
+        recipientName: director.name,
+        recipientEmail: director.email,
+        ref: `${task.id}:supervisor:${director.id}`,
+        title: 'Task assigned in your committee',
+        message: `${currentUser.name} assigned "${task.title}" to ${memberNames}, due ${task.deadline}.`,
+        type: 'info',
+        link: 'tasks',
+      });
+    }
   };
 
   // One sign-in alert per account per device per window. Reloading an existing session is not a
@@ -1140,107 +1162,173 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const staleMessage = (name: string) =>
     `${name} was changed elsewhere while this form was open, so this write was refused rather than applied over it. Reload the row and make the change again.`;
 
-  const addCommittee: AppContextType['addCommittee'] = (committeeInput) => {
-    const actor = committeeActor();
+  const rememberCommittee = (stored: Committee) =>
+    setCommittees((prev) =>
+      [...prev.filter((c) => c.id !== stored.id), stored].sort((a, b) => a.name.localeCompare(b.name))
+    );
+
+  const addCommittee: AppContextType['addCommittee'] = async (committeeInput) => {
+    committeeActor();
     guard('committees.write');
     const draft = normalizeDraft(committeeInput);
     const issues = validateCommitteeDraft(draft, committees);
     if (issues.length > 0) throw new CommitteeValidationProblem(issues);
 
-    const newCommittee: Committee = {
-      ...draft,
-      id: `comm_${Date.now()}`,
-      directorId: draft.directorId || undefined,
-      headId: draft.headId || undefined,
-      updatedAt: stamp(),
-    };
-
-    // Appointments are validated against the list that will contain the new row, so a
-    // creation cannot smuggle in a leader who already holds a seat somewhere else.
-    const prospective = [...committees, newCommittee];
-    for (const position of ['director', 'head'] as const) {
-      const userId = position === 'director' ? newCommittee.directorId : newCommittee.headId;
-      if (!userId) continue;
-      const verdict = validateLeadershipAssignment({ committees: prospective, users, committeeId: newCommittee.id, position, userId, actor });
-      if (!verdict.allowed) throw new CommitteeOperationProblem(verdict.code, verdict.reason);
+    let stored: Committee;
+    if (auth.adapter?.createCommittee) {
+      stored = await auth.adapter.createCommittee(draft);
+      setCommitteeSource({ from: 'provider', error: null });
+    } else {
+      stored = { ...draft, id: `comm_${Date.now()}`, assignments: [], updatedAt: stamp() };
     }
 
-    setCommittees((prev) => [...prev, newCommittee]);
-    const seated = (['director', 'head'] as const)
-      .map((position) => {
-        const account = leaderAccount(newCommittee, position, users);
-        return account ? `${POSITION_LABELS[position]} ${account.name}` : null;
-      })
-      .filter(Boolean);
+    rememberCommittee(stored);
     logAction(
       'Created Committee',
       'committee',
-      newCommittee.id,
-      `${newCommittee.name} (${newCommittee.shortCode}) created${seated.length ? ` with ${seated.join(' and ')}` : ', no leadership seat filled'}`
+      stored.id,
+      `${stored.name} (${stored.shortCode}) created with no leadership assignment; each office-holder is appointed separately`
     );
-    return newCommittee;
+    return stored;
   };
 
   /**
-   * Field content only. The two seats are deliberately not accepted here: leadership moves
-   * through `assignLeader`, which runs the eligibility rules and writes its own audit line, so
-   * a routine text edit can never overwrite a seat as a side effect.
+   * Field content only. Leadership rows are deliberately not accepted here: a routine text
+   * edit can never overwrite an appointment as a side effect, and each assignment is written
+   * through its own add/remove operation.
    */
-  const updateCommittee: AppContextType['updateCommittee'] = (id, updates, expected) => {
+  const updateCommittee: AppContextType['updateCommittee'] = async (id, updates, expected) => {
     const current = committees.find((c) => c.id === id);
     if (!current) throw new CommitteeOperationProblem('no_committee', 'That committee does not exist.');
     guard('committees.write', { committeeId: id });
     if (isStaleWrite(current, expected?.updatedAt)) throw new CommitteeOperationProblem('stale', staleMessage(current.name));
 
-    const { directorId: _directorId, headId: _headId, memberCount: _memberCount, updatedAt: _updatedAt, id: _id, ...rest } = updates;
+    const { assignments: _assignments, memberCount: _memberCount, updatedAt: _updatedAt, id: _id, ...rest } = updates;
     const draft = normalizeDraft({ ...current, ...rest });
     const issues = validateCommitteeDraft(draft, committees, id);
     if (issues.length > 0) throw new CommitteeValidationProblem(issues);
 
-    const next: Committee = { ...draft, id: current.id, memberCount: current.memberCount, directorId: current.directorId, headId: current.headId, updatedAt: stamp() };
-    const changed = Object.keys(rest).filter((key) => JSON.stringify(current[key as keyof Committee]) !== JSON.stringify(next[key as keyof Committee]));
+    let stored: Committee;
+    if (auth.adapter?.updateCommittee) {
+      stored = await auth.adapter.updateCommittee(id, rest, expected?.updatedAt);
+      setCommitteeSource({ from: 'provider', error: null });
+    } else {
+      stored = { ...draft, id: current.id, memberCount: current.memberCount, assignments: current.assignments, updatedAt: stamp() };
+    }
 
-    setCommittees((prev) => prev.map((c) => (c.id === id ? next : c)));
-    logAction('Updated Committee', 'committee', id, `${next.name}: ${changed.length ? `changed ${changed.join(', ')}` : 'saved with no field change'}`);
-    return next;
+    const changed = Object.keys(rest).filter(
+      (key) => JSON.stringify(current[key as keyof Committee]) !== JSON.stringify(stored[key as keyof Committee])
+    );
+    rememberCommittee(stored);
+    logAction(
+      'Updated Committee',
+      'committee',
+      id,
+      `${stored.name}: ${changed.length ? `changed ${changed.join(', ')}` : 'saved with no field change'}`
+    );
+    return stored;
   };
 
-  const archiveCommittee: AppContextType['archiveCommittee'] = (id) => {
+  const archiveCommittee: AppContextType['archiveCommittee'] = async (id) => {
     const current = committees.find((c) => c.id === id);
     if (!current) throw new CommitteeOperationProblem('no_committee', 'That committee does not exist.');
     guard('committees.archive', { committeeId: id });
-    const next: Committee = { ...current, status: 'archived', updatedAt: stamp() };
-    setCommittees((prev) => prev.map((c) => (c.id === id ? next : c)));
-    // The seat is kept: an archived committee is history, and history names its office-holders.
+    let stored: Committee;
+    if (auth.adapter?.archiveCommittee) {
+      stored = await auth.adapter.archiveCommittee(id);
+      setCommitteeSource({ from: 'provider', error: null });
+    } else {
+      stored = { ...current, status: 'archived', updatedAt: stamp() };
+    }
+    rememberCommittee(stored);
+    // Assignments are kept: an archived committee is history, and history names its officers.
     logAction('Archived Committee', 'committee', id, `${current.name} archived; its records and assignments are retained`);
   };
 
-  const assignLeader: AppContextType['assignLeader'] = ({ committeeId, position, userId, expectedUpdatedAt }) => {
+  /**
+   * Every chosen account becomes its own row. The loop validates the whole batch before any
+   * write, and the database function re-checks the same rules under a committee lock — so a
+   * request that skips this screen cannot slip a duplicate or an inactive account in.
+   */
+  const addCommitteeAssignments: AppContextType['addCommitteeAssignments'] = async ({
+    committeeId,
+    position,
+    profileIds,
+    expectedUpdatedAt,
+  }) => {
     const actor = committeeActor();
     const current = committees.find((c) => c.id === committeeId);
     if (!current) throw new CommitteeOperationProblem('no_committee', 'That committee does not exist.');
     if (isStaleWrite(current, expectedUpdatedAt)) throw new CommitteeOperationProblem('stale', staleMessage(current.name));
 
-    const verdict = validateLeadershipAssignment({ committees, users, committeeId, position, userId, actor });
-    if (!verdict.allowed) throw new CommitteeOperationProblem(verdict.code, verdict.reason);
+    const unique = [...new Set(profileIds.filter(Boolean))];
+    if (unique.length === 0) throw new CommitteeOperationProblem('empty', 'Choose at least one account to appoint.');
 
-    const account = userId ? users.find((u) => u.id === userId) ?? null : null;
-    const previous = leaderAccount(current, position, users);
-    const next: Committee = {
-      ...current,
-      directorId: position === 'director' ? userId ?? undefined : current.directorId,
-      headId: position === 'head' ? userId ?? undefined : current.headId,
-      updatedAt: stamp(),
-    };
+    for (const profileId of unique) {
+      const verdict = validateLeadershipAssignment({ committees, users, committeeId, position, profileId, actor });
+      if (!verdict.allowed) throw new CommitteeOperationProblem(verdict.code, verdict.reason);
+    }
 
-    setCommittees((prev) => prev.map((c) => (c.id === committeeId ? next : c)));
+    let stored: Committee;
+    if (auth.adapter?.addCommitteeAssignments) {
+      stored = await auth.adapter.addCommitteeAssignments({ committeeId, position, profileIds: unique, expectedUpdatedAt });
+      setCommitteeSource({ from: 'provider', error: null });
+    } else {
+      const assignedAt = stamp();
+      stored = {
+        ...current,
+        assignments: [...current.assignments, ...unique.map((profileId) => ({ profileId, position, assignedAt }))],
+        updatedAt: assignedAt,
+      };
+    }
+
+    rememberCommittee(stored);
+    const names = unique.map((id) => users.find((u) => u.id === id)?.name ?? id).join(', ');
     logAction(
-      `${LEADERSHIP_AUDIT_PREFIX} ${userId ? 'Assigned' : 'Cleared'}`,
+      `${LEADERSHIP_AUDIT_PREFIX} Assigned`,
       'committee',
       committeeId,
-      `${POSITION_LABELS[position]} of ${current.name}: ${previous?.name ?? 'unassigned'} → ${account?.name ?? 'unassigned'}${verdict.warning ? ` — ${verdict.warning}` : ''}`
+      `${POSITION_LABELS[position]} of ${current.name}: appointed ${names} (${stored.assignments.filter((a) => a.position === position).length} now hold the position)`
     );
-    return next;
+    return stored;
+  };
+
+  /** One row goes; the other people in the same position stay exactly where they were. */
+  const removeCommitteeAssignment: AppContextType['removeCommitteeAssignment'] = async ({
+    committeeId,
+    position,
+    profileId,
+    expectedUpdatedAt,
+  }) => {
+    const current = committees.find((c) => c.id === committeeId);
+    if (!current) throw new CommitteeOperationProblem('no_committee', 'That committee does not exist.');
+    guard('committees.write', { committeeId });
+    if (isStaleWrite(current, expectedUpdatedAt)) throw new CommitteeOperationProblem('stale', staleMessage(current.name));
+    if (!current.assignments.some((a) => a.position === position && a.profileId === profileId)) {
+      throw new CommitteeOperationProblem('not_found', 'That assignment is no longer on this committee. Refresh before trying again.');
+    }
+
+    let stored: Committee;
+    if (auth.adapter?.removeCommitteeAssignment) {
+      stored = await auth.adapter.removeCommitteeAssignment({ committeeId, position, profileId, expectedUpdatedAt });
+      setCommitteeSource({ from: 'provider', error: null });
+    } else {
+      stored = {
+        ...current,
+        assignments: current.assignments.filter((a) => !(a.position === position && a.profileId === profileId)),
+        updatedAt: stamp(),
+      };
+    }
+
+    rememberCommittee(stored);
+    const name = users.find((u) => u.id === profileId)?.name ?? profileId;
+    logAction(
+      `${LEADERSHIP_AUDIT_PREFIX} Removed`,
+      'committee',
+      committeeId,
+      `${POSITION_LABELS[position]} of ${current.name}: removed ${name} (${stored.assignments.filter((a) => a.position === position).length} remain)`
+    );
+    return stored;
   };
 
   const addTask: AppContextType['addTask'] = (taskData) => {
@@ -1930,6 +2018,32 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
    * appear here, so a Head or Director is chosen from accounts that exist rather than typed
    * in or created a second time to make a dropdown look populated.
    */
+  /**
+   * The committee page is rendered from these rows after every load. A failed read leaves the
+   * cached list in place and names the failure, because an outage is not evidence that the
+   * chapter has no committees.
+   */
+  const refreshCommittees = useCallback(async () => {
+    if (!auth.adapter?.listCommittees || !identity) {
+      setCommitteeSource({ from: 'local', error: null });
+      return;
+    }
+    try {
+      const rows = await auth.adapter.listCommittees();
+      setCommittees(rows);
+      setCommitteeSource({ from: 'provider', error: null });
+    } catch (error) {
+      setCommitteeSource({
+        from: 'local',
+        error: error instanceof Error ? error.message : 'The committee list could not be loaded.',
+      });
+    }
+  }, [auth.adapter, identity]);
+
+  useEffect(() => {
+    void refreshCommittees();
+  }, [refreshCommittees]);
+
   const refreshDirectory = useCallback(async () => {
     if (!auth.adapter || !identity) return;
     if (!hasCapability(identity.role, 'users.read')) {
@@ -2847,10 +2961,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     seedTestAccounts,
     removeTestAccounts,
     committees,
+    refreshCommittees,
+    committeeSource,
     addCommittee,
     updateCommittee,
     archiveCommittee,
-    assignLeader,
+    addCommitteeAssignments,
+    removeCommitteeAssignment,
     tasks,
     addTask,
     updateTask,

@@ -10,9 +10,9 @@ import {
   LEADERSHIP_POSITIONS,
   POSITION_LABELS,
   asCommitteeProblem,
-  leaderAccount,
+  leaderAccounts,
   rosterOf,
-  unresolvedLeaders,
+  unresolvedAssignments,
   type DraftIssue,
   type LeadershipPosition,
 } from '../../domain/committees';
@@ -45,10 +45,13 @@ export const CommitteeManagement: React.FC = () => {
     refreshDirectory,
     auditLogs,
     can,
+    committeeSource,
+    refreshCommittees,
     addCommittee,
     updateCommittee,
     archiveCommittee,
-    assignLeader,
+    addCommitteeAssignments,
+    removeCommitteeAssignment,
     updateUser,
   } = useApp();
   const currentUser = useActor();
@@ -60,6 +63,7 @@ export const CommitteeManagement: React.FC = () => {
   // Captured when the form opens: the write carries it, so a row changed in another tab or
   // by another officer is refused instead of silently overwritten.
   const [expectedUpdatedAt, setExpectedUpdatedAt] = useState<string | undefined>(undefined);
+  const [saving, setSaving] = useState(false);
 
   const actor = { role: currentUser.role, id: currentUser.id, committeeId: currentUser.committeeId };
 
@@ -91,51 +95,87 @@ export const CommitteeManagement: React.FC = () => {
   };
 
   /** Runs a write, and reports what the rules said when it was refused. */
-  const runWrite = (label: string, operation: () => void) => {
+  const runWrite = async <T,>(label: string, operation: () => Promise<T>): Promise<T | undefined> => {
     try {
-      operation();
+      const result = await operation();
       setIssues([]);
       toast(label, 'success');
+      return result;
     } catch (error) {
       const problem = asCommitteeProblem(error);
       if (problem.issues) setIssues(problem.issues);
       toast(problem.reason, 'error');
+      return undefined;
     }
   };
 
-  const handleCreate = (values: FormValues) => {
-    let created: Committee | undefined;
-    runWrite(`Committee “${values.name.trim()}” created`, () => {
-      created = addCommittee(toDraft(values));
-    });
-    if (created) {
-      // Appointments need a stored row to attach to, so the seat step opens on it directly.
-      openModal({ kind: 'leadership', id: created.id });
-      toast('Committee created. Now seat its leadership.', 'info');
+  const handleCreate = async (values: FormValues) => {
+    setSaving(true);
+    try {
+      const created = await runWrite(`Committee “${values.name.trim()}” created`, () => addCommittee(toDraft(values)));
+      if (created) {
+        openModal({ kind: 'leadership', id: created.id });
+        toast('Committee created. Now appoint its leadership — any number of people may hold each position.', 'info');
+      }
+    } finally {
+      setSaving(false);
     }
   };
 
-  const handleUpdate = (id: string, values: FormValues) => {
-    const draft = toDraft(values);
-    runWrite('Committee updated', () => {
-      updateCommittee(id, draft, { updatedAt: expectedUpdatedAt });
-      setModal(null);
-    });
+  const handleUpdate = async (id: string, values: FormValues) => {
+    setSaving(true);
+    try {
+      const updated = await runWrite('Committee updated', () =>
+        updateCommittee(id, toDraft(values), { updatedAt: expectedUpdatedAt })
+      );
+      if (updated) setModal(null);
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const handleAssign = (committee: Committee, position: LeadershipPosition, userId: string | null) => {
-    const name = userId ? users.find((u) => u.id === userId)?.name ?? 'that account' : 'nobody';
-    runWrite(userId ? `${POSITION_LABELS[position]} ${name} appointed` : `${POSITION_LABELS[position]} seat cleared`, () =>
-      assignLeader({ committeeId: committee.id, position, userId, expectedUpdatedAt: committee.updatedAt })
+  const handleAddAssignments = async (committee: Committee, position: LeadershipPosition, profileIds: string[]) => {
+    const names = profileIds.map((id) => users.find((u) => u.id === id)?.name ?? 'that account').join(', ');
+    await runWrite(
+      `${profileIds.length} ${POSITION_LABELS[position]}${profileIds.length === 1 ? '' : 's'} appointed: ${names}`,
+      () =>
+        addCommitteeAssignments({
+          committeeId: committee.id,
+          position,
+          profileIds,
+          expectedUpdatedAt: committee.updatedAt,
+        })
     );
   };
 
-  const handleMove = (userId: string, toCommitteeId: string | null) => {
+  const handleRemoveAssignment = async (committee: Committee, position: LeadershipPosition, profileId: string) => {
+    const name = users.find((u) => u.id === profileId)?.name ?? 'that account';
+    await runWrite(`${POSITION_LABELS[position]} ${name} removed`, () =>
+      removeCommitteeAssignment({
+        committeeId: committee.id,
+        position,
+        profileId,
+        expectedUpdatedAt: committee.updatedAt,
+      })
+    );
+  };
+
+  const handleMove = async (userId: string, toCommitteeId: string | null) => {
     const member = users.find((u) => u.id === userId);
-    runWrite(member ? `${member.name} ${toCommitteeId ? 'moved' : 'released from the roster'}` : 'Roster updated', () =>
+    await runWrite(member ? `${member.name} ${toCommitteeId ? 'moved' : 'released from the roster'}` : 'Roster updated', async () =>
       updateUser(userId, { committeeId: toCommitteeId ?? '' })
     );
   };
+
+  /** One line naming every position and its holders, so an edit form can say where leadership lives. */
+  const leadershipSummary = (committee: Committee) =>
+    LEADERSHIP_POSITIONS.map((position) => {
+      const entries = leaderAccounts(committee, position, users);
+      const names = entries
+        .map(({ assignment, account }) => account?.name ?? `unresolved ${assignment.profileId.slice(0, 8)}…`)
+        .join(', ');
+      return `${POSITION_LABELS[position]}: ${entries.length} assigned${names.length > 0 ? ` (${names})` : ''}`;
+    }).join(' • ');
 
   const editing = modal && 'id' in modal ? committees.find((c) => c.id === modal.id) : undefined;
   const mayCreate = can('committees.write');
@@ -155,7 +195,15 @@ export const CommitteeManagement: React.FC = () => {
             .
           </p>
           <p className="text-[11px] text-slate-400 mt-0.5">
-            {directoryNote}{' '}
+            {committeeSource.error !== null
+              ? `The committee list could not be read: ${committeeSource.error}`
+              : committeeSource.from === 'provider'
+                ? `${committees.length} committee(s) and their leadership assignments read from the configured provider.`
+                : `${committees.length} committee(s) cached in this browser; the provider committee list has not answered.`}{' '}
+            <button onClick={() => void refreshCommittees()} className="inline-flex items-center gap-1 underline decoration-dotted">
+              <RefreshCw className="w-3 h-3" />
+              Refresh committees
+            </button>{' '}
             <button onClick={() => void refreshDirectory()} className="inline-flex items-center gap-1 underline decoration-dotted">
               <RefreshCw className="w-3 h-3" />
               Refresh directory
@@ -213,7 +261,11 @@ export const CommitteeManagement: React.FC = () => {
             const members = rosterOf(comm.id, users);
             const activeMembers = members.filter((m) => m.status === 'active');
             const waitingMembers = members.filter((m) => m.status !== 'active');
-            const dangling = unresolvedLeaders(comm, users);
+            const holders = LEADERSHIP_POSITIONS.map((position) => ({
+              position,
+              entries: leaderAccounts(comm, position, users),
+            }));
+            const dangling = unresolvedAssignments(comm, users);
             return (
               <div
                 key={comm.id}
@@ -239,7 +291,7 @@ export const CommitteeManagement: React.FC = () => {
                       {mayEditThis && (
                         <button
                           onClick={() =>
-                            runWrite(
+                            void runWrite(
                               comm.isPublic ? `${comm.shortCode} hidden from the public site` : `${comm.shortCode} shown on the public site`,
                               () => updateCommittee(comm.id, { isPublic: !comm.isPublic }, { updatedAt: comm.updatedAt })
                             )
@@ -263,7 +315,7 @@ export const CommitteeManagement: React.FC = () => {
                       )}
                       {mayArchiveThis && comm.status === 'active' && (
                         <button
-                          onClick={() => runWrite(`${comm.shortCode} archived`, () => archiveCommittee(comm.id))}
+                          onClick={() => void runWrite(`${comm.shortCode} archived`, () => archiveCommittee(comm.id))}
                           className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40"
                           aria-label={`Archive ${comm.name}`}
                           title="Archive — records and seats are retained"
@@ -277,23 +329,36 @@ export const CommitteeManagement: React.FC = () => {
                   <h2 className="text-base font-bold text-slate-900 dark:text-white mb-2">{comm.name}</h2>
                   <p className="text-xs text-slate-600 dark:text-slate-400 mb-4 leading-relaxed">{comm.description}</p>
 
-                  <div className="p-3 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-100 dark:border-slate-800 text-xs mb-3 space-y-1.5">
-                    {LEADERSHIP_POSITIONS.map((position) => {
-                      const holder = leaderAccount(comm, position, users);
-                      return (
-                        <div key={position} className="flex justify-between gap-2">
+                  <div className="p-3 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-100 dark:border-slate-800 text-xs mb-3 space-y-2">
+                    {holders.map(({ position, entries }) => (
+                      <div key={position}>
+                        <div className="flex justify-between gap-2">
                           <span className="text-slate-400">{POSITION_LABELS[position]}:</span>
                           <strong className="text-slate-800 dark:text-slate-200 text-right">
-                            {holder ? holder.name : 'Unassigned'}
-                            {holder && (
-                              <span className="block text-[10px] font-semibold text-slate-400">
-                                {ROLE_LABELS[holder.role]} · {ACCOUNT_STATUS_LABELS[holder.status]}
-                              </span>
-                            )}
+                            {entries.length === 0 ? 'Unassigned' : `${entries.length} assigned`}
                           </strong>
                         </div>
-                      );
-                    })}
+                        {entries.length > 0 && (
+                          <ul className="mt-1 space-y-0.5">
+                            {entries.map(({ assignment, account }) => (
+                              <li key={assignment.profileId} className="text-[10px] font-semibold text-slate-500 text-right truncate">
+                                {account ? (
+                                  <>
+                                    {account.name}
+                                    <span className="text-slate-400">
+                                      {' '}
+                                      · {ROLE_LABELS[account.role]} · {ACCOUNT_STATUS_LABELS[account.status]}
+                                    </span>
+                                  </>
+                                ) : (
+                                  <span className="text-amber-600">Unknown account {assignment.profileId.slice(0, 8)}…</span>
+                                )}
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                      </div>
+                    ))}
                     <div className="flex justify-between gap-2">
                       <span className="text-slate-400">Members:</span>
                       <strong className="text-[#F59A16] text-right">
@@ -308,8 +373,8 @@ export const CommitteeManagement: React.FC = () => {
                   {dangling.length > 0 && (
                     <p className="mb-3 flex items-start gap-1.5 text-[11px] text-amber-600">
                       <X className="w-3.5 h-3.5 mt-0.5 shrink-0" />
-                      {dangling.map((p) => POSITION_LABELS[p]).join(' and ')} {dangling.length === 1 ? 'holds' : 'hold'} an account id
-                      that is not in the directory. Open leadership to correct it.
+                      {dangling.length} assignment{dangling.length === 1 ? '' : 's'} point at an account id that is not in the directory.
+                      Open leadership to correct {dangling.length === 1 ? 'it' : 'them'}.
                     </p>
                   )}
 
@@ -385,7 +450,8 @@ export const CommitteeManagement: React.FC = () => {
           initial={toFormValues()}
           issues={issues}
           submitLabel="Create committee"
-          seatsSummary="A committee is created with both seats vacant, and the leadership panel opens straight after so each office-holder is chosen from a real account."
+          seatsSummary="A committee is created with no leadership assignments. The leadership panel opens straight after, and any number of accounts may be appointed to each position."
+          busy={saving}
           onSubmit={handleCreate}
           onCancel={() => setModal(null)}
         />
@@ -404,9 +470,8 @@ export const CommitteeManagement: React.FC = () => {
               initial={toFormValues(editing)}
               issues={issues}
               submitLabel="Save changes"
-              seatsSummary={`Leadership is not edited here — Director: ${
-                leaderAccount(editing, 'director', users)?.name ?? 'unassigned'
-              }, Head: ${leaderAccount(editing, 'head', users)?.name ?? 'unassigned'}.`}
+              seatsSummary={`Leadership is not edited here — ${leadershipSummary(editing)}.`}
+              busy={saving}
               onSubmit={(values) => handleUpdate(editing.id, values)}
               onCancel={() => setModal(null)}
             />
@@ -430,7 +495,8 @@ export const CommitteeManagement: React.FC = () => {
               actor={actor}
               directoryNote={directoryNote}
               mayWrite={can('committees.write', { committeeId: editing.id })}
-              onAssign={(position, userId) => handleAssign(editing, position, userId)}
+              onAdd={(position, profileIds) => handleAddAssignments(editing, position, profileIds)}
+              onRemove={(position, profileId) => handleRemoveAssignment(editing, position, profileId)}
             />
           </>
         )}

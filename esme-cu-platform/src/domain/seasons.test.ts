@@ -115,7 +115,7 @@ function task(patch: Partial<Task> & Pick<Task, 'id'>): Task {
 }
 
 function committee(patch: Partial<Committee> & Pick<Committee, 'id' | 'name'>): Committee {
-  return { shortCode: patch.name.slice(0, 3).toUpperCase(), description: '', objectives: [], subTeams: [], isPublic: true, status: 'active', category: 'technical', ...patch };
+  return { shortCode: patch.name.slice(0, 3).toUpperCase(), description: '', assignments: [], objectives: [], subTeams: [], isPublic: true, status: 'active', category: 'technical', ...patch };
 }
 
 function member(patch: Partial<User> & Pick<User, 'id'>): User {

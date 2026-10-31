@@ -6,6 +6,7 @@ import {
   POSITION_LABELS,
   isStaleWrite,
   leaderAccount,
+  leaderAccounts,
   leadershipHistory,
   leadershipPostsOf,
   normalizeCommitteeRow,
@@ -13,7 +14,7 @@ import {
   releaseLeadership,
   releasedSeats,
   rosterOf,
-  unresolvedLeaders,
+  unresolvedAssignments,
   validateCommitteeDraft,
   validateLeadershipAssignment,
   validateRosterMove,
@@ -54,6 +55,7 @@ function committee(patch: Partial<Committee> & Pick<Committee, 'id'>): Committee
     name: `Committee ${patch.id}`,
     shortCode: `C${patch.id.slice(-1)}`.toUpperCase(),
     description: 'Mandate.',
+    assignments: [],
     objectives: ['One objective'],
     subTeams: ['One sub-team'],
     isPublic: true,
@@ -72,7 +74,15 @@ const USERS: User[] = [
   user({ id: 'u_other_lead', name: 'Ola Leads', committeeId: 'comm_mc' }),
 ];
 
-const TE = committee({ id: 'comm_te', name: 'Technical & Engineering', shortCode: 'T&E', directorId: 'u_dir', headId: 'u_head' });
+const TE = committee({
+  id: 'comm_te',
+  name: 'Technical & Engineering',
+  shortCode: 'T&E',
+  assignments: [
+    { profileId: 'u_dir', position: 'director' },
+    { profileId: 'u_head', position: 'head' },
+  ],
+});
 const MC = committee({ id: 'comm_mc', name: 'Media & Content', shortCode: 'M&C' });
 const COMMITTEES: Committee[] = [TE, MC];
 
@@ -134,18 +144,46 @@ describe('committee draft validation', () => {
 
 describe('leadership assignment', () => {
   it('appoints an active account and says so in both directions', () => {
-    expect(assign({ committeeId: 'comm_te', position: 'head', userId: 'u_member', actor: SUPER })).toEqual({ allowed: true });
+    expect(assign({ committeeId: 'comm_te', position: 'head', profileId: 'u_member', actor: SUPER })).toEqual({ allowed: true });
   });
 
-  it('replacing a seat names the person who loses it, never a cached string', () => {
-    const before = leaderAccount(TE, 'head', USERS);
-    expect(before?.name).toBe('Hassan Head');
-    const replaced = committee({ ...TE, headId: 'u_member' });
+  it('supports any number of holders and never treats a second appointment as a replacement', () => {
+    const many = (count: number, prefix: string) =>
+      Array.from({ length: count }, (_, index) => user({ id: `${prefix}-${index}`, name: `${prefix} ${index}` }));
+    const people = [...USERS, ...many(25, 'u_head'), ...many(20, 'u_dir')];
+    const large = committee({
+      id: 'comm_large',
+      name: 'Large Committee',
+      shortCode: 'LGE',
+      assignments: [
+        ...people.slice(6, 31).map((account) => ({ profileId: account.id, position: 'head' as const })),
+        ...people.slice(31, 51).map((account) => ({ profileId: account.id, position: 'director' as const })),
+      ],
+    });
+    const committees = [...COMMITTEES, large];
+    expect(leaderAccounts(large, 'head', people)).toHaveLength(25);
+    expect(leaderAccounts(large, 'director', people)).toHaveLength(20);
+    const nextHead = user({ id: 'u_head_25', name: 'Next Head' });
+    expect(
+      validateLeadershipAssignment({
+        committees,
+        users: [...people, nextHead],
+        committeeId: 'comm_large',
+        position: 'head',
+        profileId: 'u_head_25',
+        actor: SUPER,
+      }).allowed
+    ).toBe(true);
+  });
+
+  it('reads holder details from the account, never a cached string', () => {
+    expect(leaderAccount(TE, 'head', USERS)?.name).toBe('Hassan Head');
+    const replaced = committee({ ...TE, assignments: [{ profileId: 'u_member', position: 'head' }] });
     expect(leaderAccount(replaced, 'head', USERS)?.name).toBe('Mona Member');
   });
 
   it('refuses an account that does not exist', () => {
-    expect(assign({ committeeId: 'comm_te', position: 'head', userId: 'usr_ghost', actor: SUPER })).toMatchObject({
+    expect(assign({ committeeId: 'comm_te', position: 'head', profileId: 'usr_ghost', actor: SUPER })).toMatchObject({
       allowed: false,
       code: 'no_account',
     });
@@ -154,66 +192,64 @@ describe('leadership assignment', () => {
   it.each([
     ['u_pending', 'pending placement'],
     ['u_suspended', 'suspended'],
-  ])('refuses the ineligible account %s (%s)', (userId, label) => {
-    const verdict = assign({ committeeId: 'comm_te', position: 'head', userId, actor: SUPER });
+  ])('refuses the ineligible account %s (%s)', (profileId, label) => {
+    const verdict = assign({ committeeId: 'comm_te', position: 'head', profileId, actor: SUPER });
     expect(verdict).toMatchObject({ allowed: false, code: 'inactive' });
     expect(verdict.allowed ? '' : verdict.reason).toContain(label);
   });
 
-  it('refuses one person holding both seats of one committee', () => {
-    expect(assign({ committeeId: 'comm_te', position: 'head', userId: 'u_dir', actor: SUPER })).toMatchObject({
+  it('refuses only the exact duplicate assignment, while one person may hold both positions', () => {
+    expect(assign({ committeeId: 'comm_te', position: 'head', profileId: 'u_head', actor: SUPER })).toMatchObject({
       allowed: false,
-      code: 'double_seat',
+      code: 'already_assigned',
     });
+    const both = assign({ committeeId: 'comm_te', position: 'head', profileId: 'u_dir', actor: SUPER });
+    expect(both.allowed).toBe(true);
+    expect(both.allowed ? both.warning : undefined).toContain('independent');
   });
 
-  it('refuses a person who already leads another committee', () => {
-    const leadsElsewhere = [...COMMITTEES, committee({ id: 'comm_op', name: 'Operations', shortCode: 'OPS', headId: 'u_other_lead' })];
+  it('allows one person to be assigned to several committees', () => {
+    const leadsElsewhere = [
+      ...COMMITTEES,
+      committee({ id: 'comm_op', name: 'Operations', shortCode: 'OPS', assignments: [{ profileId: 'u_other_lead', position: 'head' }] }),
+    ];
     const verdict = validateLeadershipAssignment({
       committees: leadsElsewhere,
       users: USERS,
       committeeId: 'comm_te',
       position: 'head',
-      userId: 'u_other_lead',
+      profileId: 'u_other_lead',
       actor: SUPER,
     });
-    expect(verdict.allowed).toBe(false);
-    expect(verdict.allowed ? '' : verdict.reason).toContain('Operations');
+    expect(verdict.allowed).toBe(true);
   });
 
   it('warns — but allows — an appointment that does not move the account’s membership', () => {
-    const verdict = assign({ committeeId: 'comm_mc', position: 'head', userId: 'u_member', actor: SUPER });
+    const verdict = assign({ committeeId: 'comm_mc', position: 'head', profileId: 'u_member', actor: SUPER });
     expect(verdict.allowed).toBe(true);
     expect(verdict.allowed ? verdict.warning : undefined).toContain('does not move their membership');
   });
 
   it('refuses an actor whose role does not reach this committee', () => {
-    expect(assign({ committeeId: 'comm_te', position: 'head', userId: 'u_member', actor: MEMBER })).toMatchObject({
+    expect(assign({ committeeId: 'comm_te', position: 'head', profileId: 'u_member', actor: MEMBER })).toMatchObject({
       allowed: false,
       code: 'forbidden',
     });
-    // A Director of the committee may change its seats; the same person cannot reach
-    // another committee, and a Head has no committees.write at all.
-    expect(assign({ committeeId: 'comm_te', position: 'head', userId: 'u_member', actor: DIRECTOR_OF_TE }).allowed).toBe(true);
-    expect(assign({ committeeId: 'comm_mc', position: 'head', userId: 'u_member', actor: DIRECTOR_OF_TE }).allowed).toBe(false);
-    expect(assign({ committeeId: 'comm_te', position: 'head', userId: 'u_member', actor: HEAD_OF_TE }).allowed).toBe(false);
+    expect(assign({ committeeId: 'comm_te', position: 'head', profileId: 'u_member', actor: DIRECTOR_OF_TE }).allowed).toBe(true);
+    expect(assign({ committeeId: 'comm_mc', position: 'head', profileId: 'u_member', actor: DIRECTOR_OF_TE }).allowed).toBe(false);
+    expect(assign({ committeeId: 'comm_te', position: 'head', profileId: 'u_member', actor: HEAD_OF_TE }).allowed).toBe(false);
   });
 
-  it('clears a seat without checking eligibility', () => {
-    expect(assign({ committeeId: 'comm_te', position: 'head', userId: null, actor: DIRECTOR_OF_TE })).toEqual({ allowed: true });
-  });
-
-  it('reports an unresolvable id as an integrity finding, not as an empty seat', () => {
-    const broken = committee({ id: 'comm_b', name: 'Broken', shortCode: 'BRK', directorId: 'usr_deleted' });
-    expect(unresolvedLeaders(broken, USERS)).toEqual(['director']);
+  it('reports an unresolvable id as an integrity finding, not as an empty position', () => {
+    const broken = committee({ id: 'comm_b', name: 'Broken', shortCode: 'BRK', assignments: [{ profileId: 'usr_deleted', position: 'director' }] });
+    expect(unresolvedAssignments(broken, USERS)).toEqual([{ position: 'director', profileId: 'usr_deleted' }]);
     expect(leaderAccount(broken, 'director', USERS)).toBeNull();
-    expect(unresolvedLeaders(TE, USERS)).toEqual([]);
+    expect(unresolvedAssignments(TE, USERS)).toEqual([]);
   });
 
-  it('lists every committee an account leads', () => {
+  it('lists every committee assignment an account holds', () => {
     const posts = leadershipPostsOf('u_dir', COMMITTEES);
-    expect(posts).toHaveLength(1);
-    expect(posts[0]).toMatchObject({ committee: { id: 'comm_te' }, position: 'director' });
+    expect(posts).toEqual([{ committee: TE, position: 'director', profileId: 'u_dir' }]);
   });
 });
 
@@ -226,10 +262,8 @@ describe('roster moves', () => {
     expect(rosterOf('comm_te', USERS)).toHaveLength(3);
   });
 
-  it('refuses to move an account that leads another committee', () => {
-    const verdict = move('u_dir', 'comm_mc', SUPER);
-    expect(verdict.allowed).toBe(false);
-    expect(verdict.allowed ? '' : verdict.reason).toContain('Reassign the seat first');
+  it('allows a leader to change home committee because assignments are independent rows', () => {
+    expect(move('u_dir', 'comm_mc', SUPER).allowed).toBe(true);
   });
 
   it('refuses to give a non-active account a committee home', () => {
@@ -241,17 +275,15 @@ describe('roster moves', () => {
   });
 });
 
-describe('removing an account from the roster', () => {
-  it('vacates every seat it held and nothing else changes', () => {
+describe('removing an account from the directory', () => {
+  it('vacates every assignment it held and leaves unrelated assignments untouched', () => {
     const seats = releasedSeats(COMMITTEES, 'u_dir');
-    expect(seats).toEqual([{ committeeId: 'comm_te', position: 'director' }]);
+    expect(seats).toEqual([{ committeeId: 'comm_te', position: 'director', profileId: 'u_dir' }]);
 
     const after = releaseLeadership(COMMITTEES, 'u_dir');
-    expect(after.find((c) => c.id === 'comm_te')?.directorId).toBeUndefined();
-    expect(after.find((c) => c.id === 'comm_te')?.headId).toBe('u_head');
+    expect(after.find((c) => c.id === 'comm_te')?.assignments).toEqual([{ profileId: 'u_head', position: 'head' }]);
     expect(after.find((c) => c.id === 'comm_te')?.name).toBe(TE.name);
-    // The person who is gone is no longer reported as an unresolved leader: the seat is empty.
-    expect(unresolvedLeaders(after[0], USERS)).toEqual([]);
+    expect(unresolvedAssignments(after[0], USERS)).toEqual([]);
   });
 
   it('keeps history readable after the account is gone', () => {
@@ -283,7 +315,7 @@ describe('removing an account from the roster', () => {
         actorId: 'usr_head_te',
         actorName: 'Hassan Head',
         actorRole: 'head',
-        action: `${LEADERSHIP_AUDIT_PREFIX} Cleared`,
+        action: `${LEADERSHIP_AUDIT_PREFIX} Removed`,
         targetType: 'committee',
         targetId: 'comm_mc',
         details: 'Head seat cleared',
@@ -326,15 +358,30 @@ describe('a stored row read back after a reload', () => {
     const row = normalizeCommitteeRow(legacy) as Committee;
     expect(row).not.toHaveProperty('directorName');
     expect(row).not.toHaveProperty('headName');
-    expect(row.directorId).toBe('u_dir');
+    expect(row.assignments).toEqual([
+      { profileId: 'u_dir', position: 'director', assignedAt: undefined },
+      { profileId: 'u_head', position: 'head', assignedAt: undefined },
+    ]);
     // The name the reader shows comes from the account, so it is current, not cached.
     expect(leaderAccount(row, 'director', USERS)?.name).toBe('Dina Director');
   });
 
+  it('reads assignments from the current shape and removes duplicate rows', () => {
+    const row = normalizeCommitteeRow({
+      id: 'comm_many',
+      assignments: [
+        { profileId: 'u_member', position: 'head', assignedAt: 'now' },
+        { profileId: 'u_member', position: 'head', assignedAt: 'now' },
+        { profileId: 'u_dir', position: 'director' },
+      ],
+    }) as Committee;
+    expect(row.assignments).toHaveLength(2);
+  });
+
   it('keeps an unresolvable id so the gap can be reported', () => {
     const row = normalizeCommitteeRow({ id: 'comm_x', directorId: 'usr_deleted' }) as Committee;
-    expect(row.directorId).toBe('usr_deleted');
-    expect(unresolvedLeaders(row, USERS)).toEqual(['director']);
+    expect(row.assignments).toEqual([{ profileId: 'usr_deleted', position: 'director', assignedAt: undefined }]);
+    expect(unresolvedAssignments(row, USERS)).toEqual([{ position: 'director', profileId: 'usr_deleted' }]);
   });
 
   it('coerces damaged values instead of trusting them', () => {

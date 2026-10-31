@@ -6,9 +6,11 @@ type Props = {
   initial: FormValues;
   issues: DraftIssue[];
   submitLabel: string;
-  /** States, in one line, where the seats live so nobody thinks a text edit dropped them. */
+  /** States, in one line, where the leadership assignments live so nobody thinks a text edit dropped them. */
   seatsSummary: string;
-  onSubmit: (values: FormValues) => void;
+  /** A save goes to the database, so the caller decides when the button may be pressed again. */
+  busy?: boolean;
+  onSubmit: (values: FormValues) => void | Promise<void>;
   onCancel: () => void;
 };
 
@@ -22,7 +24,7 @@ const fieldClass = 'w-full px-3 py-2 rounded-xl border bg-white dark:bg-slate-80
  * Leadership is deliberately absent: a seat is written by the leadership panel, through the
  * eligibility rules, so a text edit can never overwrite an appointment as a side effect.
  */
-export const CommitteeForm: React.FC<Props> = ({ initial, issues, submitLabel, seatsSummary, onSubmit, onCancel }) => {
+export const CommitteeForm: React.FC<Props> = ({ initial, issues, submitLabel, seatsSummary, busy = false, onSubmit, onCancel }) => {
   const [values, setValues] = useState<FormValues>(initial);
   const set = <K extends keyof FormValues>(key: K, value: FormValues[K]) => setValues((prev) => ({ ...prev, [key]: value }));
   const issueFor = (field: string) => issues.find((i) => i.field === field)?.message;
@@ -200,12 +202,17 @@ export const CommitteeForm: React.FC<Props> = ({ initial, issues, submitLabel, s
         <button
           type="button"
           onClick={onCancel}
-          className="px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 font-semibold"
+          disabled={busy}
+          className="px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 font-semibold disabled:opacity-50"
         >
           Cancel
         </button>
-        <button type="submit" className="px-5 py-2 bg-[#F59A16] hover:bg-[#D47F0A] text-white font-bold rounded-xl">
-          {submitLabel}
+        <button
+          type="submit"
+          disabled={busy}
+          className="px-5 py-2 bg-[#F59A16] hover:bg-[#D47F0A] text-white font-bold rounded-xl disabled:opacity-60"
+        >
+          {busy ? 'Saving…' : submitLabel}
         </button>
       </div>
     </form>

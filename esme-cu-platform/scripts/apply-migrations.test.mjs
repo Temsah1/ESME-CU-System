@@ -62,8 +62,9 @@ describe('migration order', () => {
       '0017_social_insights.sql',
       '0018_chat.sql',
       '0019_status_grants_access.sql',
+      '0020_committee_assignment_membership.sql',
     ]);
-    expect(files[files.length - 1].split(/[\\/]/).pop()).toBe('0019_status_grants_access.sql');
+    expect(files[files.length - 1].split(/[\\/]/).pop()).toBe('0020_committee_assignment_membership.sql');
   });
 });
 

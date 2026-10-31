@@ -15,6 +15,7 @@ const committee = (id: string, name: string): Committee => ({
   name,
   shortCode: id.replace('comm_', '').toUpperCase(),
   description: '',
+  assignments: [],
   objectives: [],
   subTeams: [],
   isPublic: true,

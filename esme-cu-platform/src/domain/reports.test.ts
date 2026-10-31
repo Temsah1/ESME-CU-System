@@ -44,6 +44,7 @@ const C1: Committee = {
   name: 'Technical Committee',
   shortCode: 'TC',
   description: '',
+  assignments: [],
   objectives: [],
   subTeams: [],
   isPublic: true,
