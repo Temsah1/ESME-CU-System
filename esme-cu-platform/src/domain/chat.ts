@@ -44,7 +44,15 @@ export type ChatContact = {
 
 type Raw = Record<string, unknown>;
 
-const ROLES = new Set<Role>(['super_admin', 'high_board', 'moderator', 'director', 'head', 'member']);
+const ROLES = new Set<Role>([
+  'super_admin',
+  'high_board',
+  'moderator',
+  'hr_manager',
+  'director',
+  'head',
+  'member',
+]);
 
 function record(value: unknown): Raw | null {
   return typeof value === 'object' && value !== null && !Array.isArray(value) ? (value as Raw) : null;

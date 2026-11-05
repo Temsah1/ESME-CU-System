@@ -140,8 +140,8 @@ export function connectionEnv(parsed) {
 
 /**
  * `-f` on the file, and no `--single-transaction`: these files manage their own transactions and
- * 0006 opens with `alter type esme_role add value`, a statement Postgres will not let a transaction
- * consume in the same breath it adds.
+ * 0006 and 0021 open with `alter type esme_role add value`, a statement Postgres will not let a
+ * transaction consume in the same breath it adds.
  */
 export function psqlArgs(file) {
   return ['-v', 'ON_ERROR_STOP=1', '--no-psqlrc', '--set', 'QUIET=on', '-f', file];

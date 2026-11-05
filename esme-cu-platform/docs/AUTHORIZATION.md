@@ -27,33 +27,49 @@ what the adapter tests exercise.
 Scopes: **all** = every record · **committee** = records of the actor's own committee ·
 **self** = the actor's own records.
 
-| Capability | super_admin | moderator | director | head | member |
-| --- | --- | --- | --- | --- | --- |
-| `users.read` | all | all | committee | committee | — |
-| `users.create` / `users.update` | all | — | committee (update) | — | — (self-edits skip the guard by design) |
-| `users.delete` / `users.suspend` | all | — | — | — | — |
-| `users.role.assign` | all | — | — | — | — |
-| `registrations.read` | all | all | committee | — | — |
-| `registrations.decide` | all | all | — | — | — |
-| `committees.read` | all | all | all | all | all |
-| `committees.write` | all | — | committee | — | — |
-| `committees.archive` | all | — | — | — | — |
-| `tasks.read` | all | all | all | all | committee |
-| `tasks.write` / `tasks.assign` | all | — | committee | committee | self (write) |
-| `tasks.delete` | all | — | — | — | — |
-| `submissions.read` | all | all | committee | committee | self |
-| `submissions.review` | all | all | committee | committee | — |
-| `submissions.create` | self | — | self | self | self |
-| `scores.read` | all | all | committee | committee | self |
-| `scores.adjust` | all | — | — | — | — |
-| `events.read` / `events.write` | all / all | all / — | all / committee | all / — | all / — |
-| `skills.read` / `skills.manage` | all / all | — | committee / committee | committee / — | self / — |
-| `analytics.configure` | all | — | committee | — | — |
-| `cms.content.write` | all | all | committee | committee | — |
-| `cms.settings.global` / `cms.content.publish` / `cms.media.manage` | all | all (settings, publish, media) | — | — | — |
-| `notifications.manage` | all | all | — | — | — |
-| `audit.read` | all | all | — | — | — |
-| `settings.manage` / `integrations.manage` / `backups.manage` | all | — | — | — | — |
+The table below is `MATRIX` in `src/domain/roles.ts`, one row per capability and one column per
+role, and it is the SQL `esme_role_capabilities` seed in 0002, 0006, 0013, 0015 and 0021 read the
+same way. `migrationIntegrity.test.ts` fails if the two declare different roles.
+
+| Capability | super_admin | high_board | moderator | hr_manager | director | head | member |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| `analytics.configure` | all | all | — | all | committee | — | — |
+| `audit.read` | all | all | all | — | — | — | — |
+| `backups.manage` | all | — | — | — | — | — | — |
+| `cms.content.publish` | all | all | all | — | — | — | — |
+| `cms.content.write` | all | all | all | — | committee | committee | — |
+| `cms.media.manage` | all | all | all | — | — | — | — |
+| `cms.settings.global` | all | all | all | — | — | — | — |
+| `committees.archive` | all | — | — | — | — | — | — |
+| `committees.read` | all | all | all | all | all | all | all |
+| `committees.write` | all | — | — | all | committee | — | — |
+| `events.read` | all | all | all | all | all | all | all |
+| `events.write` | all | all | all | — | committee | — | — |
+| `integrations.manage` | all | — | — | — | — | — | — |
+| `notifications.manage` | all | all | all | all | — | — | — |
+| `registrations.decide` | all | — | all | all | — | — | — |
+| `registrations.read` | all | all | all | all | committee | — | — |
+| `rewards.configure` | all | — | — | — | — | — | — |
+| `rewards.read` | all | all | — | all | committee | committee | self |
+| `rewards.write` | all | all | — | all | committee | committee | — |
+| `scores.adjust` | all | — | — | — | — | — | — |
+| `scores.read` | all | all | all | all | committee | committee | self |
+| `settings.manage` | all | — | — | — | — | — | — |
+| `skills.manage` | all | — | — | — | committee | — | — |
+| `skills.read` | all | all | — | all | committee | committee | self |
+| `submissions.create` | self | — | — | — | self | self | self |
+| `submissions.read` | all | all | all | all | committee | committee | self |
+| `submissions.review` | all | all | all | — | committee | committee | — |
+| `tasks.assign` | all | — | — | — | committee | committee | — |
+| `tasks.delete` | all | — | — | — | — | — | — |
+| `tasks.read` | all | all | all | all | all | all | committee |
+| `tasks.write` | all | — | — | — | committee | committee | self |
+| `users.create` | all | — | — | all | — | — | — |
+| `users.delete` | all | — | — | — | — | — | — |
+| `users.read` | all | all | all | all | committee | committee | — |
+| `users.role.assign` | all | — | — | — | — | — | — |
+| `users.suspend` | all | — | — | all | — | — | — |
+| `users.update` | all | — | — | all | committee | — | — |
 
 Notes worth stating plainly:
 
@@ -66,11 +82,29 @@ Notes worth stating plainly:
   `cms.content.write` that Directors and Heads hold does not let them rewrite global site copy.
   That split is deliberate but incomplete: there is no committee-scoped content surface yet for
   the narrower grant to act on.
+- **`hr_manager` (0021) is the people-operations role, and it is read-only everywhere else.** It
+  creates, edits and deactivates accounts, decides applications and moves people between
+  committees; it holds no `users.delete` (deactivation only), no `users.role.assign` (it cannot
+  create another HR Manager), and no write, review or assign grant in tasks, submissions, scores
+  or events — `tasks.read`, `submissions.read`, `scores.read` and `events.read` are the whole of
+  what it sees of other committees' work. No CMS, audit, settings, integrations or backup grant.
+  Rank 60: it may recognise a Director or a Member and refuses anything aimed at a Moderator or
+  the board (`esme_role_rank`, mirrored in `ROLE_RANK`).
+- **One screen the matrix hands over by accident of naming:** IT Moderator Tools is gated on
+  `registrations.decide`, which is exactly the grant that lets an HR Manager decide an
+  application, so the screen is reachable to them. Splitting it would mean inventing a capability
+  that no existing role holds, which changes the checks of roles that already ship — so the
+  screen stays, and its own panels re-read the matrix: seeded-tester deletion remains hidden for
+  an account without `users.delete`.
+- **Recognition, not discipline.** `DEFAULT_REWARD_POLICY.canAwardBonus` names the HR Manager;
+  `canIssueWarning` does not. Both lists are editable by a Super Admin in the rewards policy
+  screen, and a chapter that stored its policy before 0021 keeps its own list until they change it.
 
 ## Privileged roles and the primary administrator
 
-`PRIVILEGED_ROLES = super_admin, director, head, moderator`. Only a Super Admin may grant or
-revoke them (`validateRoleChange`). The primary administrator
+`PRIVILEGED_ROLES = super_admin, high_board, director, head, moderator, hr_manager` — every label
+except `member`, which is the rule 0010 encodes in SQL and `domain.test.ts` pins in TypeScript.
+Only a Super Admin may grant or revoke them (`validateRoleChange`). The primary administrator
 (`kareemeltemsah7@gmail.com` / `temsah1`) cannot be demoted or edited by anyone else — enforced
 in `esme_protect_primary_admin()` server-side and in `validateRoleChange` client-side. The
 bootstrap path creates that account only while no privileged account exists.

@@ -48,6 +48,7 @@ const roleChip: Record<string, { label: string; color: string }> = {
   head: { label: 'Team Head', color: 'bg-emerald-600 text-white' },
   member: { label: 'Member', color: 'bg-slate-600 text-white' },
   moderator: { label: 'IT Moderator', color: 'bg-purple-600 text-white' },
+  hr_manager: { label: 'HR Manager', color: 'bg-[#D47F0A] text-white' },
 };
 
 const initials = (name: string) =>

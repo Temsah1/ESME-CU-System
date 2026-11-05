@@ -49,20 +49,29 @@ export type Capability =
 export type Scope = 'all' | 'committee' | 'self';
 
 /** Ordered strongest-first; used for display and for the "never target a superior" rule. */
-export const ALL_ROLES: Role[] = ['super_admin', 'high_board', 'moderator', 'director', 'head', 'member'];
+export const ALL_ROLES: Role[] = [
+  'super_admin',
+  'high_board',
+  'moderator',
+  'hr_manager',
+  'director',
+  'head',
+  'member',
+];
 
 /** Display names only — never an authority. */
 export const ROLE_LABELS: Record<Role, string> = {
   super_admin: 'Super Administrator',
   high_board: 'High Board',
   moderator: 'IT Moderator',
+  hr_manager: 'HR Manager',
   director: 'Committee Director',
   head: 'Team Head',
   member: 'Member',
 };
 
 /** Roles that hold privileged power. Only a Super Admin may grant or revoke them. */
-export const PRIVILEGED_ROLES: Role[] = ['super_admin', 'high_board', 'director', 'head', 'moderator'];
+export const PRIVILEGED_ROLES: Role[] = ['super_admin', 'high_board', 'director', 'head', 'moderator', 'hr_manager'];
 
 /**
  * Seniority, for the rule that nobody may direct an action at someone above themselves.
@@ -72,6 +81,7 @@ export const ROLE_RANK: Record<Role, number> = {
   super_admin: 100,
   high_board: 80,
   moderator: 70,
+  hr_manager: 60,
   director: 50,
   head: 40,
   member: 10,
@@ -167,6 +177,33 @@ const MATRIX: Matrix = {
     'cms.media.manage': 'all',
     'notifications.manage': 'all',
     'audit.read': 'all',
+  },
+  /**
+   * People operations for the whole chapter: recruiting, the directory, placement and attendance
+   * of effort. Every grant below is a people module. The absences are the boundary — no finance,
+   * no CMS, no audit, no settings, no `users.role.assign` (an HR Manager cannot create another HR
+   * Manager), no `users.delete` (deactivation only) and no write into anyone's plan, tasks or
+   * review queue: `tasks.read`, `submissions.read`, `events.read` and `scores.read` are the whole
+   * of what they see of other committees' work.
+   */
+  hr_manager: {
+    'users.read': 'all',
+    'users.create': 'all',
+    'users.update': 'all',
+    'users.suspend': 'all',
+    'registrations.read': 'all',
+    'registrations.decide': 'all',
+    'committees.read': 'all',
+    'committees.write': 'all',
+    'tasks.read': 'all',
+    'submissions.read': 'all',
+    'scores.read': 'all',
+    'events.read': 'all',
+    'skills.read': 'all',
+    'analytics.configure': 'all',
+    'notifications.manage': 'all',
+    'rewards.read': 'all',
+    'rewards.write': 'all',
   },
   director: {
     'users.read': 'committee',

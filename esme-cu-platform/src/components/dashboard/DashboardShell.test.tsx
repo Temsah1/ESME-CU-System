@@ -114,8 +114,30 @@ async function signInAsDirector() {
   await adapter.signIn(email, PASSWORD);
 }
 
-async function renderShell(view: DashboardView = 'overview') {
-  const [{ AppProvider }, auth, { DashboardShell }, motion, { MotionConfig }] = await Promise.all([
+/** Seat an applicant as the chapter's HR Manager and render the shell as that account. */
+async function signInAsHrManager() {
+  const email = 'rana.people@esme-cu.edu';
+  const registered = await adapter.register({
+    fullName: 'Rana People',
+    email,
+    username: 'rana.people',
+    password: PASSWORD,
+    confirmPassword: PASSWORD,
+    acceptedPolicies: true,
+  });
+  if (!registered.ok) throw new Error(`registration refused: ${registered.failure.code} — ${registered.failure.message}`);
+  const approved = await adapter.decideRegistration(registered.receipt.reference, 'approve');
+  if (!approved.ok) throw new Error(`approval refused: ${approved.error.code} — ${approved.error.message}`);
+  const applicant = (await adapter.listAccounts()).find((a) => a.email === email);
+  if (!applicant) throw new Error('the approved applicant is not in the provider directory');
+  const promoted = await adapter.assignRole(applicant.id, 'hr_manager');
+  if (!promoted.ok) throw new Error(`role change refused: ${promoted.error.code} — ${promoted.error.message}`);
+  await adapter.signOut();
+  const session = await adapter.signIn(email, PASSWORD);
+  if (session.identity.role !== 'hr_manager') throw new Error(`expected an hr_manager session, got ${session.identity.role}`);
+}
+
+async function renderShell(view: DashboardView = 'overview') {  const [{ AppProvider }, auth, { DashboardShell }, motion, { MotionConfig }] = await Promise.all([
     import('../../context/AppContext'),
     import('../../auth/AuthProvider'),
     import('./DashboardShell'),
@@ -162,6 +184,29 @@ describe('what the frame offers', () => {
     for (const label of ['Members Directory', 'IT Moderator Tools', 'Settings & Backups', 'Bonuses & Warnings']) {
       expect(TL.screen.getByRole('button', { name: new RegExp(label, 'i') })).toBeTruthy();
     }
+  });
+
+  it('offers an HR Manager the people screens and none of the machinery', async () => {
+    await signInAsHrManager();
+    await renderShell();
+
+    // People operations: the directory, placement, recognition, and the numbers to report on them.
+    for (const label of ['Members Directory', 'Committees & Teams', 'Bonuses & Warnings', 'KPI & Analytics', 'L0–L4 Skill Matrix']) {
+      expect(TL.screen.queryByRole('button', { name: new RegExp(label, 'i') }), label).toBeTruthy();
+    }
+    // Governance and content: withheld by the matrix, so the rail cannot offer them. Reading other
+    // people's work stays available — Tasks, Submissions, Points and the Season Planner are all
+    // granted at read scope, with no write or review alongside them.
+    for (const hidden of ['Website CMS', 'Media Library', 'Meta Post Insights', 'Audit Trail', 'Settings & Backups']) {
+      expect(TL.screen.queryByRole('button', { name: new RegExp(hidden, 'i') }), hidden).toBeNull();
+    }
+    for (const readOnly of ['Tasks Command', 'Submissions Review', 'Points & Ledger', 'Season Planner']) {
+      expect(TL.screen.queryByRole('button', { name: new RegExp(readOnly, 'i') }), readOnly).toBeTruthy();
+    }
+    // Deliberately present: this screen is gated by `registrations.decide`, the same grant that lets
+    // an HR Manager decide an application, and its own panels re-read the matrix — the seeded-tester
+    // deletion stays hidden because `users.delete` is not granted.
+    expect(TL.screen.queryByRole('button', { name: /IT Moderator Tools/i })).toBeTruthy();
   });
 
   it('offers a member only the screens their capabilities reach', async () => {

@@ -1,6 +1,13 @@
 import type { AccountStatus } from '../domain/accountState';
 
-export type Role = 'super_admin' | 'high_board' | 'director' | 'head' | 'moderator' | 'member';
+export type Role =
+  | 'super_admin'
+  | 'high_board'
+  | 'moderator'
+  | 'hr_manager'
+  | 'director'
+  | 'head'
+  | 'member';
 
 export interface User {
   id: string;
