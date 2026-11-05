@@ -58,9 +58,14 @@ that `PALETTE` does not already own.
 
 ## Motion tokens
 
-`--duration-*` and `--ease-*` in `tokens.css` mirror `durations` and `easings` in
+`--transition-duration-*` and `--ease-*` in `tokens.css` mirror `durations` and `easings` in
 [`src/motion/tokens.ts`](../src/motion/tokens.ts). CSS transitions and JS animations are the same
 system, and the test fails if one side changes timing without the other.
+
+The names are not a style choice: `duration-micro` is a Tailwind utility only while the token behind
+it is declared as `--transition-duration-micro`, because that is the namespace the generator looks in.
+A shorter `--duration-micro` is a valid custom property that produces no class at all, and nothing but
+that test notices — so it asserts the namespace, not only the value.
 
 Full motion guidance — what moves, what must not, reduced-motion behaviour — lives with the source
 in [`src/motion/`](../src/motion/) (primitives) and [`src/lib/motion/`](../src/lib/motion/) (scenes).

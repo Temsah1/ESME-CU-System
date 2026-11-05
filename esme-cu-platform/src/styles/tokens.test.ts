@@ -20,16 +20,22 @@ const TOKEN_JS = 'src/theme/palette.ts'
 
 /** `#abc`, `#abcd`, `#abcdef`, `#abcdef12` — and nothing that merely starts with hex-looking text. */
 const COLOR = /#([0-9a-fA-F]{8}|[0-9a-fA-F]{6}|[0-9a-fA-F]{4}|[0-9a-fA-F]{3})\b/g
+/**
+ * The same literal URL-encoded, because `background-image: url("data:image/svg+xml,…%2394a3b8…")`
+ * is how a colour sneaks into a build without a `#` anywhere in the source. An inline SVG element is
+ * the alternative that a token can actually reach.
+ */
+const COLOR_URI = /%23([0-9a-fA-F]{8}|[0-9a-fA-F]{6}|[0-9a-fA-F]{3})\b/g
 
 function normalize(literal: string): string {
-  const hex = literal.slice(1).toLowerCase()
+  const hex = literal.replace(/^%23/, '').replace(/^#/, '').toLowerCase()
   if (hex.length === 3) return hex.split('').map((c) => c + c).join('')
   if (hex.length === 4) return hex.split('').map((c) => c + c).join('')
   return hex
 }
 
 function literalsIn(text: string): string[] {
-  return [...text.matchAll(COLOR)].map((m) => normalize(m[0]))
+  return [...text.matchAll(COLOR), ...text.matchAll(COLOR_URI)].map((m) => normalize(m[0]))
 }
 
 function sourceFiles(): string[] {
@@ -121,12 +127,36 @@ describe('token layer hygiene', () => {
   it('agrees with src/motion/tokens.ts on timing', () => {
     const css = read(TOKEN_CSS)
     for (const [name, seconds] of Object.entries(durations)) {
-      expect(`${css}\n`, `--duration-${name}`).toContain(`--duration-${name}: ${Math.round(seconds * 1000)}ms;`)
+      const token = name.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`)
+      expect(`${css}\n`, `--transition-duration-${token}`).toContain(
+        `--transition-duration-${token}: ${Math.round(seconds * 1000)}ms;`
+      )
     }
     for (const [name, curve] of Object.entries(easings)) {
       if (!Array.isArray(curve)) continue
       const token = name.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`)
       expect(css, `--ease-${token}`).toContain(`--ease-${token}: cubic-bezier(${curve.join(', ')})`)
+    }
+  })
+
+  it('publishes the timing tokens under the namespaces Tailwind actually reads', () => {
+    // Found by the kit: a `--duration-micro` declaration is a perfectly good custom property and a
+    // perfectly useless `duration-micro` utility, because Tailwind v4 looks durations up under
+    // `--transition-duration-*`. Nothing in TypeScript or in a jsdom test notices the difference —
+    // the animation simply never gets its length. So the namespace itself is asserted here.
+    const theme = read(TOKEN_CSS).split('@theme inline {')[1]?.split('\n}')[0] ?? ''
+    expect(theme, 'the @theme inline block must be present').not.toBe('')
+
+    for (const name of Object.keys(durations)) {
+      const token = name.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`)
+      expect(theme).toContain(`--transition-duration-${token}:`)
+    }
+    expect(theme).not.toMatch(/--duration-[a-z]+:/)
+    for (const [name, curve] of Object.entries(easings)) {
+      // A spring has no CSS transition equivalent, so it is deliberately absent from the theme block.
+      if (!Array.isArray(curve)) continue
+      const token = name.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`)
+      expect(theme).toContain(`--ease-${token}:`)
     }
   })
 

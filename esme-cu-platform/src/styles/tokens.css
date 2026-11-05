@@ -265,9 +265,23 @@
   --color-focus: var(--app-focus);
   --color-overlay: var(--app-overlay);
   --color-success: var(--app-success);
+  /* The readable pair of `success`: #10b981 is a fill, and as text on paper it lands at 2.5:1.
+     `success-ink` is the deep green in light mode and the mid green on slate, so it clears AA both
+     ways. Same logic a screen already follows for `brand` versus `text-brand`. */
+  --color-success-ink: var(--app-success-ink);
   --color-danger: var(--app-danger);
   --color-warning: var(--app-warning);
   --color-info: var(--app-info);
+
+  /*
+   * The two adapting brand text roles and the two brand tints. A tint is a wash you type on top of,
+   * so it needs a partner: `bg-tint-accent` with `text-ink` is readable in both themes, whereas the
+   * fixed `--color-accent-ink` is a dark brown meant for a light orange field and vanishes on slate.
+   */
+  --color-ink-brand: var(--app-text-brand);
+  --color-ink-accent: var(--app-text-accent);
+  --color-tint-accent: var(--app-tint-accent);
+  --color-tint-brand: var(--app-tint-brand);
 
   /* Primitives as utilities — for the scenes, charts and paper tones whose exact value a screen
      needs without a semantic role to hang it on. Screens should still prefer the tier above. */
@@ -333,14 +347,17 @@
   --text-display: 2.5rem;
   --text-display--line-height: 1.1;
 
-  /* Motion — mirrors src/motion/tokens.ts; tokens.test.ts fails if the two drift apart. */
+  /* Motion — mirrors src/motion/tokens.ts; tokens.test.ts fails if the two drift apart.
+     `--transition-duration-*` rather than a shorter name because that is the namespace Tailwind's
+     `duration-*` utility reads; under any other name these four tokens compile to nothing. The
+     easing curves keep Tailwind's own `--ease-*` namespace, which `ease-smooth` does read. */
   --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
   --ease-smooth: cubic-bezier(0.4, 0, 0.2, 1);
   --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
-  --duration-micro: 150ms;
-  --duration-standard: 280ms;
-  --duration-section: 600ms;
-  --duration-hero: 900ms;
+  --transition-duration-micro: 150ms;
+  --transition-duration-standard: 280ms;
+  --transition-duration-section: 600ms;
+  --transition-duration-hero: 900ms;
 
   /* Layout — the fixed chrome heights and content widths the shell already uses. */
   --layout-header: 4rem;
