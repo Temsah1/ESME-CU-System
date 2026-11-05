@@ -42,13 +42,13 @@ interface DashboardShellProps {
 }
 
 const roleChip: Record<string, { label: string; color: string }> = {
-  super_admin: { label: 'Super Administrator', color: 'bg-[#F59A16] text-white' },
-  high_board: { label: 'High Board', color: 'bg-[#123B60] text-white' },
-  director: { label: 'Committee Director', color: 'bg-[#123B60] text-white' },
+  super_admin: { label: 'Super Administrator', color: 'bg-accent text-white' },
+  high_board: { label: 'High Board', color: 'bg-brand text-white' },
+  director: { label: 'Committee Director', color: 'bg-brand text-white' },
   head: { label: 'Team Head', color: 'bg-emerald-600 text-white' },
   member: { label: 'Member', color: 'bg-slate-600 text-white' },
   moderator: { label: 'IT Moderator', color: 'bg-purple-600 text-white' },
-  hr_manager: { label: 'HR Manager', color: 'bg-[#D47F0A] text-white' },
+  hr_manager: { label: 'HR Manager', color: 'bg-accent-strong text-white' },
 };
 
 const initials = (name: string) =>
@@ -98,24 +98,24 @@ const NavList: React.FC<NavListProps> = ({ groups, currentView, collapsed, badge
               {isActive && (
                 <motion.span
                   layoutId={activeId}
-                  className="absolute inset-0 bg-[#123B60] rounded-xl shadow-sm"
+                  className="absolute inset-0 bg-brand rounded-xl shadow-sm"
                   transition={{ type: 'spring', stiffness: 420, damping: 34 }}
                 />
               )}
-              <Icon className={`w-4 h-4 shrink-0 relative z-10 ${isActive ? 'text-[#F59A16]' : 'text-slate-400'}`} />
+              <Icon className={`w-4 h-4 shrink-0 relative z-10 ${isActive ? 'text-accent' : 'text-slate-400'}`} />
               {!collapsed && <span className="flex-1 text-left truncate relative z-10">{item.label}</span>}
               {!collapsed && badge ? (
                 <motion.span
                   layout
                   initial={{ scale: 0.6, opacity: 0 }}
                   animate={{ scale: 1, opacity: 1 }}
-                  className="px-1.5 py-0.5 text-[10px] font-bold rounded-full bg-[#F59A16] text-white relative z-10"
+                  className="px-1.5 py-0.5 text-[10px] font-bold rounded-full bg-accent text-white relative z-10"
                 >
                   {badge}
                 </motion.span>
               ) : null}
               {collapsed && badge ? (
-                <span className="absolute top-1 right-1.5 w-1.5 h-1.5 rounded-full bg-[#F59A16]" aria-hidden="true" />
+                <span className="absolute top-1 right-1.5 w-1.5 h-1.5 rounded-full bg-accent" aria-hidden="true" />
               ) : null}
             </motion.button>
           );
@@ -211,7 +211,7 @@ export const DashboardShell: React.FC<DashboardShellProps> = ({
 
   const persona = (
     <div className="flex items-center gap-2.5">
-      <div className="w-8 h-8 rounded-full bg-[#123B60] text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-sm">
+      <div className="w-8 h-8 rounded-full bg-brand text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-sm">
         {initials(currentUser.name)}
       </div>
       <div className="min-w-0">
@@ -234,7 +234,7 @@ export const DashboardShell: React.FC<DashboardShellProps> = ({
         </div>
         {!sidebarCollapsed && (
           <div className="flex flex-col min-w-0 truncate">
-            <span className="font-extrabold text-xs text-[#123B60] dark:text-[#F59A16] tracking-wider uppercase truncate">
+            <span className="font-extrabold text-xs text-brand dark:text-accent tracking-wider uppercase truncate">
               ESME CU Chapter
             </span>
             <span className="text-[10px] text-slate-400 font-medium truncate">{seasonNote}</span>
@@ -271,7 +271,7 @@ export const DashboardShell: React.FC<DashboardShellProps> = ({
           <div className={`p-3 border-b border-inherit shrink-0 ${resolvedTheme === 'dark' ? 'bg-slate-800/40' : 'bg-slate-50'}`}>
             {sidebarCollapsed ? (
               <div className="flex justify-center">
-                <div className="w-8 h-8 rounded-full bg-[#123B60] text-white flex items-center justify-center font-bold text-[10px]">
+                <div className="w-8 h-8 rounded-full bg-brand text-white flex items-center justify-center font-bold text-[10px]">
                   {initials(currentUser.name)}
                 </div>
               </div>
@@ -379,7 +379,7 @@ export const DashboardShell: React.FC<DashboardShellProps> = ({
                 initial={{ opacity: 0, y: 6 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.2 }}
-                className="font-bold text-[#F59A16] whitespace-nowrap"
+                className="font-bold text-accent whitespace-nowrap"
               >
                 {active.label}
               </motion.span>
@@ -435,7 +435,7 @@ export const DashboardShell: React.FC<DashboardShellProps> = ({
                     initial={{ scale: 0 }}
                     animate={{ scale: 1 }}
                     transition={{ type: 'spring', stiffness: 500, damping: 28 }}
-                    className="absolute top-1 right-1 min-w-[16px] h-4 px-1 rounded-full bg-[#F59A16] text-white text-[9px] font-bold flex items-center justify-center ring-2 ring-white dark:ring-slate-900"
+                    className="absolute top-1 right-1 min-w-[16px] h-4 px-1 rounded-full bg-accent text-white text-[9px] font-bold flex items-center justify-center ring-2 ring-white dark:ring-slate-900"
                   >
                     {unreadCount > 99 ? '99+' : unreadCount}
                   </motion.span>
@@ -462,7 +462,7 @@ export const DashboardShell: React.FC<DashboardShellProps> = ({
                             for (const n of notifications) markNotificationRead(n.id);
                             setNotifOpen(false);
                           }}
-                          className="text-[10px] text-[#F59A16] font-semibold hover:underline"
+                          className="text-[10px] text-accent font-semibold hover:underline"
                         >
                           Mark all read
                         </button>
@@ -479,7 +479,7 @@ export const DashboardShell: React.FC<DashboardShellProps> = ({
                             onClick={() => openNotification(n.id, n.link)}
                             className={`w-full text-left p-2.5 rounded-xl text-xs transition-colors ${
                               !n.read
-                                ? 'bg-amber-50/60 dark:bg-amber-950/20 border-l-2 border-[#F59A16]'
+                                ? 'bg-amber-50/60 dark:bg-amber-950/20 border-l-2 border-accent'
                                 : 'bg-slate-50 dark:bg-slate-800/50'
                             }`}
                           >
@@ -493,7 +493,7 @@ export const DashboardShell: React.FC<DashboardShellProps> = ({
                         onClick={() => {
                           navigate('notifications');
                         }}
-                        className="mt-3 w-full text-[11px] font-bold text-[#123B60] dark:text-[#F59A16] py-1.5 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800"
+                        className="mt-3 w-full text-[11px] font-bold text-brand dark:text-accent py-1.5 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800"
                       >
                         Open Alerts &amp; Email
                       </button>
@@ -505,7 +505,7 @@ export const DashboardShell: React.FC<DashboardShellProps> = ({
 
             <button
               onClick={onSignOut}
-              className="px-2.5 sm:px-3 py-1.5 bg-[#123B60] hover:bg-[#0A2239] text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-sm shrink-0"
+              className="px-2.5 sm:px-3 py-1.5 bg-brand hover:bg-brand-ink text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-sm shrink-0"
               title="End your session"
             >
               <LogOut className="w-3.5 h-3.5" />

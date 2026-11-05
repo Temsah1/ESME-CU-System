@@ -119,7 +119,7 @@ const UploadDialog: React.FC<{
   const check = validateUpload(input);
 
   const field =
-    'w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs outline-none focus:ring-2 focus:ring-[#F59A16]/40';
+    'w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs outline-none focus:ring-2 focus:ring-accent/40';
 
   return (
     <ModalShell
@@ -169,7 +169,7 @@ const UploadDialog: React.FC<{
           checked={decorative}
           onChange={(event) => setDecorative(event.target.checked)}
           aria-label="This picture is decoration"
-          className="mt-0.5 w-4 h-4 accent-[#F59A16]"
+          className="mt-0.5 w-4 h-4 accent-orange"
         />
         <span>
           <span className="block text-xs font-bold text-slate-700 dark:text-slate-300">It is decoration</span>
@@ -199,7 +199,7 @@ const UploadDialog: React.FC<{
         <button
           onClick={() => onSubmit(pending, { alt, caption, decorative })}
           disabled={!check.ok}
-          className="px-4 py-2 rounded-xl bg-[#123B60] text-white text-xs font-bold disabled:opacity-50"
+          className="px-4 py-2 rounded-xl bg-brand text-white text-xs font-bold disabled:opacity-50"
         >
           {pending.mode === 'add' ? 'Add to library' : 'Replace in place'}
         </button>
@@ -255,7 +255,7 @@ const AssetCard: React.FC<{
           {asset.deviceOnly ? ' · this device only' : ''}
         </p>
 
-        <p className={`text-[10px] font-bold ${inUse ? 'text-[#D47F0A] dark:text-[#F59A16]' : 'text-slate-400'}`}>
+        <p className={`text-[10px] font-bold ${inUse ? 'text-accent-strong dark:text-accent' : 'text-slate-400'}`}>
           {inUse ? (
             <>
               <Link2 className="w-3 h-3 inline -mt-0.5" aria-hidden /> Used by {usage.slots.length} slot(s):{' '}
@@ -445,8 +445,8 @@ export const MediaLibrary: React.FC<{ onNavigate: (view: DashboardView) => void 
             Image slots in the CMS
           </button>
           <label
-            className={`px-4 py-2.5 rounded-xl bg-[#123B60] text-white text-xs font-bold flex items-center gap-1.5 ${
-              mayManage ? 'hover:bg-[#0d2c47] cursor-pointer' : 'opacity-50'
+            className={`px-4 py-2.5 rounded-xl bg-brand text-white text-xs font-bold flex items-center gap-1.5 ${
+              mayManage ? 'hover:bg-navy-deep cursor-pointer' : 'opacity-50'
             }`}
           >
             <Upload className="w-4 h-4" aria-hidden /> Upload a picture
@@ -474,7 +474,7 @@ export const MediaLibrary: React.FC<{ onNavigate: (view: DashboardView) => void 
             aria-pressed={filter === entry.id}
             className={`px-3 py-1.5 rounded-lg border text-[11px] font-bold transition ${
               filter === entry.id
-                ? 'border-[#123B60] bg-[#123B60] text-white'
+                ? 'border-brand bg-brand text-white'
                 : 'border-slate-200 dark:border-slate-700 text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
             }`}
           >

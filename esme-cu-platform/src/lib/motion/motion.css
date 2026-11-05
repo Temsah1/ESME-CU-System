@@ -100,7 +100,7 @@ html.lenis body {
 }
 .dark .split .w > span.grad,
 .split .w > span.grad-light {
-  background: linear-gradient(96deg, #ffffff 6%, var(--esme-orange-light) 54%, #9ec5e8 96%);
+  background: linear-gradient(96deg, var(--esme-white) 6%, var(--esme-orange-light) 54%, var(--esme-blue-pale) 96%);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;

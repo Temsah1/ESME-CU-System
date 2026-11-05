@@ -21,7 +21,7 @@ export const useToast = () => useContext(ToastContext);
 
 const kindStyles: Record<ToastKind, { icon: React.ElementType; ring: string }> = {
   success: { icon: CheckCircle2, ring: 'border-l-emerald-500' },
-  info: { icon: Info, ring: 'border-l-[#123B60]' },
+  info: { icon: Info, ring: 'border-l-brand' },
   error: { icon: AlertTriangle, ring: 'border-l-rose-500' },
 };
 
@@ -61,7 +61,7 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
                 transition={{ duration: durations.standard, ease: easings.out }}
                 className={`pointer-events-auto flex items-start gap-2.5 rounded-xl border border-slate-200 border-l-4 ${ring} bg-white px-3.5 py-3 text-xs font-semibold text-slate-800 shadow-lg`}
               >
-                <Icon className="mt-0.5 h-4 w-4 shrink-0 text-[#F59A16]" />
+                <Icon className="mt-0.5 h-4 w-4 shrink-0 text-accent" />
                 <span className="flex-1 leading-relaxed">{t.message}</span>
                 <button
                   onClick={() => dismiss(t.id)}

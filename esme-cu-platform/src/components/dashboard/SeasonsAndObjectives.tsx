@@ -167,7 +167,7 @@ export const SeasonsAndObjectives: React.FC<{ onNavigate: (view: DashboardView) 
       {mayWrite && (
         <form onSubmit={submitSeason} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 space-y-3">
           <h2 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
-            <CalendarRange className="w-4 h-4 text-[#F59A16]" aria-hidden />
+            <CalendarRange className="w-4 h-4 text-accent" aria-hidden />
             Record a season
           </h2>
           <div className="grid grid-cols-1 sm:grid-cols-5 gap-3 text-xs">
@@ -225,7 +225,7 @@ export const SeasonsAndObjectives: React.FC<{ onNavigate: (view: DashboardView) 
             Seasons are chapter records, so this form is offered to a chapter-wide analytics scope only.
           </p>
           <div className="flex justify-end">
-            <button type="submit" disabled={!mayWriteChapterWide} className="px-4 py-2 bg-[#123B60] hover:bg-[#0A2239] disabled:opacity-40 text-white text-xs font-bold rounded-xl">
+            <button type="submit" disabled={!mayWriteChapterWide} className="px-4 py-2 bg-brand hover:bg-brand-ink disabled:opacity-40 text-white text-xs font-bold rounded-xl">
               Record season
             </button>
           </div>
@@ -247,7 +247,7 @@ export const SeasonsAndObjectives: React.FC<{ onNavigate: (view: DashboardView) 
                 onClick={() => setSelectedSeason(s.id)}
                 className={`px-3.5 py-2 rounded-xl text-xs font-bold border transition ${
                   s.id === activeSeasonId
-                    ? 'bg-[#123B60] text-white border-[#123B60]'
+                    ? 'bg-brand text-white border-brand'
                     : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-800'
                 }`}
               >
@@ -357,7 +357,7 @@ export const SeasonsAndObjectives: React.FC<{ onNavigate: (view: DashboardView) 
                               <div className="mt-3">
                                 <div className="h-1.5 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
                                   <div
-                                    className="dash-fill h-full bg-[#F59A16]"
+                                    className="dash-fill h-full bg-accent"
                                     style={{ width: `${Math.round(rollup.attainment * 100)}%` }}
                                     role="progressbar"
                                     aria-valuenow={Math.round(rollup.attainment * 100)}
@@ -398,7 +398,7 @@ export const SeasonsAndObjectives: React.FC<{ onNavigate: (view: DashboardView) 
                             <div className="flex flex-wrap items-center gap-2 mt-2">
                               <button
                                 onClick={() => setOpenMethod(openMethod === rollup.objective.id ? null : rollup.objective.id)}
-                                className="text-[10px] font-bold text-[#123B60] dark:text-[#F59A16]"
+                                className="text-[10px] font-bold text-brand dark:text-accent"
                               >
                                 {openMethod === rollup.objective.id ? 'Hide method' : 'Method and records'}
                               </button>
@@ -456,7 +456,7 @@ export const SeasonsAndObjectives: React.FC<{ onNavigate: (view: DashboardView) 
                   <div className="space-y-4">
                     <form onSubmit={submitObjective} className="rounded-xl border border-slate-200 dark:border-slate-800 p-4 space-y-2.5">
                       <h3 className="text-xs font-bold text-slate-800 dark:text-slate-100 flex items-center gap-1.5">
-                        <Target className="w-4 h-4 text-[#F59A16]" aria-hidden />
+                        <Target className="w-4 h-4 text-accent" aria-hidden />
                         Write an objective for {season.label}
                       </h3>
                       <input
@@ -494,7 +494,7 @@ export const SeasonsAndObjectives: React.FC<{ onNavigate: (view: DashboardView) 
                         </select>
                       )}
                       <div className="flex justify-end">
-                        <button type="submit" className="px-3.5 py-1.5 bg-[#F59A16] hover:bg-[#D47F0A] text-white text-[11px] font-bold rounded-xl">
+                        <button type="submit" className="px-3.5 py-1.5 bg-accent hover:bg-accent-strong text-white text-[11px] font-bold rounded-xl">
                           Write objective
                         </button>
                       </div>
@@ -503,7 +503,7 @@ export const SeasonsAndObjectives: React.FC<{ onNavigate: (view: DashboardView) 
                     {objectives.length > 0 && (
                       <form onSubmit={submitKeyResult} className="rounded-xl border border-slate-200 dark:border-slate-800 p-4 space-y-2.5">
                         <h3 className="text-xs font-bold text-slate-800 dark:text-slate-100 flex items-center gap-1.5">
-                          <Trophy className="w-4 h-4 text-[#F59A16]" aria-hidden />
+                          <Trophy className="w-4 h-4 text-accent" aria-hidden />
                           Attach a key result
                         </h3>
                         <select
@@ -592,7 +592,7 @@ export const SeasonsAndObjectives: React.FC<{ onNavigate: (view: DashboardView) 
                         <p className="text-[10px] text-slate-400">{METRIC_DEFINITIONS[keyResultForm.metric].method}</p>
                         <p className="text-[10px] text-slate-400">{METRIC_DEFINITIONS[keyResultForm.metric].missingData}</p>
                         <div className="flex justify-end">
-                          <button type="submit" className="px-3.5 py-1.5 bg-[#123B60] hover:bg-[#0A2239] text-white text-[11px] font-bold rounded-xl">
+                          <button type="submit" className="px-3.5 py-1.5 bg-brand hover:bg-brand-ink text-white text-[11px] font-bold rounded-xl">
                             Add key result
                           </button>
                         </div>

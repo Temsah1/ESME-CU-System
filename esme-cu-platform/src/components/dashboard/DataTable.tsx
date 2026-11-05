@@ -164,7 +164,7 @@ export function DataTable<T>({
                 }}
                 placeholder={searchPlaceholder}
                 aria-label={searchPlaceholder}
-                className="w-full pl-9 pr-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-xs bg-slate-50 dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-[#123B60]"
+                className="w-full pl-9 pr-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-xs bg-slate-50 dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-brand"
               />
             </div>
           )}
@@ -328,7 +328,7 @@ export function DataTable<T>({
                   action.onClick(row);
                 }}
                 className={`px-4 py-2 rounded-xl text-xs font-bold text-white ${
-                  pendingConfirm.action.danger ? 'bg-rose-600 hover:bg-rose-700' : 'bg-[#123B60] hover:bg-[#0d2c48]'
+                  pendingConfirm.action.danger ? 'bg-rose-600 hover:bg-rose-700' : 'bg-brand hover:bg-navy-abyss'
                 }`}
               >
                 {pendingConfirm.action.confirm?.confirmLabel ?? 'Confirm'}

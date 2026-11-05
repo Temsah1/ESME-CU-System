@@ -214,7 +214,7 @@ export const CommitteeManagement: React.FC = () => {
         {mayCreate && (
           <button
             onClick={() => openModal({ kind: 'create' })}
-            className="px-4 py-2.5 bg-[#F59A16] hover:bg-[#D47F0A] text-white text-xs font-bold rounded-xl shadow-md transition flex items-center gap-1.5 self-start sm:self-auto"
+            className="px-4 py-2.5 bg-accent hover:bg-accent-strong text-white text-xs font-bold rounded-xl shadow-md transition flex items-center gap-1.5 self-start sm:self-auto"
           >
             <Plus className="w-4 h-4" />
             Create Committee
@@ -231,7 +231,7 @@ export const CommitteeManagement: React.FC = () => {
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             aria-label="Search committees"
-            className="w-full pl-9 pr-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-xs bg-slate-50 dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-[#123B60]"
+            className="w-full pl-9 pr-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-xs bg-slate-50 dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-brand"
           />
         </div>
       </div>
@@ -243,7 +243,7 @@ export const CommitteeManagement: React.FC = () => {
           icon={Building2}
           action={
             mayCreate ? (
-              <button onClick={() => openModal({ kind: 'create' })} className="px-4 py-2 bg-[#123B60] text-white text-xs font-bold rounded-xl">
+              <button onClick={() => openModal({ kind: 'create' })} className="px-4 py-2 bg-brand text-white text-xs font-bold rounded-xl">
                 Create the first committee
               </button>
             ) : undefined
@@ -274,7 +274,7 @@ export const CommitteeManagement: React.FC = () => {
                 <div>
                   <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
                     <div className="flex flex-wrap items-center gap-2 min-w-0">
-                      <span className="px-3 py-1 bg-[#123B60] text-white font-black text-xs rounded-lg">{comm.shortCode}</span>
+                      <span className="px-3 py-1 bg-brand text-white font-black text-xs rounded-lg">{comm.shortCode}</span>
                       <span
                         className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase text-slate-700 dark:text-slate-200 ${
                           comm.status === 'active' ? 'bg-emerald-100 dark:bg-emerald-900/40' : 'bg-slate-100 dark:bg-slate-800'
@@ -361,7 +361,7 @@ export const CommitteeManagement: React.FC = () => {
                     ))}
                     <div className="flex justify-between gap-2">
                       <span className="text-slate-400">Members:</span>
-                      <strong className="text-[#F59A16] text-right">
+                      <strong className="text-accent text-right">
                         {activeMembers.length} active
                         {waitingMembers.length > 0 && (
                           <span className="text-slate-400 font-semibold"> • {waitingMembers.length} not yet active</span>
@@ -383,14 +383,14 @@ export const CommitteeManagement: React.FC = () => {
                       onClick={() => openModal({ kind: 'leadership', id: comm.id })}
                       className="px-3 py-1.5 rounded-lg text-[11px] font-bold border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 flex items-center gap-1.5"
                     >
-                      <Crown className="w-3.5 h-3.5 text-[#F59A16]" />
+                      <Crown className="w-3.5 h-3.5 text-accent" />
                       Leadership &amp; history
                     </button>
                     <button
                       onClick={() => openModal({ kind: 'roster', id: comm.id })}
                       className="px-3 py-1.5 rounded-lg text-[11px] font-bold border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 flex items-center gap-1.5"
                     >
-                      <Users className="w-3.5 h-3.5 text-[#123B60]" />
+                      <Users className="w-3.5 h-3.5 text-brand" />
                       Roster
                     </button>
                   </div>
@@ -421,7 +421,7 @@ export const CommitteeManagement: React.FC = () => {
                     <ul className="space-y-1 text-xs text-slate-600 dark:text-slate-400">
                       {comm.objectives.slice(0, 2).map((obj, i) => (
                         <li key={`${obj}-${i}`} className="flex items-center gap-1.5">
-                          <Target className="w-3.5 h-3.5 text-[#F59A16] shrink-0" />
+                          <Target className="w-3.5 h-3.5 text-accent shrink-0" />
                           <span className="truncate">{obj}</span>
                         </li>
                       ))}

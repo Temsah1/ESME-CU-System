@@ -77,7 +77,7 @@ rounded geometric wordmark, amber→red-orange glossy ribbon through the letters
 
 | Check | Result |
 | --- | --- |
-| `npm run lint` | pass, 0 warnings |
+| `npm run lint` | pass, 0 errors, **26 warnings** (`only-export-components`, `set-state-in-effect`). The earlier "0 warnings" here was read off a filtered run; the warnings are pre-existing and live in files this phase did not restructure. |
 | `npx tsc -b --force` | pass |
 | `npm test` | **61 files / 908 tests passed**, 67.6s |
 | `npm run build` | pass in ~1s, 3068 modules |
@@ -88,6 +88,16 @@ rounded geometric wordmark, amber→red-orange glossy ribbon through the letters
 | Off-palette hues introduced ad hoc | `#8900ff`, `#00c2ff`, `#ff5a1f`, `#f5b64f`, `#eee6ff`, `#171310`, `#0f0e11` (mostly `PublicWebsite.tsx` dark sections) |
 | Known flake | `src/App.noApprovalFlow.test.tsx` failed in one full-suite run under parallel load (24.5s), passes in isolation (15.9s). Timing, not logic. |
 | Lighthouse / device matrix | not run at baseline; recorded during the QA phase with the dev server + local-dev adapter |
+
+### After the token layer (same branch)
+
+| Check | Result |
+| --- | --- |
+| Raw colour literals in `src` | **0** outside `src/styles/tokens.css` and `src/theme/palette.ts`. One exemption: `src/data/referenceContent.ts`, whose hexes are brand copy a reader is meant to see. |
+| Palette captured | 75 distinct values (704 occurrences) hoisted verbatim; `tokens.test.ts` fails on any value the product did not already render. |
+| `npm test` | 63 files / 963 tests passed |
+| CSS gzip | 23.55 kB (+1.55 kB: the semantic layer ships as custom properties, and no utility was dropped) |
+| Verified in a browser | dev server + local-dev adapter: public hero, CUTORA sign-in, first-admin bootstrap, sign-in, super-admin overview and KPI & Analytics, in light and dark. `getComputedStyle` in dark reads `--app-surface #0f172a`, `--app-border #1e293b`, `--app-text #e2e8f0` — the same values the screens hard-coded before. |
 
 ## 5. Where authority lives (so nothing is guessed later)
 

@@ -128,7 +128,7 @@ export const VisionPanel: React.FC<PanelProps> = ({ draft, patch }) => {
         <button
           type="button"
           onClick={() => set({ pillars: [...draft.vision2027.pillars, { title: '', description: '', points: [] }] })}
-          className="text-[11px] font-bold text-[#D47F0A] hover:underline"
+          className="text-[11px] font-bold text-accent-strong hover:underline"
         >
           Add a pillar
         </button>

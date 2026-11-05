@@ -18,7 +18,7 @@ export const AuthPendingScreen: React.FC<Props> = ({ reason, onBackToHome }) => 
           <ShieldAlert className="w-5 h-5" aria-hidden />
         </span>
         <div className="min-w-0">
-          <h1 className="text-lg font-black text-[#123B60] dark:text-white">Sign-in is unavailable</h1>
+          <h1 className="text-lg font-black text-brand dark:text-white">Sign-in is unavailable</h1>
           <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">{reason}</p>
 
           <div className="mt-5 rounded-2xl bg-slate-50 dark:bg-slate-950/60 border border-slate-200 dark:border-slate-800 p-4">
@@ -53,7 +53,7 @@ export const AuthPendingScreen: React.FC<Props> = ({ reason, onBackToHome }) => 
             <button
               type="button"
               onClick={onBackToHome}
-              className="mt-5 text-xs font-semibold text-[#123B60] dark:text-[#F59A16] hover:underline"
+              className="mt-5 text-xs font-semibold text-brand dark:text-accent hover:underline"
             >
               Back to the public website
             </button>

@@ -187,7 +187,7 @@ export const WebsiteCMS: React.FC<{ onNavigate?: (view: DashboardView) => void }
           <button
             onClick={handlePublish}
             disabled={publishBlockedBecause !== null}
-            className="px-4 py-2.5 rounded-xl bg-[#123B60] text-white text-xs font-bold hover:bg-[#0d2c47] transition flex items-center gap-1.5 disabled:opacity-50"
+            className="px-4 py-2.5 rounded-xl bg-brand text-white text-xs font-bold hover:bg-navy-deep transition flex items-center gap-1.5 disabled:opacity-50"
           >
             <Send className="w-4 h-4" /> Publish live page
           </button>
@@ -250,7 +250,7 @@ export const WebsiteCMS: React.FC<{ onNavigate?: (view: DashboardView) => void }
             onClick={() => setTab(entry.id)}
             aria-pressed={tab === entry.id}
             className={`px-4 py-2 rounded-xl text-xs font-bold transition whitespace-nowrap ${
-              tab === entry.id ? 'bg-[#123B60] text-white' : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
+              tab === entry.id ? 'bg-brand text-white' : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
             }`}
           >
             {entry.label}

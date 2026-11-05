@@ -90,7 +90,7 @@ export const PointsAndLeaderboard: React.FC = () => {
             <button
               onClick={() => setSelectedTab('leaderboard')}
               className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${
-                selectedTab === 'leaderboard' ? 'bg-[#123B60] text-white' : 'text-slate-500'
+                selectedTab === 'leaderboard' ? 'bg-brand text-white' : 'text-slate-500'
               }`}
             >
               Leaderboard
@@ -98,7 +98,7 @@ export const PointsAndLeaderboard: React.FC = () => {
             <button
               onClick={() => setSelectedTab('ledger')}
               className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${
-                selectedTab === 'ledger' ? 'bg-[#123B60] text-white' : 'text-slate-500'
+                selectedTab === 'ledger' ? 'bg-brand text-white' : 'text-slate-500'
               }`}
             >
               Scoring Ledger ({visibleLedger.length})
@@ -106,7 +106,7 @@ export const PointsAndLeaderboard: React.FC = () => {
             <button
               onClick={() => setSelectedTab('policy')}
               className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${
-                selectedTab === 'policy' ? 'bg-[#123B60] text-white' : 'text-slate-500'
+                selectedTab === 'policy' ? 'bg-brand text-white' : 'text-slate-500'
               }`}
             >
               How this is scored
@@ -117,7 +117,7 @@ export const PointsAndLeaderboard: React.FC = () => {
             <button
               onClick={openAdjustModal}
               disabled={visibleUsers.length === 0}
-              className="px-4 py-2 bg-[#F59A16] hover:bg-[#D47F0A] disabled:opacity-50 text-white text-xs font-bold rounded-xl shadow-md transition flex items-center gap-1.5"
+              className="px-4 py-2 bg-accent hover:bg-accent-strong disabled:opacity-50 text-white text-xs font-bold rounded-xl shadow-md transition flex items-center gap-1.5"
             >
               <PlusCircle className="w-4 h-4" />
               Adjust Points
@@ -175,7 +175,7 @@ export const PointsAndLeaderboard: React.FC = () => {
 
                 <div className="mt-4 pt-3 border-t border-slate-200/60 dark:border-slate-700/60 flex items-center justify-between text-xs">
                   <span className="text-slate-500">{u.approvedTasksCount} approved tasks</span>
-                  <span className="font-extrabold text-base text-[#F59A16]">{u.totalPoints} pts</span>
+                  <span className="font-extrabold text-base text-accent">{u.totalPoints} pts</span>
                 </div>
               </div>
             ))}
@@ -203,7 +203,7 @@ export const PointsAndLeaderboard: React.FC = () => {
                     onChange={(e) => setSearchTerm(e.target.value)}
                     placeholder="Search by name"
                     aria-label="Search the ranking by member name"
-                    className="pl-8 pr-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs outline-none focus:ring-2 focus:ring-[#123B60]"
+                    className="pl-8 pr-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs outline-none focus:ring-2 focus:ring-brand"
                   />
                 </div>
                 {visibleUsers.some((u) => u.committeeId) && (
@@ -252,7 +252,7 @@ export const PointsAndLeaderboard: React.FC = () => {
                     </td>
                     <td className="py-3 px-4 capitalize text-slate-600 dark:text-slate-300">{u.role.replace('_', ' ')}</td>
                     <td className="py-3 px-4 text-center font-semibold text-slate-700 dark:text-slate-300">{u.approvedTasksCount}</td>
-                    <td className="py-3 px-4 text-right font-black text-[#F59A16] text-sm">{u.totalPoints} pts</td>
+                    <td className="py-3 px-4 text-right font-black text-accent text-sm">{u.totalPoints} pts</td>
                   </tr>
                 ))}
               </tbody>
@@ -366,7 +366,7 @@ export const PointsAndLeaderboard: React.FC = () => {
                   value={pointsChange}
                   onChange={(e) => setPointsChange(Number(e.target.value))}
                   placeholder="e.g. 50 or -20"
-                  className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 font-bold text-[#F59A16] outline-none"
+                  className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 font-bold text-accent outline-none"
                 />
               </div>
 
@@ -392,7 +392,7 @@ export const PointsAndLeaderboard: React.FC = () => {
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 bg-[#123B60] text-white font-bold rounded-xl"
+                  className="px-5 py-2 bg-brand text-white font-bold rounded-xl"
                 >
                   Commit Adjustment
                 </button>

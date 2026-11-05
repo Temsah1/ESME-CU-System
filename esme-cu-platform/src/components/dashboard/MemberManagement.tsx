@@ -28,7 +28,7 @@ import { ACADEMIC_YEAR_OPTIONS, DEPARTMENT_OPTIONS } from '../../data/referenceC
 import type { Role, User } from '../../types';
 
 const inputClass =
-  'w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs outline-none focus:ring-2 focus:ring-[#123B60]';
+  'w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs outline-none focus:ring-2 focus:ring-brand';
 
 const labelClass = 'block font-bold text-slate-700 dark:text-slate-300 mb-1';
 
@@ -334,7 +334,7 @@ export const MemberManagement: React.FC = () => {
         {mayCreate && (
           <button
             onClick={() => setIsAddModalOpen(true)}
-            className="px-4 py-2.5 bg-[#F59A16] hover:bg-[#D47F0A] text-white text-xs font-bold rounded-xl shadow-md transition flex items-center gap-1.5 self-start sm:self-auto"
+            className="px-4 py-2.5 bg-accent hover:bg-accent-strong text-white text-xs font-bold rounded-xl shadow-md transition flex items-center gap-1.5 self-start sm:self-auto"
           >
             <UserPlus className="w-4 h-4" />
             Provision Member
@@ -366,7 +366,7 @@ export const MemberManagement: React.FC = () => {
           action: mayCreate ? (
             <button
               onClick={() => setIsAddModalOpen(true)}
-              className="px-4 py-2 bg-[#123B60] text-white text-xs font-bold rounded-xl"
+              className="px-4 py-2 bg-brand text-white text-xs font-bold rounded-xl"
             >
               Provision the first account
             </button>
@@ -421,7 +421,7 @@ export const MemberManagement: React.FC = () => {
             sortValue: (u) => u.name,
             render: (u) => (
               <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-full bg-[#123B60] text-white flex items-center justify-center font-bold text-xs shrink-0">
+                <div className="w-8 h-8 rounded-full bg-brand text-white flex items-center justify-center font-bold text-xs shrink-0">
                   {u.name.split(' ').map((n) => n[0]).join('')}
                 </div>
                 <div className="min-w-0">
@@ -471,7 +471,7 @@ export const MemberManagement: React.FC = () => {
             label: 'Points',
             align: 'center',
             sortValue: (u) => u.totalPoints,
-            render: (u) => <span className="font-bold text-[#F59A16]">{u.totalPoints}</span>,
+            render: (u) => <span className="font-bold text-accent">{u.totalPoints}</span>,
           },
           {
             key: 'approved',
@@ -690,7 +690,7 @@ export const MemberManagement: React.FC = () => {
                 <button
                   type="submit"
                   disabled={!rewardPreview?.allowed || rewardFiling}
-                  className="px-5 py-2 bg-[#123B60] text-white font-bold rounded-xl disabled:opacity-50"
+                  className="px-5 py-2 bg-brand text-white font-bold rounded-xl disabled:opacity-50"
                 >
                   {rewardFiling
                     ? 'Recording…'
@@ -858,7 +858,7 @@ export const MemberManagement: React.FC = () => {
             <button
               type="submit"
               disabled={pending}
-              className="px-5 py-2 bg-[#F59A16] hover:bg-[#D47F0A] disabled:opacity-60 text-white font-bold rounded-xl"
+              className="px-5 py-2 bg-accent hover:bg-accent-strong disabled:opacity-60 text-white font-bold rounded-xl"
             >
               Create Account
             </button>
@@ -962,7 +962,7 @@ export const MemberManagement: React.FC = () => {
                 <button
                   type="submit"
                   disabled={pending}
-                  className="px-5 py-2 bg-[#123B60] disabled:opacity-60 text-white font-bold rounded-xl text-xs"
+                  className="px-5 py-2 bg-brand disabled:opacity-60 text-white font-bold rounded-xl text-xs"
                 >
                   Save Profile
                 </button>
@@ -997,7 +997,7 @@ export const MemberManagement: React.FC = () => {
                       <button
                         onClick={handleRoleChange}
                         disabled={pending || roleDraft === viewUser.role}
-                        className="px-3.5 py-2 rounded-xl bg-[#F59A16] text-white text-xs font-bold disabled:opacity-50"
+                        className="px-3.5 py-2 rounded-xl bg-accent text-white text-xs font-bold disabled:opacity-50"
                       >
                         Apply
                       </button>
@@ -1030,7 +1030,7 @@ export const MemberManagement: React.FC = () => {
                         <button
                           onClick={handleStatusChange}
                           disabled={pending || !statusDraft}
-                          className="px-3.5 py-2 rounded-xl bg-[#123B60] text-white text-xs font-bold disabled:opacity-50"
+                          className="px-3.5 py-2 rounded-xl bg-brand text-white text-xs font-bold disabled:opacity-50"
                         >
                           Apply
                         </button>

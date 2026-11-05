@@ -3,6 +3,7 @@ import { canAnimate, prefersReduced } from './env';
 import { onRevealed } from './reveal';
 import { killTweens, LogoDraw, useGsap, type ScrollTween } from './petalyx';
 import './shipcraft.css';
+import { PALETTE } from '../../theme/palette';
 
 /**
  * SHIPCRAFT — the closing band and the footer that belongs to it.
@@ -44,10 +45,10 @@ const Hand: React.FC<{ id: string }> = ({ id }) => (
   <svg viewBox="0 0 260 130" aria-hidden="true" focusable="false">
     <defs>
       <linearGradient id={id} x1="0" y1="0" x2="0.85" y2="1">
-        <stop offset="0" stopColor="#efe9e1" />
-        <stop offset="0.42" stopColor="#c3b7ab" />
-        <stop offset="0.72" stopColor="#8d8075" />
-        <stop offset="1" stopColor="#5b5249" />
+        <stop offset="0" stopColor={PALETTE.paper500} />
+        <stop offset="0.42" stopColor={PALETTE.clay500} />
+        <stop offset="0.72" stopColor={PALETTE.clay600} />
+        <stop offset="1" stopColor={PALETTE.clay700} />
       </linearGradient>
     </defs>
     <path d={HAND_PATH} fill={`url(#${id})`} />

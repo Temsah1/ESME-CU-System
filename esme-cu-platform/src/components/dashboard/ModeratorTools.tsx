@@ -247,7 +247,7 @@ export const ModeratorTools: React.FC = () => {
 
         <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm space-y-2">
           <span className="flex items-center gap-1.5 text-xs font-bold text-slate-700 dark:text-slate-300">
-            <History className="w-4 h-4 text-[#F59A16]" /> Audit entries
+            <History className="w-4 h-4 text-accent" /> Audit entries
           </span>
           <div className="text-sm font-black text-slate-900 dark:text-white">{auditLogs.length}</div>
           <p className="text-[11px] text-slate-400">
@@ -259,7 +259,7 @@ export const ModeratorTools: React.FC = () => {
       {/* Seeded test accounts */}
       <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm space-y-4">
         <div className="flex items-start gap-2.5">
-          <div className="p-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-[#123B60] dark:text-[#F59A16]">
+          <div className="p-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-brand dark:text-accent">
             <UserRoundCog className="w-5 h-5" aria-hidden />
           </div>
           <div>
@@ -320,7 +320,7 @@ export const ModeratorTools: React.FC = () => {
               type="button"
               onClick={runSeedTesters}
               disabled={testAccountBusy}
-              className="px-4 py-2 bg-[#123B60] hover:bg-[#0A2239] disabled:opacity-50 text-white text-xs font-bold rounded-xl transition flex items-center gap-2"
+              className="px-4 py-2 bg-brand hover:bg-brand-ink disabled:opacity-50 text-white text-xs font-bold rounded-xl transition flex items-center gap-2"
             >
               <RotateCcw className="w-3.5 h-3.5" aria-hidden />
               Seed or reset test accounts
@@ -423,7 +423,7 @@ export const ModeratorTools: React.FC = () => {
         </div>
         <button
           onClick={runVerification}
-          className="px-4 py-2 bg-[#123B60] hover:bg-[#0A2239] text-white text-xs font-bold rounded-xl transition flex items-center gap-2 self-start sm:self-auto"
+          className="px-4 py-2 bg-brand hover:bg-brand-ink text-white text-xs font-bold rounded-xl transition flex items-center gap-2 self-start sm:self-auto"
         >
           <CircleCheck className="w-3.5 h-3.5" />
           Run verification

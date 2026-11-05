@@ -47,7 +47,7 @@ export const AuditTrailView: React.FC = () => {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-xl font-black text-slate-900 dark:text-white flex items-center gap-2">
-            <History className="w-5 h-5 text-[#F59A16]" />
+            <History className="w-5 h-5 text-accent" />
             Chapter Governance & Audit Trail
           </h1>
           <p className="text-xs text-slate-500">
@@ -86,7 +86,7 @@ export const AuditTrailView: React.FC = () => {
             placeholder="Search audit trail by actor, action, or details..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-9 pr-4 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-xs focus:ring-2 focus:ring-[#123B60] outline-none"
+            className="w-full pl-9 pr-4 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-xs focus:ring-2 focus:ring-brand outline-none"
           />
         </div>
 
@@ -133,7 +133,7 @@ export const AuditTrailView: React.FC = () => {
                 }`}
               >
                 <div className="flex items-start gap-3.5">
-                  <div className="w-8 h-8 rounded-full bg-[#123B60] text-white flex items-center justify-center font-bold text-xs shrink-0 mt-0.5 shadow-sm">
+                  <div className="w-8 h-8 rounded-full bg-brand text-white flex items-center justify-center font-bold text-xs shrink-0 mt-0.5 shadow-sm">
                     {log.actorName ? log.actorName[0] : 'S'}
                   </div>
                   <div className="space-y-1">
@@ -143,7 +143,7 @@ export const AuditTrailView: React.FC = () => {
                       </span>
                       <span className="text-[10px] text-slate-400">({log.actorRole.replace('_', ' ')})</span>
                       <span className="text-xs text-slate-400 font-semibold">•</span>
-                      <span className="text-xs font-semibold text-[#123B60] dark:text-[#F59A16]">
+                      <span className="text-xs font-semibold text-brand dark:text-accent">
                         {log.action}
                       </span>
                       <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider ${getTargetBadgeColor(log.targetType)}`}>

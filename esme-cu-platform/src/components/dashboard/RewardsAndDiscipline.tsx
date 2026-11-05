@@ -309,20 +309,20 @@ export const RewardsAndDiscipline: React.FC<Props> = ({ onNavigate }) => {
           <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-1 flex">
             <button
               onClick={() => setTab('ledger')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${tab === 'ledger' ? 'bg-[#123B60] text-white' : 'text-slate-500'}`}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${tab === 'ledger' ? 'bg-brand text-white' : 'text-slate-500'}`}
             >
               Ledger ({visibleEntries.length})
             </button>
             <button
               onClick={() => setTab('mine')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${tab === 'mine' ? 'bg-[#123B60] text-white' : 'text-slate-500'}`}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${tab === 'mine' ? 'bg-brand text-white' : 'text-slate-500'}`}
             >
               My record{myOpenWarnings.length > 0 ? ` (${myOpenWarnings.length})` : ''}
             </button>
             {mayConfigure && (
               <button
                 onClick={() => setTab('policy')}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${tab === 'policy' ? 'bg-[#123B60] text-white' : 'text-slate-500'}`}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${tab === 'policy' ? 'bg-brand text-white' : 'text-slate-500'}`}
               >
                 Permission matrix
               </button>
@@ -334,7 +334,7 @@ export const RewardsAndDiscipline: React.FC<Props> = ({ onNavigate }) => {
               {canRecordBonus && (
                 <button
                   onClick={() => openForm('bonus')}
-                  className="px-4 py-2 bg-[#F59A16] hover:bg-[#D47F0A] text-white text-xs font-bold rounded-xl shadow-md transition flex items-center gap-1.5"
+                  className="px-4 py-2 bg-accent hover:bg-accent-strong text-white text-xs font-bold rounded-xl shadow-md transition flex items-center gap-1.5"
                 >
                   <PlusCircle className="w-4 h-4" />
                   Award bonus
@@ -386,7 +386,7 @@ export const RewardsAndDiscipline: React.FC<Props> = ({ onNavigate }) => {
               icon={ListOrdered}
               action={
                 canRecordBonus ? (
-                  <button onClick={() => openForm('bonus')} className="px-4 py-2 bg-[#123B60] text-white text-xs font-bold rounded-xl">
+                  <button onClick={() => openForm('bonus')} className="px-4 py-2 bg-brand text-white text-xs font-bold rounded-xl">
                     Award the first bonus
                   </button>
                 ) : undefined
@@ -406,7 +406,7 @@ export const RewardsAndDiscipline: React.FC<Props> = ({ onNavigate }) => {
                     }}
                     placeholder="Search by member, issuer or reason…"
                     aria-label="Search entries"
-                    className="pl-8 pr-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs outline-none focus:ring-2 focus:ring-[#123B60]"
+                    className="pl-8 pr-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs outline-none focus:ring-2 focus:ring-brand"
                   />
                 </div>
                 <div className="flex flex-wrap gap-2">
@@ -548,7 +548,7 @@ export const RewardsAndDiscipline: React.FC<Props> = ({ onNavigate }) => {
                                   href={entry.evidenceUrl}
                                   target="_blank"
                                   rel="noreferrer noopener"
-                                  className="block text-[10px] text-[#123B60] dark:text-sky-400 underline"
+                                  className="block text-[10px] text-brand dark:text-sky-400 underline"
                                 >
                                   evidence
                                 </a>
@@ -607,7 +607,7 @@ export const RewardsAndDiscipline: React.FC<Props> = ({ onNavigate }) => {
           <p className="text-[11px] text-slate-400">
             Bonus points also appear as a row in the scoring ledger, so the leaderboard and this record are the same
             numbers.{' '}
-            <button onClick={() => onNavigate('scoring')} className="font-bold text-[#123B60] dark:text-sky-400 underline">
+            <button onClick={() => onNavigate('scoring')} className="font-bold text-brand dark:text-sky-400 underline">
               Open the scoring ledger
             </button>
           </p>
@@ -618,13 +618,13 @@ export const RewardsAndDiscipline: React.FC<Props> = ({ onNavigate }) => {
         <div className="space-y-4">
           <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5">
             <div className="flex items-center gap-2 text-xs font-bold text-slate-800 dark:text-slate-100">
-              <Award className="w-4 h-4 text-[#F59A16]" />
+              <Award className="w-4 h-4 text-accent" />
               Your record
             </div>
             <div className="mt-3 grid grid-cols-2 sm:grid-cols-4 gap-3 text-[11px]">
               <div>
                 <div className="text-slate-400">Total score</div>
-                <div className="text-lg font-black text-[#F59A16]">{currentUser.totalPoints} pts</div>
+                <div className="text-lg font-black text-accent">{currentUser.totalPoints} pts</div>
               </div>
               <div>
                 <div className="text-slate-400">Bonus points standing</div>
@@ -680,7 +680,7 @@ export const RewardsAndDiscipline: React.FC<Props> = ({ onNavigate }) => {
                               }
                             })();
                           }}
-                          className="px-3 py-1.5 rounded-xl bg-[#123B60] text-white text-[11px] font-bold"
+                          className="px-3 py-1.5 rounded-xl bg-brand text-white text-[11px] font-bold"
                         >
                           Acknowledge
                         </button>
@@ -699,13 +699,13 @@ export const RewardsAndDiscipline: React.FC<Props> = ({ onNavigate }) => {
           <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 space-y-4">
             <div className="flex items-center justify-between gap-3">
               <div className="flex items-center gap-2 text-xs font-bold text-slate-800 dark:text-slate-100">
-                <SlidersHorizontal className="w-4 h-4 text-[#123B60]" />
+                <SlidersHorizontal className="w-4 h-4 text-brand" />
                 Who may award, how much, and when it escalates
               </div>
               {!draft && (
                 <button
                   onClick={() => setDraft({ ...rewardPolicy })}
-                  className="px-3 py-1.5 rounded-xl bg-[#123B60] text-white text-[11px] font-bold"
+                  className="px-3 py-1.5 rounded-xl bg-brand text-white text-[11px] font-bold"
                 >
                   Edit matrix
                 </button>
@@ -791,7 +791,7 @@ export const RewardsAndDiscipline: React.FC<Props> = ({ onNavigate }) => {
                   <button type="button" onClick={() => setDraft(null)} className="px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-600 font-semibold">
                     Discard
                   </button>
-                  <button type="submit" disabled={draftErrors.length > 0} className="px-5 py-2 bg-[#123B60] text-white font-bold rounded-xl disabled:opacity-50">
+                  <button type="submit" disabled={draftErrors.length > 0} className="px-5 py-2 bg-brand text-white font-bold rounded-xl disabled:opacity-50">
                     Save matrix
                   </button>
                 </div>
@@ -842,7 +842,7 @@ export const RewardsAndDiscipline: React.FC<Props> = ({ onNavigate }) => {
                     onChange={(e) => setPickTerm(e.target.value)}
                     placeholder="Search accounts by name, email or username…"
                     aria-label="Search accounts to record this entry against"
-                    className="w-full pl-9 pr-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 outline-none focus:ring-2 focus:ring-[#123B60]"
+                    className="w-full pl-9 pr-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 outline-none focus:ring-2 focus:ring-brand"
                   />
                 </div>
                 {candidates.length === 0 && (
@@ -890,7 +890,7 @@ export const RewardsAndDiscipline: React.FC<Props> = ({ onNavigate }) => {
                         className={`shrink-0 px-2.5 py-1.5 rounded-lg text-[11px] font-bold ${
                           targetId === account.id
                             ? 'bg-emerald-600 text-white'
-                            : 'bg-[#123B60] text-white disabled:bg-slate-200 disabled:text-slate-400 dark:disabled:bg-slate-800'
+                            : 'bg-brand text-white disabled:bg-slate-200 disabled:text-slate-400 dark:disabled:bg-slate-800'
                         }`}
                       >
                         {targetId === account.id ? 'Selected' : verdict.allowed ? 'Select' : 'Blocked'}
@@ -913,7 +913,7 @@ export const RewardsAndDiscipline: React.FC<Props> = ({ onNavigate }) => {
                     required
                     value={points}
                     onChange={(e) => setPoints(Number(e.target.value))}
-                    className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 font-bold text-[#F59A16] outline-none"
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 font-bold text-accent outline-none"
                   />
                 </div>
               ) : (
@@ -1006,7 +1006,7 @@ export const RewardsAndDiscipline: React.FC<Props> = ({ onNavigate }) => {
                 <button
                   type="submit"
                   disabled={!preview?.decision.allowed || filing}
-                  className="px-5 py-2 bg-[#123B60] text-white font-bold rounded-xl disabled:opacity-50"
+                  className="px-5 py-2 bg-brand text-white font-bold rounded-xl disabled:opacity-50"
                 >
                   {filing ? 'Recording…' : form === 'bonus' ? 'Record bonus' : 'Record warning'}
                 </button>
@@ -1138,7 +1138,7 @@ const RoleChecks: React.FC<{ value: Role[]; onChange: (next: Role[]) => void }> 
         key={role}
         className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border text-[11px] font-semibold cursor-pointer ${
           value.includes(role)
-            ? 'border-[#123B60] bg-[#123B60] text-white'
+            ? 'border-brand bg-brand text-white'
             : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300'
         }`}
       >

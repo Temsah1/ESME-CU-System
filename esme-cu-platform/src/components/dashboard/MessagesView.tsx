@@ -103,7 +103,7 @@ const ConversationButton: React.FC<{
     aria-current={selected ? 'true' : undefined}
     className={`w-full text-left px-3 py-3 rounded-xl border transition ${
       selected
-        ? 'border-[#123B60] bg-[#123B60] text-white shadow-sm'
+        ? 'border-brand bg-brand text-white shadow-sm'
         : 'border-transparent hover:bg-slate-100 dark:hover:bg-slate-800'
     }`}
   >
@@ -123,7 +123,7 @@ const ConversationButton: React.FC<{
       {conversation.unreadCount > 0 && (
         <span
           aria-label={`${conversation.unreadCount} unread`}
-          className="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-[#F59A16] text-white"
+          className="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-accent text-white"
         >
           {conversation.unreadCount > 99 ? '99+' : conversation.unreadCount}
         </span>
@@ -148,7 +148,7 @@ const MessageBubble: React.FC<{ message: ChatMessage; mine: boolean }> = ({ mess
       <div
         className={`rounded-2xl px-3.5 py-2 text-xs whitespace-pre-wrap break-words ${
           mine
-            ? 'bg-[#123B60] text-white rounded-br-md'
+            ? 'bg-brand text-white rounded-br-md'
             : 'bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-100 rounded-bl-md'
         }`}
       >
@@ -361,7 +361,7 @@ export const MessagesView: React.FC = () => {
           </p>
         </div>
         {unread > 0 && (
-          <span className="text-[11px] font-bold text-[#F59A16]" aria-label={`${unread} unread messages`}>
+          <span className="text-[11px] font-bold text-accent" aria-label={`${unread} unread messages`}>
             {unread} unread
           </span>
         )}
@@ -416,7 +416,7 @@ export const MessagesView: React.FC = () => {
                 <button
                   type="button"
                   onClick={openContacts}
-                  className="p-2 rounded-lg bg-[#123B60] text-white hover:bg-[#0A2239]"
+                  className="p-2 rounded-lg bg-brand text-white hover:bg-brand-ink"
                   aria-label="New direct message"
                   title="New direct message"
                 >
@@ -538,7 +538,7 @@ export const MessagesView: React.FC = () => {
                         type="button"
                         onClick={() => void loadEarlier()}
                         disabled={loadingEarlier}
-                        className="text-[11px] font-bold text-[#123B60] dark:text-[#F59A16] hover:underline disabled:opacity-50"
+                        className="text-[11px] font-bold text-brand dark:text-accent hover:underline disabled:opacity-50"
                       >
                         {loadingEarlier ? 'Loading earlier messages…' : 'Load earlier messages'}
                       </button>
@@ -587,7 +587,7 @@ export const MessagesView: React.FC = () => {
                     <button
                       type="submit"
                       disabled={sending || draft.trim().length === 0}
-                      className="px-3 py-2.5 rounded-xl bg-[#123B60] text-white text-xs font-bold disabled:opacity-50 inline-flex items-center gap-1.5"
+                      className="px-3 py-2.5 rounded-xl bg-brand text-white text-xs font-bold disabled:opacity-50 inline-flex items-center gap-1.5"
                     >
                       {sending ? (
                         <LoaderCircle className="w-3.5 h-3.5 animate-spin" aria-hidden />

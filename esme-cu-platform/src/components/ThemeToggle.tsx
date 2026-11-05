@@ -28,8 +28,8 @@ export const ThemeToggle: React.FC<{ className?: string; tone?: 'surface' | 'onD
 
   const tones =
     tone === 'onDark'
-      ? 'border-white/25 bg-white/10 text-slate-100 hover:border-[#F59A16] hover:text-[#F59A16]'
-      : 'border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 hover:border-[#F59A16] hover:text-[#123B60] dark:hover:text-[#F59A16]';
+      ? 'border-white/25 bg-white/10 text-slate-100 hover:border-accent hover:text-accent'
+      : 'border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 hover:border-accent hover:text-brand dark:hover:text-accent';
 
   return (
     <button

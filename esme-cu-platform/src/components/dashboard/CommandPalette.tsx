@@ -234,11 +234,11 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({ open, onClose, o
                       transition={{ duration: durations.micro, ease: easings.smooth }}
                       className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-left ${
                         isCurrentRow
-                          ? 'bg-[#123B60] text-white'
+                          ? 'bg-brand text-white'
                           : 'text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800'
                       }`}
                     >
-                      <Icon className={`w-4 h-4 shrink-0 ${isCurrentRow ? 'text-[#F59A16]' : 'text-slate-400'}`} />
+                      <Icon className={`w-4 h-4 shrink-0 ${isCurrentRow ? 'text-accent' : 'text-slate-400'}`} />
                       <span className="flex-1 min-w-0">
                         <span className="block text-xs font-bold truncate">{result.label}</span>
                         <span className={`block text-[10px] truncate ${isCurrentRow ? 'text-slate-200' : 'text-slate-400'}`}>

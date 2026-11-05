@@ -8,8 +8,8 @@
  */
 .ship {
   --u: 1px;
-  background: #0d0d0d;
-  color: #f6f4f1;
+  background: var(--esme-ink-800);
+  color: var(--esme-paper-200);
   position: relative;
   overflow: hidden;
 }
@@ -62,7 +62,7 @@
   border-radius: 999px;
   border: 1px solid rgba(245, 154, 22, 0.45);
   background: rgba(245, 154, 22, 0.1);
-  color: #f5b64f;
+  color: var(--esme-ember-1200);
   font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.14em;
@@ -96,8 +96,8 @@
   padding: 14px 26px;
   border-radius: 999px;
   border: 1px solid rgba(255, 214, 158, 0.5);
-  background: linear-gradient(135deg, #2c241d 0%, #7a5832 100%);
-  color: #ffe9c9;
+  background: linear-gradient(135deg, var(--esme-wood-600) 0%, var(--esme-wood-100) 100%);
+  color: var(--esme-ember-200);
   font-weight: 700;
   font-size: 14px;
   cursor: pointer;
@@ -142,9 +142,9 @@
   transition:
     transform 0.9s var(--ease),
     opacity 0.9s var(--ease);
-  -webkit-mask-image: linear-gradient(200deg, #000 55%, transparent 96%), linear-gradient(90deg, transparent 0, #000 22%);
+  -webkit-mask-image: linear-gradient(200deg, var(--esme-black) 55%, transparent 96%), linear-gradient(90deg, transparent 0, var(--esme-black) 22%);
   -webkit-mask-composite: source-in;
-  mask-image: linear-gradient(200deg, #000 55%, transparent 96%), linear-gradient(90deg, transparent 0, #000 22%);
+  mask-image: linear-gradient(200deg, var(--esme-black) 55%, transparent 96%), linear-gradient(90deg, transparent 0, var(--esme-black) 22%);
   mask-composite: intersect;
   overflow: hidden;
 }
@@ -200,7 +200,7 @@
 }
 .ship-login:hover,
 .ship-login:focus-visible {
-  color: #f5b64f;
+  color: var(--esme-ember-1200);
 }
 .ship-brand {
   display: flex;
@@ -291,7 +291,7 @@
 .ship-social a:hover,
 .ship-social a:focus-visible {
   transform: translateY(-3px);
-  color: #f5b64f;
+  color: var(--esme-ember-1200);
   border-color: rgba(245, 154, 22, 0.5);
 }
 
@@ -319,7 +319,7 @@
   background: transparent;
   border: none;
   outline: none;
-  color: #f6f4f1;
+  color: var(--esme-paper-200);
   font-size: 13px;
 }
 .ship-news input::placeholder {
@@ -334,7 +334,7 @@
   border-radius: 999px;
   border: none;
   background: rgba(245, 154, 22, 0.16);
-  color: #f5b64f;
+  color: var(--esme-ember-1200);
   cursor: pointer;
   transition: background-color 0.4s var(--ease);
 }
@@ -428,7 +428,7 @@
   position: relative;
   overflow: hidden;
   text-align: center;
-  color: #5a3418;
+  color: var(--esme-wood-300);
   font-family: 'Newsreader', Georgia, serif;
   font-weight: 300;
   font-size: clamp(72px, 22vw, 320px);

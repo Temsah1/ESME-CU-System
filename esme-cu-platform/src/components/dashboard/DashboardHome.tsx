@@ -54,7 +54,7 @@ const StatCard: React.FC<{ stat: Stat; onNavigate: (view: DashboardView) => void
         whileHover={{ y: -4 }}
         whileTap={{ scale: 0.98 }}
         transition={transitions.standard}
-        className="group/card bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 hover:shadow-md hover:border-[#123B60]/30 transition-[box-shadow,border-color] cursor-pointer flex flex-col justify-between h-full focus-visible:outline-2 focus-visible:outline-[#F59A16]"
+        className="group/card bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 hover:shadow-md hover:border-brand/30 transition-[box-shadow,border-color] cursor-pointer flex flex-col justify-between h-full focus-visible:outline-2 focus-visible:outline-accent"
       >
         <div className="flex items-center justify-between gap-3">
           <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">{stat.label}</span>
@@ -130,7 +130,7 @@ const RoleAndSeat: React.FC<{ actor: User }> = ({ actor }) => {
         posts.map(({ committee, position }) => (
           <span
             key={`${committee.id}-${position}`}
-            className="px-2.5 py-1 rounded-full bg-[#F59A16] text-[#0A2239] font-bold"
+            className="px-2.5 py-1 rounded-full bg-accent text-brand-ink font-bold"
           >
             {POSITION_LABELS[position]} — {committee.name}
           </span>
@@ -183,7 +183,7 @@ const QueuePanel: React.FC<{ items: ActionItem[]; caption: string; onNavigate: (
     <div className="mt-3 flex justify-end">
       <button
         onClick={() => onNavigate('action_center')}
-        className="text-xs text-[#F59A16] font-bold hover:underline flex items-center gap-1"
+        className="text-xs text-accent font-bold hover:underline flex items-center gap-1"
       >
         Open Action Center
         <ChevronRight className="w-3.5 h-3.5" />
@@ -233,7 +233,7 @@ const CommitteeHome: React.FC<{ actor: User; onNavigate: (view: DashboardView) =
       hint: committee ? `${roster.filter((m) => m.status === 'active').length} active account(s) filed under ${committee.shortCode}` : 'This account holds no committee',
       icon: Users,
       view: 'members',
-      tone: 'bg-[#123B60]/10 text-[#123B60] dark:text-[#F59A16]',
+      tone: 'bg-brand/10 text-brand dark:text-accent',
     },
     {
       label: 'Open tasks',
@@ -288,11 +288,11 @@ const CommitteeHome: React.FC<{ actor: User; onNavigate: (view: DashboardView) =
         initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
-        className="bg-gradient-to-r from-[#123B60] via-[#0E2F4D] to-[#0A2239] rounded-3xl p-6 sm:p-7 text-white shadow-xl relative overflow-hidden border border-white/10"
+        className="bg-gradient-to-r from-brand via-navy-mid to-brand-ink rounded-3xl p-6 sm:p-7 text-white shadow-xl relative overflow-hidden border border-white/10"
       >
         <div className="absolute inset-0 bg-grid-pattern-dark opacity-10 pointer-events-none" />
         <div className="relative z-10 space-y-3">
-          <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 text-[#F59A16] text-xs font-bold border border-white/15">
+          <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 text-accent text-xs font-bold border border-white/15">
             Committee command
           </span>
           <h1 className="text-xl sm:text-2xl font-black tracking-tight">
@@ -380,7 +380,7 @@ const MemberHome: React.FC<{ actor: User; onNavigate: (view: DashboardView) => v
       hint: 'Raised in this browser by the notification sweep',
       icon: Inbox,
       view: 'notifications',
-      tone: 'bg-[#123B60]/10 text-[#123B60] dark:text-[#F59A16]',
+      tone: 'bg-brand/10 text-brand dark:text-accent',
     },
   ];
 
@@ -394,11 +394,11 @@ const MemberHome: React.FC<{ actor: User; onNavigate: (view: DashboardView) => v
         initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
-        className="bg-gradient-to-r from-[#123B60] via-[#0E2F4D] to-[#0A2239] rounded-3xl p-6 sm:p-7 text-white shadow-xl relative overflow-hidden border border-white/10"
+        className="bg-gradient-to-r from-brand via-navy-mid to-brand-ink rounded-3xl p-6 sm:p-7 text-white shadow-xl relative overflow-hidden border border-white/10"
       >
         <div className="absolute inset-0 bg-grid-pattern-dark opacity-10 pointer-events-none" />
         <div className="relative z-10 space-y-3">
-          <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 text-[#F59A16] text-xs font-bold border border-white/15">
+          <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 text-accent text-xs font-bold border border-white/15">
             My standing
           </span>
           <h1 className="text-xl sm:text-2xl font-black tracking-tight">

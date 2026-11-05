@@ -256,7 +256,7 @@ export const SocialMediaInsightsView: React.FC = () => {
                 type="button"
                 onClick={runSync}
                 disabled={busy || source?.status !== 'ready'}
-                className="px-4 py-2 bg-[#123B60] hover:bg-[#0A2239] disabled:opacity-50 text-white text-xs font-bold rounded-xl transition inline-flex items-center gap-2"
+                className="px-4 py-2 bg-brand hover:bg-brand-ink disabled:opacity-50 text-white text-xs font-bold rounded-xl transition inline-flex items-center gap-2"
                 title={source?.status === 'ready' ? 'Invoke the sync now' : 'Configure the server-side variables first'}
               >
                 <RefreshCw className={`w-3.5 h-3.5 ${busy ? 'animate-spin' : ''}`} aria-hidden />
@@ -327,7 +327,7 @@ export const SocialMediaInsightsView: React.FC = () => {
                             href={post.permalink}
                             target="_blank"
                             rel="noreferrer noopener"
-                            className="mt-1 inline-flex items-center gap-1 text-[10px] font-semibold text-[#123B60] dark:text-[#F59A16] hover:underline"
+                            className="mt-1 inline-flex items-center gap-1 text-[10px] font-semibold text-brand dark:text-accent hover:underline"
                           >
                             Open post <ExternalLink className="w-3 h-3" aria-hidden />
                           </a>
@@ -396,7 +396,7 @@ export const SocialMediaInsightsView: React.FC = () => {
 
       <details className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm overflow-hidden">
         <summary className="px-5 py-4 cursor-pointer text-xs font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
-          <BarChart3 className="w-4 h-4 text-[#F59A16]" aria-hidden />
+          <BarChart3 className="w-4 h-4 text-accent" aria-hidden />
           Historical record transcribed from screenshots ({HISTORICAL_SOCIAL_INSIGHTS.reportDate}) — not live
         </summary>
         <div className="px-5 pb-5 space-y-4 border-t border-slate-100 dark:border-slate-800 pt-4">
@@ -451,13 +451,13 @@ export const SocialMediaInsightsView: React.FC = () => {
                     <div className="flex justify-between text-[11px]">
                       <span className="font-semibold text-slate-700 dark:text-slate-300">
                         {demo.ageRange} years
-                        {demo.primary && <strong className="text-[#F59A16]"> (student target)</strong>}
+                        {demo.primary && <strong className="text-accent"> (student target)</strong>}
                       </span>
                       <span className="font-bold text-slate-900 dark:text-white">{demo.percentage}%</span>
                     </div>
                     <div className="h-2 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
                       <div
-                        className={`dash-fill h-full rounded-full ${demo.primary ? 'bg-[#F59A16]' : 'bg-[#123B60]'}`}
+                        className={`dash-fill h-full rounded-full ${demo.primary ? 'bg-accent' : 'bg-brand'}`}
                         style={{ width: `${demo.percentage}%` }}
                       />
                     </div>
@@ -477,7 +477,7 @@ export const SocialMediaInsightsView: React.FC = () => {
                     key={rec.rule}
                     className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800 text-[11px]"
                   >
-                    <div className="font-bold text-[#123B60] dark:text-[#F59A16] mb-1">{rec.rule}</div>
+                    <div className="font-bold text-brand dark:text-accent mb-1">{rec.rule}</div>
                     <p className="text-slate-600 dark:text-slate-400 leading-relaxed">{rec.detail}</p>
                   </div>
                 ))}

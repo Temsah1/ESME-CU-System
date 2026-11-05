@@ -6,10 +6,10 @@
 
 .sun-hero {
   position: relative;
-  background: #000;
+  background: var(--esme-black);
   min-height: min(100svh, 860px);
   overflow: hidden;
-  color: #fff;
+  color: var(--esme-white);
   touch-action: pan-y;
 }
 .sun-hero canvas {
@@ -110,7 +110,7 @@
   inset: 0;
   background:
     radial-gradient(circle at 50% 62%, rgba(255, 196, 120, 0.9) 0 6%, rgba(255, 138, 61, 0.35) 14%, rgba(120, 40, 10, 0.18) 30%, transparent 52%),
-    #000;
+    var(--esme-black);
 }
 .sun-static .sun-ticks i {
   transition:

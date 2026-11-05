@@ -255,7 +255,7 @@ export const RegistrationPortal: React.FC<RegistrationPortalProps> = ({
     // the workspace on their own, unchanged session.
     const alreadySignedIn = status === 'signed_in' && identity?.id === receipt?.reference;
     return (
-      <div className="min-h-screen bg-[#FDFBF7] flex flex-col justify-center items-center px-4 py-12">
+      <div className="min-h-screen bg-ivory flex flex-col justify-center items-center px-4 py-12">
         <motion.div
           initial={{ opacity: 0, scale: 0.95, y: 16 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -281,7 +281,7 @@ export const RegistrationPortal: React.FC<RegistrationPortalProps> = ({
               </svg>
             )}
           </div>
-          <h2 className="text-2xl font-bold text-[#123B60]">
+          <h2 className="text-2xl font-bold text-brand">
             {needsVerification ? 'One step left: confirm your email' : 'Account created'}
           </h2>
           <p className="text-sm text-slate-600 mt-2 leading-relaxed">
@@ -345,14 +345,14 @@ export const RegistrationPortal: React.FC<RegistrationPortalProps> = ({
             {!alreadySignedIn && (
               <button
                 onClick={onNavigateToLogin}
-                className="w-full py-3 bg-[#123B60] text-white font-bold rounded-xl text-xs hover:bg-[#0A2239] transition"
+                className="w-full py-3 bg-brand text-white font-bold rounded-xl text-xs hover:bg-brand-ink transition"
               >
                 {needsVerification ? 'I have confirmed — sign in' : 'Sign into Member Portal'}
               </button>
             )}
             <button
               onClick={onBackToHome}
-              className="w-full py-2.5 text-xs text-[#123B60] font-semibold hover:underline"
+              className="w-full py-2.5 text-xs text-brand font-semibold hover:underline"
             >
               Return to Official Website
             </button>
@@ -363,7 +363,7 @@ export const RegistrationPortal: React.FC<RegistrationPortalProps> = ({
   }
 
   return (
-    <div className="min-h-screen bg-[#FDFBF7] py-12 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-ivory py-12 px-4 sm:px-6 lg:px-8">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -375,7 +375,7 @@ export const RegistrationPortal: React.FC<RegistrationPortalProps> = ({
         <div className="flex items-center justify-between mb-8">
           <button 
             onClick={onBackToHome}
-            className="inline-flex items-center gap-1.5 text-xs font-bold text-[#123B60] hover:text-[#F59A16] transition"
+            className="inline-flex items-center gap-1.5 text-xs font-bold text-brand hover:text-accent transition"
           >
             <ArrowLeft className="w-4 h-4" />
             Back to Website
@@ -383,14 +383,14 @@ export const RegistrationPortal: React.FC<RegistrationPortalProps> = ({
           <div className="flex items-center gap-2">
             <ThemeToggle />
             <img src="/branding/esme_logo.png" alt="ESME" className="h-7 w-auto object-contain" />
-            <span className="text-xs font-bold text-[#123B60]">Recruitment 2026-2027</span>
+            <span className="text-xs font-bold text-brand">Recruitment 2026-2027</span>
           </div>
         </div>
 
         {/* Header */}
-        <div data-rv className="rv reg-step bg-gradient-to-r from-[#123B60] to-[#0A2239] text-white rounded-3xl p-8 sm:p-10 shadow-xl mb-8 relative overflow-hidden">
+        <div data-rv className="rv reg-step bg-gradient-to-r from-brand to-brand-ink text-white rounded-3xl p-8 sm:p-10 shadow-xl mb-8 relative overflow-hidden">
           <div className="relative z-10">
-            <span className="px-3 py-1 bg-[#F59A16] text-[10px] font-black uppercase rounded tracking-wider">
+            <span className="px-3 py-1 bg-accent text-[10px] font-black uppercase rounded tracking-wider">
               Student Registration Portal
             </span>
             <h1 className="text-2xl sm:text-3xl font-extrabold mt-3">
@@ -427,7 +427,7 @@ export const RegistrationPortal: React.FC<RegistrationPortalProps> = ({
           )}
 
           <div data-rv className="rv reg-step border-b border-slate-100 pb-4">
-            <h2 className="text-base font-bold text-[#123B60]">Applicant Information</h2>
+            <h2 className="text-base font-bold text-brand">Applicant Information</h2>
             <p className="text-xs text-slate-500">All fields marked with an asterisk are required.</p>
           </div>
 
@@ -469,7 +469,7 @@ export const RegistrationPortal: React.FC<RegistrationPortalProps> = ({
                       value={formData[field.name] || ''}
                       onChange={(e) => handleChange(field.name, e.target.value)}
                       placeholder={`Enter your ${field.label.toLowerCase()}...`}
-                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs focus:ring-2 focus:ring-[#123B60] focus:border-transparent outline-none transition"
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs focus:ring-2 focus:ring-brand focus:border-transparent outline-none transition"
                     />
                     <FieldErrorNote id={inputId} message={fieldMessage} />
                   </div>
@@ -506,7 +506,7 @@ export const RegistrationPortal: React.FC<RegistrationPortalProps> = ({
                               value={choice.value}
                               checked={formData[field.name] === choice.value}
                               onChange={() => handleChange(field.name, choice.value)}
-                              className="w-4 h-4 text-[#123B60] border-slate-300 focus:ring-[#123B60]"
+                              className="w-4 h-4 text-brand border-slate-300 focus:ring-brand"
                             />
                             <span className="text-xs font-semibold text-slate-700">{choice.label}</span>
                           </label>
@@ -550,7 +550,7 @@ export const RegistrationPortal: React.FC<RegistrationPortalProps> = ({
                         required={mustChoose && openCommittees.length > 0}
                         value={formData[field.name] || ''}
                         onChange={(e) => handleChange(field.name, e.target.value)}
-                        className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs focus:ring-2 focus:ring-[#123B60] focus:border-transparent outline-none transition bg-white"
+                        className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs focus:ring-2 focus:ring-brand focus:border-transparent outline-none transition bg-white"
                       >
                         <option value="">{blankText}</option>
                         {openCommittees.map((c) => (
@@ -588,7 +588,7 @@ export const RegistrationPortal: React.FC<RegistrationPortalProps> = ({
                       required={field.required}
                       value={formData[field.name] || ''}
                       onChange={(e) => handleChange(field.name, e.target.value)}
-                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs focus:ring-2 focus:ring-[#123B60] focus:border-transparent outline-none transition bg-white"
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs focus:ring-2 focus:ring-brand focus:border-transparent outline-none transition bg-white"
                     >
                       <option value="">
                         {field.required ? 'Select an option' : 'Choose one (optional)'}
@@ -620,7 +620,7 @@ export const RegistrationPortal: React.FC<RegistrationPortalProps> = ({
                         required={field.required}
                         checked={!!formData[field.name]}
                         onChange={(e) => handleChange(field.name, e.target.checked)}
-                        className="mt-1 w-4 h-4 rounded text-[#123B60] border-slate-300 focus:ring-[#123B60]"
+                        className="mt-1 w-4 h-4 rounded text-brand border-slate-300 focus:ring-brand"
                       />
                       <span className="text-xs text-slate-700 leading-relaxed font-medium">
                         {field.label} {field.required && <span className="text-red-500">*</span>}
@@ -651,7 +651,7 @@ export const RegistrationPortal: React.FC<RegistrationPortalProps> = ({
                     value={formData[field.name] || ''}
                     onChange={(e) => handleChange(field.name, e.target.value)}
                     placeholder={`Your ${field.label.toLowerCase()}`}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs focus:ring-2 focus:ring-[#123B60] focus:border-transparent outline-none transition"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs focus:ring-2 focus:ring-brand focus:border-transparent outline-none transition"
                   />
                   <FieldErrorNote id={inputId} message={fieldMessage} />
                 </div>
@@ -662,7 +662,7 @@ export const RegistrationPortal: React.FC<RegistrationPortalProps> = ({
           {/* Account credentials — created on the provider, never stored here */}
           <div data-rv className="rv reg-step pt-6 border-t border-slate-100 space-y-4">
             <div>
-              <h2 className="text-base font-bold text-[#123B60]">Chapter account</h2>
+              <h2 className="text-base font-bold text-brand">Chapter account</h2>
               <p className="text-xs text-slate-500">
                 These credentials sign you in. They are sent to the authentication provider and are never written into
                 this browser or this repository.
@@ -686,7 +686,7 @@ export const RegistrationPortal: React.FC<RegistrationPortalProps> = ({
                   autoComplete="username"
                   required
                   placeholder="lowercase, 3-30 characters"
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs focus:ring-2 focus:ring-[#123B60] focus:border-transparent outline-none transition"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs focus:ring-2 focus:ring-brand focus:border-transparent outline-none transition"
                 />
                 <FieldErrorNote id="reg-username" message={fieldErrors.username} />
               </div>
@@ -706,7 +706,7 @@ export const RegistrationPortal: React.FC<RegistrationPortalProps> = ({
                   }}
                   autoComplete="new-password"
                   required
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs focus:ring-2 focus:ring-[#123B60] focus:border-transparent outline-none transition"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs focus:ring-2 focus:ring-brand focus:border-transparent outline-none transition"
                 />
                 <FieldErrorNote id="reg-password" message={fieldErrors.password} />
               </div>
@@ -726,7 +726,7 @@ export const RegistrationPortal: React.FC<RegistrationPortalProps> = ({
                   }}
                   autoComplete="new-password"
                   required
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs focus:ring-2 focus:ring-[#123B60] focus:border-transparent outline-none transition"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs focus:ring-2 focus:ring-brand focus:border-transparent outline-none transition"
                 />
                 <FieldErrorNote id="reg-confirm" message={fieldErrors.confirmPassword} />
                 <PasswordChecklist checks={passwordChecksView} />
@@ -741,7 +741,7 @@ export const RegistrationPortal: React.FC<RegistrationPortalProps> = ({
             <button
               type="submit"
               disabled={busy}
-              className="px-8 py-3.5 bg-[#F59A16] hover:bg-[#D47F0A] disabled:opacity-60 text-white font-bold rounded-xl text-xs shadow-md transition flex items-center gap-2"
+              className="px-8 py-3.5 bg-accent hover:bg-accent-strong disabled:opacity-60 text-white font-bold rounded-xl text-xs shadow-md transition flex items-center gap-2"
             >
               {busy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
               {busy ? 'Submitting…' : 'Submit Application'}

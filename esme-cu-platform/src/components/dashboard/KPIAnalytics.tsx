@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
 import { motion } from 'motion/react';
+import { CHART_CHROME, CHART_SERIES, PALETTE } from '../../theme/palette';
 import { 
   BarChart, 
   Bar, 
@@ -43,8 +44,7 @@ export const KPIAnalytics: React.FC = () => {
   const { users, committees, tasks, submissions, seasonEvents, scoreLedger } = useApp();
   const currentUser = useActor();
 
-  // Colors
-  const COLORS = ['#123B60', '#F59A16', '#10B981', '#6366F1', '#EC4899', '#8B5CF6'];
+  const COLORS = [...CHART_SERIES];
 
   // Every figure below is counted from the rows this account was given. A director whose
   // scores.read scope is `committee` is shown their committee's rows, not chapter totals.
@@ -153,9 +153,9 @@ export const KPIAnalytics: React.FC = () => {
       {/* Top 4 Performance Badges */}
       <StaggerGroup className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4" step={0.07} amount={0.15}>
         <StaggerItem variants={groupItemScale}>
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm hover:shadow-md hover:border-[#123B60]/30 transition-all duration-200">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm hover:shadow-md hover:border-brand/30 transition-all duration-200">
             <div className="text-slate-400 text-xs font-semibold">Accounts in view</div>
-            <div className="text-2xl font-black text-[#123B60] dark:text-white mt-2">
+            <div className="text-2xl font-black text-brand dark:text-white mt-2">
               <AnimatedNumber value={visibleUsers.length} startOnView />
             </div>
             <div className="text-[11px] text-slate-400 font-semibold mt-1">
@@ -181,9 +181,9 @@ export const KPIAnalytics: React.FC = () => {
         </StaggerItem>
 
         <StaggerItem variants={groupItemScale}>
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm hover:shadow-md hover:border-[#F59A16]/40 transition-all duration-200">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm hover:shadow-md hover:border-accent/40 transition-all duration-200">
             <div className="text-slate-400 text-xs font-semibold">Net points in the ledger</div>
-            <div className="text-2xl font-black text-[#F59A16] mt-2">
+            <div className="text-2xl font-black text-accent mt-2">
               <AnimatedNumber value={visibleLedger.reduce((a, b) => a + b.points, 0)} startOnView /> pts
             </div>
             <div className="text-[11px] text-slate-400 mt-1">
@@ -220,12 +220,12 @@ export const KPIAnalytics: React.FC = () => {
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={committeeDistributionData.filter((d) => d.members > 0)}>
                   <CartesianGrid strokeDasharray="3 3" opacity={0.15} />
-                  <XAxis dataKey="name" fontSize={11} stroke="#94A3B8" />
-                  <YAxis allowDecimals={false} fontSize={11} stroke="#94A3B8" />
+                  <XAxis dataKey="name" fontSize={11} stroke={CHART_CHROME.axis} />
+                  <YAxis allowDecimals={false} fontSize={11} stroke={CHART_CHROME.axis} />
                   <Tooltip 
-                    contentStyle={{ backgroundColor: '#0F172A', borderRadius: '12px', border: 'none', color: '#fff', fontSize: '11px' }}
+                    contentStyle={{ backgroundColor: CHART_CHROME.tooltipBackground, borderRadius: '12px', border: 'none', color: CHART_CHROME.tooltipText, fontSize: '11px' }}
                   />
-                  <Bar dataKey="members" fill="#123B60" radius={[8, 8, 0, 0]} animationDuration={800} animationEasing="ease-out" />
+                  <Bar dataKey="members" fill={PALETTE.navy} radius={[8, 8, 0, 0]} animationDuration={800} animationEasing="ease-out" />
                 </BarChart>
               </ResponsiveContainer>
             )}
@@ -246,12 +246,12 @@ export const KPIAnalytics: React.FC = () => {
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={committeePointsData.filter((d) => d.points !== 0)}>
                   <CartesianGrid strokeDasharray="3 3" opacity={0.15} />
-                  <XAxis dataKey="name" fontSize={11} stroke="#94A3B8" />
-                  <YAxis fontSize={11} stroke="#94A3B8" />
+                  <XAxis dataKey="name" fontSize={11} stroke={CHART_CHROME.axis} />
+                  <YAxis fontSize={11} stroke={CHART_CHROME.axis} />
                   <Tooltip 
-                    contentStyle={{ backgroundColor: '#0F172A', borderRadius: '12px', border: 'none', color: '#fff', fontSize: '11px' }}
+                    contentStyle={{ backgroundColor: CHART_CHROME.tooltipBackground, borderRadius: '12px', border: 'none', color: CHART_CHROME.tooltipText, fontSize: '11px' }}
                   />
-                  <Bar dataKey="points" fill="#F59A16" radius={[8, 8, 0, 0]} animationDuration={800} animationEasing="ease-out" />
+                  <Bar dataKey="points" fill={PALETTE.orange} radius={[8, 8, 0, 0]} animationDuration={800} animationEasing="ease-out" />
                 </BarChart>
               </ResponsiveContainer>
             )}

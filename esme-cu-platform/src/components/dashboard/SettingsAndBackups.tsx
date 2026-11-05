@@ -85,7 +85,7 @@ export const SettingsAndBackups: React.FC = () => {
       {/* Header */}
       <div>
         <h1 className="text-xl font-black text-slate-900 dark:text-white flex items-center gap-2">
-          <Settings className="w-5 h-5 text-[#F59A16]" />
+          <Settings className="w-5 h-5 text-accent" />
           Platform Settings & Data Backups
         </h1>
         <p className="text-xs text-slate-500">
@@ -113,7 +113,7 @@ export const SettingsAndBackups: React.FC = () => {
         {/* Appearance Settings */}
         <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-sm space-y-4">
           <div className="flex items-center gap-2.5">
-            <div className="p-2 rounded-xl bg-amber-50 dark:bg-amber-950/30 text-[#F59A16]">
+            <div className="p-2 rounded-xl bg-amber-50 dark:bg-amber-950/30 text-accent">
               {resolvedTheme === 'dark' ? <Moon className="w-5 h-5" /> : <Sun className="w-5 h-5" />}
             </div>
             <div>
@@ -138,8 +138,8 @@ export const SettingsAndBackups: React.FC = () => {
                   aria-pressed={theme === option}
                   className={`py-2 rounded-xl text-xs font-bold capitalize transition ${
                     theme === option
-                      ? 'bg-[#123B60] text-white shadow-sm'
-                      : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:border-[#F59A16]'
+                      ? 'bg-brand text-white shadow-sm'
+                      : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:border-accent'
                   }`}
                 >
                   {option}
@@ -169,7 +169,7 @@ export const SettingsAndBackups: React.FC = () => {
           {mayManageBackups ? (
             <button
               onClick={handleExport}
-              className="w-full py-2.5 bg-[#F59A16] hover:bg-[#D47F0A] text-white rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 shadow-sm"
+              className="w-full py-2.5 bg-accent hover:bg-accent-strong text-white rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 shadow-sm"
             >
               <Download className="w-4 h-4" />
               Download State JSON
@@ -200,13 +200,13 @@ export const SettingsAndBackups: React.FC = () => {
                 placeholder="Paste backup JSON string here..."
                 value={importText}
                 onChange={(e) => setImportText(e.target.value)}
-                className="w-full p-3 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-mono outline-none focus:ring-2 focus:ring-[#123B60]"
+                className="w-full p-3 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-mono outline-none focus:ring-2 focus:ring-brand"
               />
 
               <div className="flex justify-end">
                 <button
                   onClick={handleImport}
-                  className="px-5 py-2.5 bg-[#123B60] hover:bg-[#0A2239] text-white rounded-xl text-xs font-bold transition flex items-center gap-2 shadow-sm"
+                  className="px-5 py-2.5 bg-brand hover:bg-brand-ink text-white rounded-xl text-xs font-bold transition flex items-center gap-2 shadow-sm"
                 >
                   <Upload className="w-4 h-4" />
                   Restore Snapshot

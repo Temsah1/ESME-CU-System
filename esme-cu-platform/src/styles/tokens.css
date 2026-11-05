@@ -1,0 +1,427 @@
+/*
+ * ESME token layer — the only file in the project allowed to carry a colour literal.
+ *
+ * Every value below was hoisted verbatim from a screen that already rendered it. Nothing here is a
+ * new colour: `src/styles/tokens.test.ts` compares the set of literals in this file against the set
+ * present in the repository before the layer existed, and fails on any addition. Chart, scene and
+ * email colours reach the same values by name, so one edit retints the whole product.
+ *
+ * Three tiers, in this order:
+ *   1. primitives  — the raw brand, neutral, paper, ember and scene values, named by what they are
+ *   2. semantics   — what a thing *means* (surface, border, text, accent…), the only tier screens
+ *      should bind to, and the tier that flips between light and dark
+ *   3. @theme      — Tailwind v4 aliases that publish the semantics as `bg-surface`, `text-muted`
+ *      and friends so utilities and tokens stay one system rather than two
+ */
+
+@import "tailwindcss";
+
+/* The theme switch writes `.dark` on <html> (AppContext), so Tailwind's `dark:` utilities have
+   to follow that class. Tailwind v4 defaults the variant to the OS media query, which made the
+   explicit Light/Dark choices in the header do nothing. */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* ── 1. Primitives ─────────────────────────────────────────────────────────────────────── */
+
+:root {
+  /* Brand — navy and orange, the two colours the chapter is actually known for. */
+  --esme-navy: #123b60;
+  --esme-navy-light: #1d5485;
+  --esme-navy-mid: #0e2f4d;
+  --esme-navy-dark: #0a2239;
+  --esme-navy-deep: #0d2c47;
+  --esme-navy-abyss: #0d2c48;
+  --esme-orange: #f59a16;
+  --esme-orange-light: #ffaf38;
+  --esme-orange-dark: #d47f0a;
+  --esme-orange-ink: #7a4d05;
+
+  /* Neutrals — the slate ramp the dashboard was already built on. */
+  --esme-slate-950: #020617;
+  --esme-slate-900: #0f172a;
+  --esme-slate-800: #1e293b;
+  --esme-slate-700: #334155;
+  --esme-slate-600: #475569;
+  --esme-slate-500: #64748b;
+  --esme-slate-400: #94a3b8;
+  --esme-slate-300: #cbd5e1;
+  --esme-slate-200: #e2e8f0;
+  --esme-slate-100: #f1f5f9;
+  --esme-slate-50: #f8fafc;
+  --esme-slate: var(--esme-slate-800);
+
+  /* Paper — warm off-whites used by the public site and the cinematic screens. */
+  --esme-ivory: #fdfbf7;
+  --esme-paper-100: #f8f5f0;
+  --esme-paper-200: #f6f4f1;
+  --esme-paper-300: #f6f3ee;
+  --esme-paper-400: #f4f1ec;
+  --esme-paper-500: #efe9e1;
+  --esme-paper-600: #efe7d6;
+  --esme-paper-700: #e9e4db;
+  --esme-paper-800: #edf0e8;
+  --esme-clay-500: #c3b7ab;
+  --esme-clay-600: #8d8075;
+  --esme-clay-700: #5b5249;
+  --esme-stone-400: #b3b8bf;
+  --esme-stone-500: #8a8f98;
+  --esme-stone-600: #7a7f88;
+  --esme-stone-700: #5b6068;
+
+  /* Ink — the near-blacks the sign-in and scene screens sit on. */
+  --esme-white: #ffffff;
+  --esme-black: #000000;
+  --esme-ink-900: #050505;
+  --esme-ink-800: #0d0d0d;
+  --esme-ink-700: #0b0b0d;
+  --esme-ink-600: #0b0a0c;
+  --esme-ink-500: #0f0e11;
+  --esme-ink-400: #171310;
+  --esme-ink-300: #1b1512;
+  --esme-ink-200: #16181d;
+
+  /* Ember — the hot ramp behind the DISTILL belt and the accent glows. */
+  --esme-ember-100: #fff3e6;
+  --esme-ember-200: #ffe9c9;
+  --esme-ember-300: #ffd9b5;
+  --esme-ember-400: #ffd8a0;
+  --esme-ember-500: #ffe1d3;
+  --esme-ember-600: #ffb06a;
+  --esme-ember-700: #ff8a3d;
+  --esme-ember-800: #ff7a3c;
+  --esme-ember-900: #ff6b2c;
+  --esme-ember-1000: #ff5a1f;
+  --esme-ember-1100: #ff4a12;
+  --esme-ember-1200: #f5b64f;
+  --esme-ember-1300: #d9430f;
+
+  /* Wood — the warm browns CUTORA and SHIPCRAFT typeset with. */
+  --esme-wood-100: #7a5832;
+  --esme-wood-200: #6b5335;
+  --esme-wood-300: #5a3418;
+  --esme-wood-400: #55381d;
+  --esme-wood-500: #3a2a1c;
+  --esme-wood-600: #2c241d;
+
+  /* Status and data — the hues the tables, charts and skill matrix already colour with. */
+  --esme-green: #10b981;
+  --esme-green-dark: #0d6b45;
+  --esme-green-mid: #2e7d5b;
+  --esme-green-pale: #a6e6c5;
+  --esme-red: #8f1f2e;
+  --esme-red-pale: #ffb3bd;
+  --esme-pink: #ec4899;
+  --esme-violet: #8b5cf6;
+  --esme-indigo: #6366f1;
+  --esme-blue-pale: #9ec5e8;
+  --esme-transparent: #0000;
+
+  /* Scrollbar — the only chrome the shell paints by hand. */
+  --esme-scroll-track: var(--esme-slate-100);
+  --esme-scroll-thumb: var(--esme-slate-300);
+  --esme-scroll-thumb-hover: var(--esme-slate-400);
+
+  /* Legacy aliases — kept because screens reference them by name during the migration. */
+  --esme-page: var(--esme-slate-50);
+  --esme-ink: var(--esme-slate-900);
+}
+
+.dark {
+  --esme-page: var(--esme-slate-950);
+  --esme-ink: var(--esme-slate-200);
+  --esme-scroll-track: var(--esme-slate-900);
+  --esme-scroll-thumb: var(--esme-slate-700);
+  --esme-scroll-thumb-hover: var(--esme-slate-600);
+}
+
+/* ── 2. Semantics ──────────────────────────────────────────────────────────────────────── */
+
+:root {
+  color-scheme: light;
+
+  --app-bg: var(--esme-slate-50);
+  --app-surface: var(--esme-white);
+  --app-surface-raised: var(--esme-ivory);
+  --app-surface-muted: var(--esme-slate-100);
+  --app-surface-sunken: var(--esme-slate-50);
+  --app-surface-brand: var(--esme-navy);
+
+  --app-border: var(--esme-slate-200);
+  --app-border-strong: var(--esme-slate-300);
+  --app-border-subtle: var(--esme-slate-100);
+
+  --app-text: var(--esme-slate-900);
+  --app-text-muted: var(--esme-slate-500);
+  --app-text-subtle: var(--esme-slate-400);
+  --app-text-faint: var(--esme-slate-300);
+  --app-text-strong: var(--esme-slate-950);
+  --app-text-inverse: var(--esme-white);
+  --app-text-brand: var(--esme-navy);
+  --app-text-accent: var(--esme-orange-dark);
+
+  --app-brand: var(--esme-navy);
+  --app-brand-hover: var(--esme-navy-light);
+  --app-brand-ink: var(--esme-navy-dark);
+  --app-accent: var(--esme-orange);
+  --app-accent-hover: var(--esme-orange-dark);
+  --app-accent-strong: var(--esme-orange-dark);
+  --app-accent-soft: var(--esme-orange-light);
+  --app-accent-ink: var(--esme-orange-ink);
+
+  --app-focus: var(--esme-orange);
+  --app-overlay: color-mix(in srgb, var(--esme-slate-950) 55%, transparent);
+  --app-scrim: color-mix(in srgb, var(--esme-slate-950) 30%, transparent);
+
+  --app-success: var(--esme-green);
+  --app-success-ink: var(--esme-green-dark);
+  --app-danger: color-mix(in srgb, var(--esme-red) 82%, var(--esme-black));
+  --app-warning: var(--esme-orange);
+  --app-info: var(--esme-navy-light);
+
+  --app-tint-hover: color-mix(in srgb, var(--esme-slate-900) 5%, transparent);
+  --app-tint-active: color-mix(in srgb, var(--esme-slate-900) 9%, transparent);
+  --app-tint-accent: color-mix(in srgb, var(--esme-orange) 12%, transparent);
+  --app-tint-brand: color-mix(in srgb, var(--esme-navy) 8%, transparent);
+}
+
+.dark {
+  color-scheme: dark;
+
+  --app-bg: var(--esme-slate-950);
+  --app-surface: var(--esme-slate-900);
+  --app-surface-raised: var(--esme-slate-800);
+  --app-surface-muted: color-mix(in srgb, var(--esme-slate-800) 40%, var(--esme-slate-900));
+  --app-surface-sunken: var(--esme-slate-950);
+
+  --app-border: var(--esme-slate-800);
+  --app-border-strong: var(--esme-slate-700);
+  --app-border-subtle: var(--esme-slate-900);
+
+  --app-text: var(--esme-slate-200);
+  --app-text-muted: var(--esme-slate-400);
+  --app-text-subtle: var(--esme-slate-500);
+  --app-text-faint: var(--esme-slate-600);
+  --app-text-strong: var(--esme-white);
+  --app-text-inverse: var(--esme-slate-950);
+  --app-text-brand: var(--esme-orange-light);
+  --app-text-accent: var(--esme-orange-light);
+
+  --app-overlay: color-mix(in srgb, var(--esme-black) 68%, transparent);
+  --app-scrim: color-mix(in srgb, var(--esme-black) 40%, transparent);
+
+  --app-success: var(--esme-green-pale);
+  --app-success-ink: var(--esme-green);
+  --app-danger: var(--esme-red-pale);
+  --app-info: var(--esme-blue-pale);
+
+  --app-tint-hover: color-mix(in srgb, var(--esme-white) 7%, transparent);
+  --app-tint-active: color-mix(in srgb, var(--esme-white) 12%, transparent);
+  --app-tint-accent: color-mix(in srgb, var(--esme-orange) 16%, transparent);
+  --app-tint-brand: color-mix(in srgb, var(--esme-orange) 10%, transparent);
+}
+
+/*
+ * Brand fills stay put across the theme flip, on purpose. Navy and orange are the chapter's identity,
+ * so `bg-brand` is #123b60 in light and dark alike, and a screen migrating off a literal renders the
+ * same pixels it rendered before. What does adapt is text: `--app-text-brand` is navy on paper and
+ * orange on slate, because navy type on a dark surface is the one thing a brand must not ask a reader
+ * to do.
+ */
+
+/* ── 3. Tailwind aliases ───────────────────────────────────────────────────────────────── */
+
+/*
+ * `inline` rather than a plain `@theme`: the utilities must emit `var(--app-surface)` itself, not a
+ * copy of the resolved colour, or the light/dark flip would be frozen at build time.
+ */
+@theme inline {
+  --color-bg: var(--app-bg);
+  --color-surface: var(--app-surface);
+  --color-surface-raised: var(--app-surface-raised);
+  --color-surface-muted: var(--app-surface-muted);
+  --color-surface-sunken: var(--app-surface-sunken);
+  --color-surface-brand: var(--app-surface-brand);
+
+  --color-border: var(--app-border);
+  --color-border-strong: var(--app-border-strong);
+  --color-border-subtle: var(--app-border-subtle);
+
+  --color-ink: var(--app-text);
+  --color-ink-muted: var(--app-text-muted);
+  --color-ink-subtle: var(--app-text-subtle);
+  --color-ink-faint: var(--app-text-faint);
+  --color-ink-strong: var(--app-text-strong);
+  --color-ink-inverse: var(--app-text-inverse);
+
+  --color-brand: var(--app-brand);
+  --color-brand-hover: var(--app-brand-hover);
+  --color-brand-ink: var(--app-brand-ink);
+  --color-accent: var(--app-accent);
+  --color-accent-hover: var(--app-accent-hover);
+  --color-accent-strong: var(--app-accent-strong);
+  --color-accent-soft: var(--app-accent-soft);
+  --color-accent-ink: var(--app-accent-ink);
+
+  --color-focus: var(--app-focus);
+  --color-overlay: var(--app-overlay);
+  --color-success: var(--app-success);
+  --color-danger: var(--app-danger);
+  --color-warning: var(--app-warning);
+  --color-info: var(--app-info);
+
+  /* Primitives as utilities — for the scenes, charts and paper tones whose exact value a screen
+     needs without a semantic role to hang it on. Screens should still prefer the tier above. */
+  --color-navy: var(--esme-navy);
+  --color-navy-light: var(--esme-navy-light);
+  --color-navy-mid: var(--esme-navy-mid);
+  --color-navy-deep: var(--esme-navy-deep);
+  --color-navy-abyss: var(--esme-navy-abyss);
+  --color-navy-dark: var(--esme-navy-dark);
+  --color-orange: var(--esme-orange);
+  --color-orange-light: var(--esme-orange-light);
+  --color-orange-dark: var(--esme-orange-dark);
+  --color-orange-ink: var(--esme-orange-ink);
+  --color-ivory: var(--esme-ivory);
+  --color-ember: var(--esme-ember-1000);
+  --color-paper: var(--esme-paper-100);
+  --color-paper-dark: var(--esme-paper-400);
+  --color-clay: var(--esme-clay-600);
+  --color-stone: var(--esme-stone-600);
+  --color-wood: var(--esme-wood-200);
+  --color-green: var(--esme-green);
+  --color-green-dark: var(--esme-green-dark);
+  --color-green-pale: var(--esme-green-pale);
+  --color-red: var(--esme-red);
+  --color-red-pale: var(--esme-red-pale);
+  --color-pink: var(--esme-pink);
+  --color-violet: var(--esme-violet);
+  --color-indigo: var(--esme-indigo);
+  --color-blue-pale: var(--esme-blue-pale);
+  --color-ink-black: var(--esme-ink-400);
+  --color-ink-night: var(--esme-ink-700);
+  --color-ink-900: var(--esme-ink-900);
+  --color-ink-800: var(--esme-ink-800);
+  --color-esme-white: var(--esme-white);
+  --color-esme-black: var(--esme-black);
+
+  /* Radius — four steps, named by the thing they round. */
+  --radius-control: 0.5rem;
+  --radius-card: 1rem;
+  --radius-sheet: 1.5rem;
+  --radius-pill: 9999px;
+
+  /* Elevation — built from Tailwind's own ramp so no shadow value is invented here. */
+  --shadow-card: var(--shadow-sm);
+  --shadow-raised: var(--shadow-md);
+  --shadow-overlay: var(--shadow-2xl);
+
+  /* Type — the scale the product actually typesets with, in rem so it tracks root font size. */
+  --text-micro: 0.6875rem;
+  --text-micro--line-height: 1.4;
+  --text-caption: 0.75rem;
+  --text-caption--line-height: 1.45;
+  --text-label: 0.8125rem;
+  --text-label--line-height: 1.4;
+  --text-body: 0.9375rem;
+  --text-body--line-height: 1.6;
+  --text-lead: 1.0625rem;
+  --text-lead--line-height: 1.6;
+  --text-title: 1.25rem;
+  --text-title--line-height: 1.3;
+  --text-headline: 1.75rem;
+  --text-headline--line-height: 1.2;
+  --text-display: 2.5rem;
+  --text-display--line-height: 1.1;
+
+  /* Motion — mirrors src/motion/tokens.ts; tokens.test.ts fails if the two drift apart. */
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-smooth: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --duration-micro: 150ms;
+  --duration-standard: 280ms;
+  --duration-section: 600ms;
+  --duration-hero: 900ms;
+
+  /* Layout — the fixed chrome heights and content widths the shell already uses. */
+  --layout-header: 4rem;
+  --layout-rail: 16rem;
+  --layout-rail-collapsed: 5rem;
+  --layout-prose: 65rem;
+  --layout-wide: 80rem;
+
+  --font-sans: 'Inter Tight', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+  --font-serif: 'Newsreader', Georgia, 'Times New Roman', serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+/* ── 4. Base ───────────────────────────────────────────────────────────────────────────── */
+
+/*
+ * No `scroll-behavior: smooth` here. Smooth scrolling belongs to the single Lenis instance in
+ * src/lib/motion/lenis.ts; a browser-level smooth scroll and Lenis on the same page fight over one
+ * position and the result is a rubber-band on every anchor click.
+ */
+html {
+  font-family: var(--font-sans);
+}
+
+/* The three faces the motion system typesets with: UI, serif accents, and numbers that align. */
+.font-serif-accent {
+  font-family: var(--font-serif);
+}
+.font-numbers {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+:focus-visible {
+  outline: 2px solid var(--app-focus);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  background-color: var(--app-bg);
+  color: var(--app-text);
+  overflow-x: hidden;
+}
+
+/* Custom scrollbars */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: var(--esme-scroll-track);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--esme-scroll-thumb);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--esme-scroll-thumb-hover);
+}
+
+/* Engineering grid pattern — the navy hairline the public site layers behind its sections. */
+.bg-grid-pattern {
+  background-size: 32px 32px;
+  background-image:
+    linear-gradient(to right, color-mix(in srgb, var(--esme-navy) 5%, transparent) 1px, transparent 1px),
+    linear-gradient(to bottom, color-mix(in srgb, var(--esme-navy) 5%, transparent) 1px, transparent 1px);
+}
+
+.bg-grid-pattern-dark {
+  background-size: 32px 32px;
+  background-image:
+    linear-gradient(to right, color-mix(in srgb, var(--esme-white) 5%, transparent) 1px, transparent 1px),
+    linear-gradient(to bottom, color-mix(in srgb, var(--esme-white) 5%, transparent) 1px, transparent 1px);
+}

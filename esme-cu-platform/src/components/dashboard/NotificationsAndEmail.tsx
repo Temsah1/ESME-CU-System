@@ -94,7 +94,7 @@ export const NotificationsAndEmail: React.FC = () => {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-[#123B60] dark:text-white flex items-center gap-2">
+        <h1 className="text-2xl font-bold text-brand dark:text-white flex items-center gap-2">
           <Mail className="w-5 h-5" aria-hidden />
           Alerts & Email
         </h1>
@@ -116,7 +116,7 @@ export const NotificationsAndEmail: React.FC = () => {
               <button
                 onClick={() => void drain()}
                 disabled={busy || email.pending === 0}
-                className="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 text-[11px] font-bold text-[#123B60] dark:text-[#F59A16] disabled:opacity-40"
+                className="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 text-[11px] font-bold text-brand dark:text-accent disabled:opacity-40"
               >
                 Hand {email.pending} pending to sender
               </button>
@@ -124,7 +124,7 @@ export const NotificationsAndEmail: React.FC = () => {
                 <button
                   onClick={() => void retry()}
                   disabled={busy}
-                  className="px-3 py-1.5 rounded-lg bg-[#123B60] text-white text-[11px] font-bold inline-flex items-center gap-1 disabled:opacity-40"
+                  className="px-3 py-1.5 rounded-lg bg-brand text-white text-[11px] font-bold inline-flex items-center gap-1 disabled:opacity-40"
                 >
                   <RefreshCw className="w-3 h-3" aria-hidden />
                   Retry {email.failures.length} failed
@@ -230,7 +230,7 @@ export const NotificationsAndEmail: React.FC = () => {
                 disabled={email.preferences === null}
                 className={`px-2.5 py-1 rounded-lg border text-[11px] font-bold disabled:opacity-40 ${
                   email.preferences?.locale === locale
-                    ? 'bg-[#123B60] text-white border-[#123B60]'
+                    ? 'bg-brand text-white border-brand'
                     : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300'
                 }`}
               >
@@ -253,7 +253,7 @@ export const NotificationsAndEmail: React.FC = () => {
                       checked={!locked && !muted.has(event)}
                       disabled={locked || email.preferences === null}
                       onChange={(e) => void toggle(event, !e.target.checked)}
-                      className="mt-0.5 accent-[#123B60]"
+                      className="mt-0.5 accent-brand"
                     />
                     <span>
                       <span className="font-bold text-slate-700 dark:text-slate-200">{EMAIL_EVENT_LABELS[event]}</span>

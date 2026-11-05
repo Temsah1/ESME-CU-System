@@ -64,6 +64,7 @@ import {
   type StudioMessage,
 } from '../lib/motion';
 import type { FolioItem } from '../lib/motion/folio';
+import { PALETTE } from '../theme/palette';
 
 /**
  * The two heavy canvases are pulled in only when the page that hosts them paints, and each carries a
@@ -116,7 +117,7 @@ const HOW_IT_WORKS: AccordionStep[] = [
 const ALWAYS_PRESENT = new Set(['journey', 'how-it-works', 'process']);
 
 /** The book cloth on the FOLIO row's spines, cycled per committee. */
-const SPINE_ACCENTS = ['#123B60', '#F59A16', '#1D5485', '#D47F0A', '#0A2239', '#2E7D5B'];
+const SPINE_ACCENTS = [PALETTE.navy, PALETTE.orange, PALETTE.navyLight, PALETTE.orangeDark, PALETTE.navyDark, PALETTE.greenMid];
 
 const SectionIntro: React.FC<{
   eyebrow: string;
@@ -126,10 +127,10 @@ const SectionIntro: React.FC<{
   divider?: boolean;
 }> = ({ eyebrow, title, subtitle, dark, divider = true }) => (
   <Reveal className="text-center max-w-3xl mx-auto mb-14">
-    <span className={`text-xs font-bold uppercase tracking-widest text-[#F59A16] ${dark ? 'font-extrabold' : ''}`}>
+    <span className={`text-xs font-bold uppercase tracking-widest text-accent ${dark ? 'font-extrabold' : ''}`}>
       {eyebrow}
     </span>
-    <h2 className={`text-3xl sm:text-4xl font-extrabold mt-2 ${dark ? 'text-white' : 'text-[#123B60]'}`}>
+    <h2 className={`text-3xl sm:text-4xl font-extrabold mt-2 ${dark ? 'text-white' : 'text-brand'}`}>
       {title}
     </h2>
     {subtitle && (
@@ -137,7 +138,7 @@ const SectionIntro: React.FC<{
     )}
     {divider && (
       <motion.div
-        className="w-16 h-1 bg-[#F59A16] mx-auto mt-4 rounded-full origin-center"
+        className="w-16 h-1 bg-accent mx-auto mt-4 rounded-full origin-center"
         variants={growX}
       />
     )}
@@ -156,7 +157,7 @@ const ScrollIndicator: React.FC = () => {
     >
       <div className="w-5 h-8 rounded-full border-2 border-slate-400/60 flex justify-center pt-1.5">
         <motion.span
-          className="w-1 h-1.5 rounded-full bg-[#F59A16]"
+          className="w-1 h-1.5 rounded-full bg-accent"
           animate={reduced ? undefined : { y: [0, 10], opacity: [1, 0] }}
           transition={{ duration: 1.4, repeat: Infinity, ease: 'easeInOut' }}
         />
@@ -194,7 +195,7 @@ const EngagementGauges: React.FC = () => (
               cy="20"
               r="16"
               fill="none"
-              stroke="#F59A16"
+              stroke={PALETTE.orange}
               strokeWidth="3"
               strokeLinecap="round"
               pathLength={100}
@@ -203,7 +204,7 @@ const EngagementGauges: React.FC = () => (
               transform="rotate(-90 20 20)"
             />
           </svg>
-          <div className="text-[10px] font-bold text-[#F59A16]">{post.rate}</div>
+          <div className="text-[10px] font-bold text-accent">{post.rate}</div>
           <div className="text-[9px] text-slate-400 leading-tight">{post.title}</div>
         </div>
       );
@@ -494,21 +495,21 @@ export const PublicWebsite: React.FC<PublicWebsiteProps> = ({
     <div
       id="app"
       ref={appRef}
-      className="min-h-screen bg-[#FDFBF7] text-slate-900 selection:bg-[#F59A16] selection:text-white font-sans"
+      className="min-h-screen bg-ivory text-slate-900 selection:bg-accent selection:text-white font-sans"
     >
       {/* Top Banner */}
-      <div className="bg-[#123B60] text-white text-xs py-2 px-4 border-b border-[#1D5485]">
+      <div className="bg-brand text-white text-xs py-2 px-4 border-b border-brand-hover">
         <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-2">
-            <span className="inline-block w-2 h-2 rounded-full bg-[#F59A16] animate-pulse"></span>
+            <span className="inline-block w-2 h-2 rounded-full bg-accent animate-pulse"></span>
             <span className="font-semibold tracking-wide uppercase">ESME CU Student Chapter • Cairo University</span>
             <span className="text-slate-300 hidden md:inline">| Faculty of Engineering</span>
           </div>
           <div className="flex items-center gap-4 text-slate-300">
-            <span className="italic font-medium text-[#F59A16]">"Be Positive Valuable"</span>
+            <span className="italic font-medium text-accent">"Be Positive Valuable"</span>
             <motion.button
               onClick={onNavigateToDashboard}
-              className="text-xs bg-[#F59A16] hover:bg-[#D47F0A] text-white px-3 py-1 rounded font-semibold shadow-sm"
+              className="text-xs bg-accent hover:bg-accent-strong text-white px-3 py-1 rounded font-semibold shadow-sm"
               whileHover={{ scale: 1.04 }}
               whileTap={{ scale: 0.96 }}
               transition={transitions.micro}
@@ -522,7 +523,7 @@ export const PublicWebsite: React.FC<PublicWebsiteProps> = ({
       {/* Main Sticky Navbar */}
       <nav
         className={`dark nav-fixed sticky top-0 z-50 py-4 border-b border-white/10 text-white shadow-lg ${
-          navScrolled ? 'nav-scrolled' : 'bg-[#123B60]/95 backdrop-blur-md'
+          navScrolled ? 'nav-scrolled' : 'bg-brand/95 backdrop-blur-md'
         }`}
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -546,7 +547,7 @@ export const PublicWebsite: React.FC<PublicWebsiteProps> = ({
               </div>
               <div className="flex flex-col">
                 <span className="text-lg font-black tracking-wider text-white leading-tight font-serif">ESME CU</span>
-                <span className="text-[10px] tracking-widest text-[#F59A16] font-bold uppercase">Cairo Student Chapter</span>
+                <span className="text-[10px] tracking-widest text-accent font-bold uppercase">Cairo Student Chapter</span>
               </div>
             </motion.a>
 
@@ -563,7 +564,7 @@ export const PublicWebsite: React.FC<PublicWebsiteProps> = ({
                   className="group relative px-3 py-1.5 rounded text-xs font-semibold text-slate-200 hover:text-white"
                 >
                   {link.label}
-                  <span className="absolute left-3 right-3 bottom-1 h-[2px] origin-left scale-x-0 bg-[#F59A16] rounded-full transition-transform duration-200 ease-out group-hover:scale-x-100" />
+                  <span className="absolute left-3 right-3 bottom-1 h-[2px] origin-left scale-x-0 bg-accent rounded-full transition-transform duration-200 ease-out group-hover:scale-x-100" />
                 </motion.a>
               ))}
             </div>
@@ -572,20 +573,20 @@ export const PublicWebsite: React.FC<PublicWebsiteProps> = ({
             <div className="hidden lg:flex items-center space-x-3">
               <motion.button
                 onClick={onNavigateToDashboard}
-                className="px-4 py-2 text-xs font-bold text-white border border-[#F59A16] rounded-lg hover:bg-[#F59A16]/20 flex items-center gap-1.5"
+                className="px-4 py-2 text-xs font-bold text-white border border-accent rounded-lg hover:bg-accent/20 flex items-center gap-1.5"
                 initial={{ opacity: 0, y: -8 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.35, delay: 0.4 }}
                 whileHover={{ y: -1 }}
                 whileTap={{ scale: 0.97 }}
               >
-                <ShieldCheck className="w-3.5 h-3.5 text-[#F59A16]" />
+                <ShieldCheck className="w-3.5 h-3.5 text-accent" />
                 Internal System
               </motion.button>
               <MagneticButton
                 onClick={onNavigateToJoin}
                 strength={0.18}
-                className="pill px-5 py-2 text-xs font-bold text-white bg-[#F59A16] hover:bg-[#D47F0A] rounded-lg shadow-md shadow-[#F59A16]/20 flex items-center gap-1.5"
+                className="pill px-5 py-2 text-xs font-bold text-white bg-accent hover:bg-accent-strong rounded-lg shadow-md shadow-accent/20 flex items-center gap-1.5"
                 initial={{ opacity: 0, y: -8 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.35, delay: 0.45 }}
@@ -599,7 +600,7 @@ export const PublicWebsite: React.FC<PublicWebsiteProps> = ({
             <div className="xl:hidden flex items-center gap-2">
               <button
                 onClick={onNavigateToDashboard}
-                className="px-3 py-1.5 text-xs font-bold text-white bg-[#F59A16] rounded-md"
+                className="px-3 py-1.5 text-xs font-bold text-white bg-accent rounded-md"
               >
                 Login
               </button>
@@ -626,7 +627,7 @@ export const PublicWebsite: React.FC<PublicWebsiteProps> = ({
               animate={{ height: 'auto', opacity: 1 }}
               exit={{ height: 0, opacity: 0 }}
               transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
-              className="overflow-hidden xl:hidden bg-[#0A2239] border-b border-white/10"
+              className="overflow-hidden xl:hidden bg-brand-ink border-b border-white/10"
             >
               <div className="px-4 pt-2 pb-6 space-y-2">
                 {navLinks.map((link, i) => (
@@ -645,13 +646,13 @@ export const PublicWebsite: React.FC<PublicWebsiteProps> = ({
                 <div className="pt-4 border-t border-white/10 flex flex-col gap-2">
                   <button
                     onClick={() => { setMobileMenuOpen(false); onNavigateToDashboard(); }}
-                    className="w-full text-center py-2.5 rounded-md text-xs font-bold text-white border border-[#F59A16]"
+                    className="w-full text-center py-2.5 rounded-md text-xs font-bold text-white border border-accent"
                   >
                     Dashboard Login
                   </button>
                   <button
                     onClick={() => { setMobileMenuOpen(false); onNavigateToJoin(); }}
-                    className="w-full text-center py-2.5 rounded-md text-xs font-bold text-white bg-[#F59A16]"
+                    className="w-full text-center py-2.5 rounded-md text-xs font-bold text-white bg-accent"
                   >
                     Recruitment 2026-2027
                   </button>
@@ -667,18 +668,18 @@ export const PublicWebsite: React.FC<PublicWebsiteProps> = ({
       <section
         id="home"
         ref={heroRef}
-        className="relative overflow-hidden bg-gradient-to-b from-[#123B60] via-[#0E2F4D] to-[#0A2239] text-white pt-16 pb-28"
+        className="relative overflow-hidden bg-gradient-to-b from-brand via-navy-mid to-brand-ink text-white pt-16 pb-28"
         onMouseMove={handleHeroPointer}
         onMouseLeave={resetHeroPointer}
       >
         {/* Subtle engineering decorative grid */}
         <motion.div className="absolute inset-[-24px] bg-grid-pattern-dark opacity-15 pointer-events-none" style={{ x: gridX, y: gridY }} />
         <motion.div
-          className="absolute -top-32 -right-32 w-96 h-96 bg-[#F59A16]/10 rounded-full blur-3xl pointer-events-none"
+          className="absolute -top-32 -right-32 w-96 h-96 bg-accent/10 rounded-full blur-3xl pointer-events-none"
           style={{ x: blobOrangeX, y: blobOrangeY }}
         />
         <motion.div
-          className="absolute bottom-0 -left-20 w-80 h-80 bg-[#1D5485]/20 rounded-full blur-2xl pointer-events-none"
+          className="absolute bottom-0 -left-20 w-80 h-80 bg-brand-hover/20 rounded-full blur-2xl pointer-events-none"
           style={{ x: blobBlueX, y: blobBlueY }}
         />
         <EngineeringBackdrop />
@@ -696,7 +697,7 @@ export const PublicWebsite: React.FC<PublicWebsiteProps> = ({
             <div className="lg:col-span-7 space-y-6">
               <motion.div
                 variants={heroItem}
-                className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/10 border border-white/20 text-[#F59A16] text-xs font-semibold backdrop-blur-sm"
+                className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/10 border border-white/20 text-accent text-xs font-semibold backdrop-blur-sm"
               >
                 <Sparkles className="w-3.5 h-3.5" />
                 <span>{content.hero.badge}</span>
@@ -712,7 +713,7 @@ export const PublicWebsite: React.FC<PublicWebsiteProps> = ({
 
               <motion.p
                 variants={heroItem}
-                className="text-lg sm:text-xl text-slate-200 leading-relaxed font-light border-l-4 border-[#F59A16] pl-4"
+                className="text-lg sm:text-xl text-slate-200 leading-relaxed font-light border-l-4 border-accent pl-4"
               >
                 {content.hero.supportingMessage}
               </motion.p>
@@ -720,7 +721,7 @@ export const PublicWebsite: React.FC<PublicWebsiteProps> = ({
               {/* Motto highlight */}
               <motion.div
                 variants={heroItem}
-                className="inline-block bg-[#F59A16]/15 border border-[#F59A16]/30 px-4 py-2 rounded-lg text-sm text-[#F59A16] font-bold"
+                className="inline-block bg-accent/15 border border-accent/30 px-4 py-2 rounded-lg text-sm text-accent font-bold"
               >
                 Chapter Core Motto: <span className="underline uppercase tracking-wider">BE POSITIVE VALUABLE</span>
               </motion.div>
@@ -729,7 +730,7 @@ export const PublicWebsite: React.FC<PublicWebsiteProps> = ({
               <motion.div variants={heroItem} className="pt-4 flex flex-wrap items-center gap-4">
                 <MagneticButton
                   onClick={onNavigateToDashboard}
-                  className="px-7 py-3.5 bg-[#F59A16] hover:bg-[#D47F0A] text-white font-bold rounded-xl shadow-xl shadow-[#F59A16]/25 flex items-center gap-2 group text-sm"
+                  className="px-7 py-3.5 bg-accent hover:bg-accent-strong text-white font-bold rounded-xl shadow-xl shadow-accent/25 flex items-center gap-2 group text-sm"
                 >
                   <ShieldCheck className="w-4 h-4 transition group-hover:scale-110" />
                   {content.hero.ctaPrimary}
@@ -750,7 +751,7 @@ export const PublicWebsite: React.FC<PublicWebsiteProps> = ({
                   and it only starts rolling when the row is on screen. */}
               <motion.div variants={heroItem} className="pt-8 grid grid-cols-3 gap-6 border-t border-white/15">
                 <div>
-                  <div className="text-2xl sm:text-3xl font-extrabold text-[#F59A16]">
+                  <div className="text-2xl sm:text-3xl font-extrabold text-accent">
                     <Counter to={2009} />
                   </div>
                   <div className="text-xs text-slate-300">Society Founded</div>
@@ -762,7 +763,7 @@ export const PublicWebsite: React.FC<PublicWebsiteProps> = ({
                   <div className="text-xs text-slate-300">Cairo Chapter Active</div>
                 </div>
                 <div>
-                  <div className="text-2xl sm:text-3xl font-extrabold text-[#F59A16]">
+                  <div className="text-2xl sm:text-3xl font-extrabold text-accent">
                     <Counter to={4} /> Major
                   </div>
                   <div className="text-xs text-slate-300">Annual Summits</div>
@@ -772,15 +773,15 @@ export const PublicWebsite: React.FC<PublicWebsiteProps> = ({
 
             {/* Right Column Official Brand Imagery */}
             <motion.div className="lg:col-span-5 space-y-4" style={{ x: cardX, y: cardY }} variants={scaleIn}>
-              <div className="glass-card relative rounded-2xl overflow-hidden border-2 border-white/20 shadow-2xl bg-[#0A2239]" data-par="media">
+              <div className="glass-card relative rounded-2xl overflow-hidden border-2 border-white/20 shadow-2xl bg-brand-ink" data-par="media">
                 <img
                   src={heroImage.src}
                   alt={heroImage.alt}
                   className="media kb w-full h-80 object-cover object-center filter saturate-105"
                 />
-                <div className="absolute inset-0 bg-gradient-to-t from-[#0A2239] via-transparent to-transparent"></div>
+                <div className="absolute inset-0 bg-gradient-to-t from-brand-ink via-transparent to-transparent"></div>
                 <div className="absolute bottom-4 left-4 right-4 text-white">
-                  <span className="px-2.5 py-1 bg-[#F59A16] text-[10px] font-black uppercase rounded tracking-wider">Official 2026-2027 Vision Launch</span>
+                  <span className="px-2.5 py-1 bg-accent text-[10px] font-black uppercase rounded tracking-wider">Official 2026-2027 Vision Launch</span>
                   <p className="text-xs text-slate-200 mt-1">
                     {heroImage.caption ?? 'Zerust Presentation & ESME-Cairo University General Assembly'}
                   </p>
@@ -793,7 +794,7 @@ export const PublicWebsite: React.FC<PublicWebsiteProps> = ({
                 whileHover={{ y: -3 }}
                 transition={transitions.standard}
               >
-                <div className="w-12 h-12 rounded-lg bg-[#F59A16] flex items-center justify-center shrink-0">
+                <div className="w-12 h-12 rounded-lg bg-accent flex items-center justify-center shrink-0">
                   <Flame className="w-6 h-6 text-white" />
                 </div>
                 <div className="text-xs">
@@ -821,16 +822,16 @@ export const PublicWebsite: React.FC<PublicWebsiteProps> = ({
         * page's cream rather than a hard edge. The WebGL star is decoration; the stage names, the dates
         * and the sentence for the current stage are drawn by the component itself.
         */}
-      <section id="journey" className="relative bg-[#050505] text-white">
-        <div className="h-24 bg-gradient-to-b from-[#0A2239] to-transparent pointer-events-none" aria-hidden="true" />
+      <section id="journey" className="relative bg-ink-900 text-white">
+        <div className="h-24 bg-gradient-to-b from-brand-ink to-transparent pointer-events-none" aria-hidden="true" />
         <Suspense fallback={<JourneyFallback />}>
           <SunTimeline openStageWhen={activeSeasonLabel ? `Open now · ${activeSeasonLabel}` : undefined} onApply={onNavigateToJoin} />
         </Suspense>
-        <div className="h-24 bg-gradient-to-b from-transparent to-[#FDFBF7] pointer-events-none" aria-hidden="true" />
+        <div className="h-24 bg-gradient-to-b from-transparent to-ivory pointer-events-none" aria-hidden="true" />
       </section>
 
       {/* How recruitment works — PETALYX's hover accordion: three panels, one open at a time. */}
-      <section id="how-it-works" className="py-20 bg-[#FDFBF7] border-b border-slate-200">
+      <section id="how-it-works" className="py-20 bg-ivory border-b border-slate-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <SectionIntro
             eyebrow="Three panels"
@@ -854,24 +855,24 @@ export const PublicWebsite: React.FC<PublicWebsiteProps> = ({
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-start">
             <div className="lg:col-span-7 space-y-6 text-slate-700 leading-relaxed">
               <Reveal delay={0.05}>
-                <div className="p-6 bg-[#FDFBF7] rounded-2xl border border-slate-200 shadow-sm hover:shadow-md hover:border-[#123B60]/20 transition-all duration-300">
-                  <h3 className="text-lg font-bold text-[#123B60] mb-2">Our Origins & Foundations</h3>
+                <div className="p-6 bg-ivory rounded-2xl border border-slate-200 shadow-sm hover:shadow-md hover:border-brand/20 transition-all duration-300">
+                  <h3 className="text-lg font-bold text-brand mb-2">Our Origins & Foundations</h3>
                   <p className="text-sm text-slate-600 mb-3">{content.about.story}</p>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 text-xs text-slate-500">
                     <div className="flex items-center gap-2">
-                      <CheckCircle2 className="w-4 h-4 text-[#F59A16]" />
+                      <CheckCircle2 className="w-4 h-4 text-accent" />
                       <span>Founded: <strong>{content.about.foundedYear}</strong></span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <CheckCircle2 className="w-4 h-4 text-[#F59A16]" />
+                      <CheckCircle2 className="w-4 h-4 text-accent" />
                       <span>Faculty: <strong>{content.about.foundingFaculty}</strong></span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <CheckCircle2 className="w-4 h-4 text-[#F59A16]" />
+                      <CheckCircle2 className="w-4 h-4 text-accent" />
                       <span>Branch: <strong>{content.about.cairoChapterFounded}</strong></span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <CheckCircle2 className="w-4 h-4 text-[#F59A16]" />
+                      <CheckCircle2 className="w-4 h-4 text-accent" />
                       <span>Affiliation: <strong>Cairo University Faculty of Engineering</strong></span>
                     </div>
                   </div>
@@ -880,13 +881,13 @@ export const PublicWebsite: React.FC<PublicWebsiteProps> = ({
 
               <Reveal delay={0.15}>
                 <div className="p-6 bg-slate-50 rounded-2xl border border-slate-200 hover:border-slate-300 transition-colors duration-300">
-                  <h3 className="text-lg font-bold text-[#123B60] mb-2">Chapter Purpose & Objectives</h3>
+                  <h3 className="text-lg font-bold text-brand mb-2">Chapter Purpose & Objectives</h3>
                   <p className="text-sm text-slate-600 mb-4">{content.about.purpose}</p>
                   <StaggerGroup className="space-y-2.5" step={0.07} amount={0.3}>
                     {content.about.objectives.map((obj, i) => (
                       <StaggerItem key={i}>
                         <div className="flex items-start gap-2.5 text-xs text-slate-700">
-                          <div className="w-5 h-5 rounded-full bg-[#123B60] text-white flex items-center justify-center shrink-0 text-[10px] font-bold mt-0.5">
+                          <div className="w-5 h-5 rounded-full bg-brand text-white flex items-center justify-center shrink-0 text-[10px] font-bold mt-0.5">
                             {i + 1}
                           </div>
                           <span>{obj}</span>
@@ -900,14 +901,14 @@ export const PublicWebsite: React.FC<PublicWebsiteProps> = ({
 
             <div className="lg:col-span-5 space-y-4">
               <Reveal delay={0.1}>
-                <div className="p-6 bg-gradient-to-br from-[#123B60] to-[#0A2239] rounded-2xl text-white shadow-xl hover:shadow-2xl transition-shadow duration-300">
-                  <h3 className="text-lg font-bold text-[#F59A16] mb-3">Core Chapter Values</h3>
+                <div className="p-6 bg-gradient-to-br from-brand to-brand-ink rounded-2xl text-white shadow-xl hover:shadow-2xl transition-shadow duration-300">
+                  <h3 className="text-lg font-bold text-accent mb-3">Core Chapter Values</h3>
                   <StaggerGroup className="space-y-3" step={0.08} amount={0.25}>
                     {content.about.values.map((val, idx) => (
                       <StaggerItem key={idx}>
                         <div className="flex items-center justify-between p-3 rounded-lg bg-white/10 border border-white/10 text-xs font-semibold hover:bg-white/15 hover:translate-x-1 transition-all duration-200">
                           <span>{val}</span>
-                          <CheckCircle2 className="w-4 h-4 text-[#F59A16]" />
+                          <CheckCircle2 className="w-4 h-4 text-accent" />
                         </div>
                       </StaggerItem>
                     ))}
@@ -945,13 +946,13 @@ export const PublicWebsite: React.FC<PublicWebsiteProps> = ({
 
           <div className="text-center max-w-4xl mx-auto mb-14">
             <Reveal>
-              <span className="text-xs font-extrabold uppercase tracking-widest text-[#F59A16]">Strategic Plan 2026–2027</span>
+              <span className="text-xs font-extrabold uppercase tracking-widest text-accent">Strategic Plan 2026–2027</span>
               <h2 className="text-3xl sm:text-4xl font-black mt-2 tracking-tight">
                 {content.vision2027.headline}
               </h2>
             </Reveal>
             <Reveal delay={0.15}>
-              <blockquote className="text-xl sm:text-2xl font-serif italic text-[#F59A16] mt-4 border-y border-white/10 py-4 max-w-3xl mx-auto">
+              <blockquote className="text-xl sm:text-2xl font-serif italic text-accent mt-4 border-y border-white/10 py-4 max-w-3xl mx-auto">
                 {content.vision2027.quote}
               </blockquote>
             </Reveal>
@@ -967,12 +968,12 @@ export const PublicWebsite: React.FC<PublicWebsiteProps> = ({
             {content.vision2027.pillars.map((pillar, idx) => (
               <StaggerItem key={idx} variants={groupItemScale} className="h-full">
                 <motion.div
-                  className="bg-white/5 border border-white/10 rounded-2xl p-6 hover:bg-white/10 backdrop-blur-sm flex flex-col justify-between h-full hover:border-[#F59A16]/40 transition-colors duration-300"
+                  className="bg-white/5 border border-white/10 rounded-2xl p-6 hover:bg-white/10 backdrop-blur-sm flex flex-col justify-between h-full hover:border-accent/40 transition-colors duration-300"
                   whileHover={{ y: -5 }}
                   transition={transitions.standard}
                 >
                   <div>
-                    <div className="w-10 h-10 rounded-xl bg-[#F59A16]/20 border border-[#F59A16] text-[#F59A16] flex items-center justify-center font-bold text-sm mb-4">
+                    <div className="w-10 h-10 rounded-xl bg-accent/20 border border-accent text-accent flex items-center justify-center font-bold text-sm mb-4">
                       0{idx + 1}
                     </div>
                     <h3 className="font-bold text-base text-white mb-2 leading-snug">{pillar.title}</h3>
@@ -981,7 +982,7 @@ export const PublicWebsite: React.FC<PublicWebsiteProps> = ({
                   <div className="space-y-1.5 pt-3 border-t border-white/10">
                     {pillar.points.map((pt, pIdx) => (
                       <div key={pIdx} className="flex items-start gap-1.5 text-[11px] text-slate-400">
-                        <span className="text-[#F59A16] font-bold">•</span>
+                        <span className="text-accent font-bold">•</span>
                         <span>{pt}</span>
                       </div>
                     ))}
@@ -1021,13 +1022,13 @@ export const PublicWebsite: React.FC<PublicWebsiteProps> = ({
                   {isActive && (
                     <motion.span
                       layoutId="history-tab-bg"
-                      className="absolute inset-0 bg-[#123B60] rounded-xl shadow-md"
+                      className="absolute inset-0 bg-brand rounded-xl shadow-md"
                       transition={{ type: 'spring', stiffness: 380, damping: 32 }}
                     />
                   )}
                   <span className="relative z-10">{m.period}</span>
                   <span className={`relative z-10 text-[10px] px-2 py-0.5 rounded-full transition-colors duration-200 ${
-                    isActive ? 'bg-[#F59A16] text-white' : 'bg-slate-300 text-slate-800'
+                    isActive ? 'bg-accent text-white' : 'bg-slate-300 text-slate-800'
                   }`}>
                     {m.activities.length} Events
                   </span>
@@ -1045,14 +1046,14 @@ export const PublicWebsite: React.FC<PublicWebsiteProps> = ({
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -12 }}
                 transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
-                className="bg-[#FDFBF7] border border-slate-200 rounded-2xl p-6 sm:p-8 shadow-sm"
+                className="bg-ivory border border-slate-200 rounded-2xl p-6 sm:p-8 shadow-sm"
               >
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
 
                   <div className="lg:col-span-7 space-y-4">
                     <div className="flex items-center gap-3">
-                      <span className="text-2xl font-black text-[#123B60]">{HISTORICAL_MILESTONES[activeHistoryTab].period}</span>
-                      <span className="text-xs px-3 py-1 bg-[#F59A16]/15 text-[#D47F0A] font-bold rounded-full">
+                      <span className="text-2xl font-black text-brand">{HISTORICAL_MILESTONES[activeHistoryTab].period}</span>
+                      <span className="text-xs px-3 py-1 bg-accent/15 text-accent-strong font-bold rounded-full">
                         {HISTORICAL_MILESTONES[activeHistoryTab].badge}
                       </span>
                     </div>
@@ -1073,17 +1074,17 @@ export const PublicWebsite: React.FC<PublicWebsiteProps> = ({
                           <motion.div
                             key={i}
                             variants={{ hidden: { opacity: 0, x: -16 }, visible: { opacity: 1, x: 0, transition: { duration: 0.4, ease: [0.22, 1, 0.36, 1] } } }}
-                            className="p-3 bg-white rounded-xl border border-slate-200 flex items-start justify-between gap-3 text-xs hover:border-[#123B60]/30 hover:shadow-sm transition-all duration-200"
+                            className="p-3 bg-white rounded-xl border border-slate-200 flex items-start justify-between gap-3 text-xs hover:border-brand/30 hover:shadow-sm transition-all duration-200"
                           >
                             <div>
-                              <div className="font-bold text-[#123B60]">{act.name}</div>
+                              <div className="font-bold text-brand">{act.name}</div>
                               <div className="text-slate-500 text-[11px] mt-0.5">{act.notes}</div>
                             </div>
                             <div className="text-right shrink-0">
                               <span className="px-2 py-0.5 rounded bg-slate-100 text-slate-700 font-semibold text-[10px]">
                                 {act.type}
                               </span>
-                              <div className="text-[10px] text-[#F59A16] font-bold mt-1">{act.year}</div>
+                              <div className="text-[10px] text-accent font-bold mt-1">{act.year}</div>
                             </div>
                           </motion.div>
                         ))}
@@ -1130,7 +1131,7 @@ export const PublicWebsite: React.FC<PublicWebsiteProps> = ({
             {APPRECIATION_PROFILES.map((prof) => (
               <StaggerItem key={prof.id} variants={groupItemScale} className="h-full">
                 <motion.div
-                  className="bg-white rounded-2xl border border-slate-200 shadow-sm hover:shadow-lg hover:border-[#123B60]/20 transition-shadow p-6 flex flex-col justify-between h-full"
+                  className="bg-white rounded-2xl border border-slate-200 shadow-sm hover:shadow-lg hover:border-brand/20 transition-shadow p-6 flex flex-col justify-between h-full"
                   whileHover={{ y: -6 }}
                   transition={transitions.standard}
                 >
@@ -1143,12 +1144,12 @@ export const PublicWebsite: React.FC<PublicWebsiteProps> = ({
                       />
                     </div>
 
-                    <div className="inline-block px-2.5 py-1 rounded bg-[#123B60]/10 text-[#123B60] text-[10px] font-bold uppercase tracking-wider mb-2">
+                    <div className="inline-block px-2.5 py-1 rounded bg-brand/10 text-brand text-[10px] font-bold uppercase tracking-wider mb-2">
                       {prof.title}
                     </div>
 
-                    <h3 className="text-xl font-bold text-[#123B60]">{prof.name}</h3>
-                    <p className="text-xs font-semibold text-[#F59A16] mt-0.5">{prof.role}</p>
+                    <h3 className="text-xl font-bold text-brand">{prof.name}</h3>
+                    <p className="text-xs font-semibold text-accent mt-0.5">{prof.role}</p>
                     <p className="text-xs text-slate-500 mt-0.5">{prof.department}</p>
 
                     <p className="text-xs text-slate-600 mt-4 leading-relaxed border-t border-slate-100 pt-3">
@@ -1170,15 +1171,15 @@ export const PublicWebsite: React.FC<PublicWebsiteProps> = ({
 
           {/* Board to Year 2025/2026 Poster Gallery */}
           <Reveal className="mt-16" amount={0.15}>
-            <div className="bg-[#123B60] rounded-2xl p-6 sm:p-8 text-white relative overflow-hidden hover:shadow-2xl transition-shadow duration-300">
+            <div className="bg-brand rounded-2xl p-6 sm:p-8 text-white relative overflow-hidden hover:shadow-2xl transition-shadow duration-300">
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
                 <div className="lg:col-span-5 space-y-4">
-                  <span className="px-3 py-1 bg-[#F59A16] text-[10px] font-black uppercase rounded tracking-wider inline-block">Historical Board Roster</span>
+                  <span className="px-3 py-1 bg-accent text-[10px] font-black uppercase rounded tracking-wider inline-block">Historical Board Roster</span>
                   <h3 className="text-2xl font-bold text-white">Board to Year 25/26 Leadership</h3>
                   <p className="text-xs text-slate-300 leading-relaxed">
                     Preserving the official roster from the recruitment archive: President Ahmed Abbas, Vice President Omar Mohamed, Secretary Nada Yehia, along with HR, PR, OC, TE, TR, and MM directors.
                   </p>
-                  <div className="text-xs text-[#F59A16] font-semibold">
+                  <div className="text-xs text-accent font-semibold">
                     Official archive source: doc_p8_img0_732.png
                   </div>
                 </div>
@@ -1204,7 +1205,7 @@ export const PublicWebsite: React.FC<PublicWebsiteProps> = ({
         * where they stand; the counter tracks the card crossing the line and the dissolve only runs on
         * the card under the scanner.
         */}
-      <section id="process" className="py-20 bg-[#0d0d0d] text-white border-b border-black/40">
+      <section id="process" className="py-20 bg-ink-800 text-white border-b border-black/40">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <SectionIntro
             dark
@@ -1246,21 +1247,21 @@ export const PublicWebsite: React.FC<PublicWebsiteProps> = ({
               <StaggerItem key={comm.id} variants={groupItemScale}>
                 <motion.div
                   id={`committee-${comm.id}`}
-                  className="scroll-mt-28 bg-[#FDFBF7] border border-slate-200 rounded-2xl p-6 sm:p-8 hover:shadow-lg hover:border-[#123B60]/25 transition-shadow flex flex-col justify-between"
+                  className="scroll-mt-28 bg-ivory border border-slate-200 rounded-2xl p-6 sm:p-8 hover:shadow-lg hover:border-brand/25 transition-shadow flex flex-col justify-between"
                   whileHover={{ y: -4 }}
                   transition={transitions.standard}
                 >
                   <div>
                     <div className="flex items-center justify-between gap-3 mb-4">
-                      <span className="px-3 py-1 bg-[#123B60] text-white text-xs font-black rounded-lg">
+                      <span className="px-3 py-1 bg-brand text-white text-xs font-black rounded-lg">
                         {comm.shortCode}
                       </span>
-                      <span className="text-xs font-bold text-[#F59A16] uppercase tracking-wider">
+                      <span className="text-xs font-bold text-accent uppercase tracking-wider">
                         {comm.status === 'active' ? 'Active committee' : 'Archived'}
                       </span>
                     </div>
 
-                    <h3 className="text-xl font-bold text-[#123B60] mb-2">{comm.name}</h3>
+                    <h3 className="text-xl font-bold text-brand mb-2">{comm.name}</h3>
                     <p className="text-xs text-slate-600 leading-relaxed mb-4">{comm.description}</p>
 
                     <div className="p-4 bg-white rounded-xl border border-slate-200 mb-4 text-xs space-y-1.5">
@@ -1289,7 +1290,7 @@ export const PublicWebsite: React.FC<PublicWebsiteProps> = ({
                       <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Sub-Teams & Workstreams:</div>
                       <div className="flex flex-wrap gap-1.5">
                         {comm.subTeams.map((team, idx) => (
-                          <span key={idx} className="px-2.5 py-1 bg-white border border-slate-200 text-slate-700 text-[11px] rounded-md font-medium hover:border-[#F59A16]/60 hover:text-[#123B60] transition-colors cursor-default">
+                          <span key={idx} className="px-2.5 py-1 bg-white border border-slate-200 text-slate-700 text-[11px] rounded-md font-medium hover:border-accent/60 hover:text-brand transition-colors cursor-default">
                             {team}
                           </span>
                         ))}
@@ -1302,7 +1303,7 @@ export const PublicWebsite: React.FC<PublicWebsiteProps> = ({
                     <ul className="space-y-1 text-xs text-slate-600">
                       {comm.objectives.slice(0, 2).map((obj, i) => (
                         <li key={i} className="flex items-center gap-1.5">
-                          <CheckCircle2 className="w-3.5 h-3.5 text-[#F59A16] shrink-0" />
+                          <CheckCircle2 className="w-3.5 h-3.5 text-accent shrink-0" />
                           <span className="truncate">{obj}</span>
                         </li>
                       ))}
@@ -1339,19 +1340,19 @@ export const PublicWebsite: React.FC<PublicWebsiteProps> = ({
             {majorEvents.map((evt) => (
               <StaggerItem key={evt.id} variants={groupItemScale} className="h-full">
                 <motion.div
-                  className="bg-white border-2 border-[#123B60]/10 rounded-2xl p-6 shadow-sm hover:shadow-md hover:border-[#F59A16]/40 transition-colors flex flex-col justify-between h-full"
+                  className="bg-white border-2 border-brand/10 rounded-2xl p-6 shadow-sm hover:shadow-md hover:border-accent/40 transition-colors flex flex-col justify-between h-full"
                   whileHover={{ y: -5 }}
                   transition={transitions.standard}
                 >
                   <div>
                     <div className="flex items-center justify-between text-xs font-bold mb-3">
-                      <span className="px-2.5 py-1 rounded bg-[#123B60] text-white text-[10px] uppercase tracking-wider">
+                      <span className="px-2.5 py-1 rounded bg-brand text-white text-[10px] uppercase tracking-wider">
                         {evt.acronym || 'Summit'}
                       </span>
-                      <span className="text-[#F59A16]">{evt.status}</span>
+                      <span className="text-accent">{evt.status}</span>
                     </div>
 
-                    <h3 className="text-lg font-bold text-[#123B60] leading-tight mb-2">{evt.title}</h3>
+                    <h3 className="text-lg font-bold text-brand leading-tight mb-2">{evt.title}</h3>
                     <div className="text-xs font-semibold text-slate-500 mb-3">{evt.dateOrQuarter}</div>
                     <p className="text-xs text-slate-600 mb-4 leading-relaxed">{evt.description}</p>
                   </div>
@@ -1370,8 +1371,8 @@ export const PublicWebsite: React.FC<PublicWebsiteProps> = ({
           {/* Workshop Track Summary from Vision PDF */}
           <Reveal className="mt-12" amount={0.1}>
             <div className="bg-white rounded-2xl p-6 sm:p-8 border border-slate-200">
-              <h3 className="text-lg font-bold text-[#123B60] mb-4 flex items-center gap-2">
-                <BookOpen className="w-5 h-5 text-[#F59A16]" />
+              <h3 className="text-lg font-bold text-brand mb-4 flex items-center gap-2">
+                <BookOpen className="w-5 h-5 text-accent" />
                 Workshops & Capability Building Tracks (Feb–Jul 2027)
               </h3>
               <StaggerGroup className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 text-xs" step={0.08} amount={0.15}>
@@ -1384,11 +1385,11 @@ export const PublicWebsite: React.FC<PublicWebsiteProps> = ({
                 ].map((w) => (
                   <StaggerItem key={w.name} variants={fadeIn}>
                     <motion.div
-                      className="p-4 bg-slate-50 rounded-xl border border-slate-200 h-full hover:bg-white hover:border-[#123B60]/30 hover:shadow-sm transition-all duration-200"
+                      className="p-4 bg-slate-50 rounded-xl border border-slate-200 h-full hover:bg-white hover:border-brand/30 hover:shadow-sm transition-all duration-200"
                       whileHover={{ y: -3 }}
                     >
-                      <span className="text-[10px] font-bold text-[#F59A16] uppercase">{w.when}</span>
-                      <h4 className="font-bold text-[#123B60] mt-1">{w.name}</h4>
+                      <span className="text-[10px] font-bold text-accent uppercase">{w.when}</span>
+                      <h4 className="font-bold text-brand mt-1">{w.name}</h4>
                       <p className="text-slate-500 text-[11px] mt-1">{w.desc}</p>
                     </motion.div>
                   </StaggerItem>
@@ -1415,19 +1416,19 @@ export const PublicWebsite: React.FC<PublicWebsiteProps> = ({
           <StaggerGroup className="grid grid-cols-1 md:grid-cols-3 gap-8" step={0.12}>
             {[
               {
-                issue: 'Issue 1 • December 2026', badge: 'bg-[#F59A16]', title: 'Materials & Manufacturing',
+                issue: 'Issue 1 • December 2026', badge: 'bg-accent', title: 'Materials & Manufacturing',
                 desc: 'Focusing on advanced alloy development, heat treatment protocols, and modern steelmaking innovations.',
-                status: 'In Preparation', statusCls: 'text-amber-600', plan: 'Planned', border: 'border-2 border-[#123B60]/20',
+                status: 'In Preparation', statusCls: 'text-amber-600', plan: 'Planned', border: 'border-2 border-brand/20',
                 template: 'Template 1: Classic Academic Research Layout',
               },
               {
-                issue: 'Issue 2 • March 2027', badge: 'bg-[#123B60]', title: 'Inspection & Reliability',
+                issue: 'Issue 2 • March 2027', badge: 'bg-brand', title: 'Inspection & Reliability',
                 desc: 'Dedicated to QA/QC frameworks, ultrasonic flaw identification, and asset integrity management.',
                 status: 'Planned (Q2)', statusCls: 'text-slate-600', plan: 'Planned', border: 'border border-slate-200',
                 template: 'Template 2: Modern Visual Infographics',
               },
               {
-                issue: 'Issue 3 • June 2027', badge: 'bg-[#123B60]', title: 'Smart Materials & Industry 4.0',
+                issue: 'Issue 3 • June 2027', badge: 'bg-brand', title: 'Smart Materials & Industry 4.0',
                 desc: 'Examining self-healing coatings, shape memory alloys, and generative AI in generative design.',
                 status: 'Planned (Q3)', statusCls: 'text-slate-600', plan: 'Planned', border: 'border border-slate-200',
                 template: 'Template 3: Interactive Quick Topics & Interviews',
@@ -1435,13 +1436,13 @@ export const PublicWebsite: React.FC<PublicWebsiteProps> = ({
             ].map((mag) => (
               <StaggerItem key={mag.issue} variants={groupItemScale} className="h-full">
                 <motion.div
-                  className={`p-6 bg-[#FDFBF7] rounded-2xl ${mag.border} flex flex-col justify-between h-full hover:shadow-lg transition-shadow`}
+                  className={`p-6 bg-ivory rounded-2xl ${mag.border} flex flex-col justify-between h-full hover:shadow-lg transition-shadow`}
                   whileHover={{ y: -5 }}
                   transition={transitions.standard}
                 >
                   <div>
                     <span className={`${mag.badge} px-2.5 py-1 rounded text-white text-[10px] font-bold uppercase`}>{mag.issue}</span>
-                    <h3 className="text-xl font-bold text-[#123B60] mt-3">{mag.title}</h3>
+                    <h3 className="text-xl font-bold text-brand mt-3">{mag.title}</h3>
                     <p className="text-xs text-slate-600 mt-2 leading-relaxed">{mag.desc}</p>
                     <div className="mt-4 p-3 bg-white rounded-xl border border-slate-200 text-xs text-slate-500 space-y-1">
                       <div>Status: <strong className={mag.statusCls}>{mag.status}</strong></div>
@@ -1467,7 +1468,7 @@ export const PublicWebsite: React.FC<PublicWebsiteProps> = ({
 
           <div className="text-center max-w-3xl mx-auto mb-14">
             <Reveal>
-              <span className="px-3 py-1 rounded-full bg-[#F59A16]/20 border border-[#F59A16] text-[#F59A16] text-xs font-bold inline-flex items-center gap-1.5">
+              <span className="px-3 py-1 rounded-full bg-accent/20 border border-accent text-accent text-xs font-bold inline-flex items-center gap-1.5">
                 <BarChart3 className="w-3 h-3" />
                 Recorded report • {HISTORICAL_SOCIAL_INSIGHTS.reportDate}
               </span>
@@ -1478,15 +1479,15 @@ export const PublicWebsite: React.FC<PublicWebsiteProps> = ({
                 Four posts, read by hand from platform screenshots. This site has no analytics integration, so these
                 figures are a record of what was observed then — not live measurement.
               </p>
-              <motion.div className="w-16 h-1 bg-[#F59A16] mx-auto mt-4 rounded-full origin-center" variants={growX} />
+              <motion.div className="w-16 h-1 bg-accent mx-auto mt-4 rounded-full origin-center" variants={growX} />
             </Reveal>
           </div>
 
           {/* Metric cards */}
           <StaggerGroup className="grid grid-cols-2 md:grid-cols-4 gap-6 mb-12" step={0.1}>
             <StaggerItem variants={groupItemScale}>
-              <div className="p-6 bg-white/5 border border-white/10 rounded-2xl text-center hover:border-[#F59A16]/50 hover:bg-white/10 transition-colors duration-300">
-                <div className="text-3xl sm:text-4xl font-extrabold text-[#F59A16]">
+              <div className="p-6 bg-white/5 border border-white/10 rounded-2xl text-center hover:border-accent/50 hover:bg-white/10 transition-colors duration-300">
+                <div className="text-3xl sm:text-4xl font-extrabold text-accent">
                   <AnimatedNumber value={HISTORICAL_SOCIAL_INSIGHTS.totalViews} startOnView />
                 </div>
                 <div className="text-xs text-slate-300 mt-1 font-semibold">Total Sample Views</div>
@@ -1503,8 +1504,8 @@ export const PublicWebsite: React.FC<PublicWebsiteProps> = ({
               </div>
             </StaggerItem>
             <StaggerItem variants={groupItemScale}>
-              <div className="p-6 bg-white/5 border border-white/10 rounded-2xl text-center hover:border-[#F59A16]/50 hover:bg-white/10 transition-colors duration-300">
-                <div className="text-3xl sm:text-4xl font-extrabold text-[#F59A16]">
+              <div className="p-6 bg-white/5 border border-white/10 rounded-2xl text-center hover:border-accent/50 hover:bg-white/10 transition-colors duration-300">
+                <div className="text-3xl sm:text-4xl font-extrabold text-accent">
                   <AnimatedNumber value={HISTORICAL_SOCIAL_INSIGHTS.totalInteractions} startOnView />
                 </div>
                 <div className="text-xs text-slate-300 mt-1 font-semibold">Total Interactions</div>
@@ -1531,8 +1532,8 @@ export const PublicWebsite: React.FC<PublicWebsiteProps> = ({
           <StaggerGroup className="grid grid-cols-1 md:grid-cols-3 gap-6" step={0.1}>
             {HISTORICAL_SOCIAL_INSIGHTS.strategicRecommendations.map((rec, i) => (
               <StaggerItem key={i} variants={fadeUpSoftItem}>
-                <div className="p-5 bg-white/5 border border-white/10 rounded-xl h-full hover:bg-white/10 hover:border-[#F59A16]/40 transition-colors duration-300">
-                  <div className="text-sm font-bold text-[#F59A16] mb-1">{rec.rule}</div>
+                <div className="p-5 bg-white/5 border border-white/10 rounded-xl h-full hover:bg-white/10 hover:border-accent/40 transition-colors duration-300">
+                  <div className="text-sm font-bold text-accent mb-1">{rec.rule}</div>
                   <div className="text-xs text-slate-300 leading-relaxed">{rec.detail}</div>
                 </div>
               </StaggerItem>
@@ -1555,8 +1556,8 @@ export const PublicWebsite: React.FC<PublicWebsiteProps> = ({
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
             <div className="lg:col-span-6 space-y-6">
               <Reveal>
-                <span className="text-xs font-bold uppercase tracking-widest text-[#F59A16]">Connect With ESME CU</span>
-                <h2 className="text-3xl sm:text-4xl font-extrabold text-[#123B60]">
+                <span className="text-xs font-bold uppercase tracking-widest text-accent">Connect With ESME CU</span>
+                <h2 className="text-3xl sm:text-4xl font-extrabold text-brand">
                   Official Chapter Channels
                 </h2>
                 <p className="text-sm text-slate-600 leading-relaxed">
@@ -1567,12 +1568,12 @@ export const PublicWebsite: React.FC<PublicWebsiteProps> = ({
               <StaggerGroup className="space-y-4 pt-2" step={0.1} amount={0.3}>
                 <StaggerItem>
                   <motion.div className="flex items-center gap-3 text-slate-700" whileHover={{ x: 4 }} transition={transitions.micro}>
-                    <div className="w-10 h-10 rounded-xl bg-[#123B60]/10 flex items-center justify-center text-[#123B60] shrink-0">
+                    <div className="w-10 h-10 rounded-xl bg-brand/10 flex items-center justify-center text-brand shrink-0">
                       <Mail className="w-5 h-5" />
                     </div>
                     <div className="min-w-0">
                       <div className="text-xs text-slate-500 font-semibold">Email</div>
-                      <a href={`mailto:${content.contact.email}`} className="text-sm font-bold text-[#123B60] hover:text-[#F59A16] transition-colors break-all">
+                      <a href={`mailto:${content.contact.email}`} className="text-sm font-bold text-brand hover:text-accent transition-colors break-all">
                         {content.contact.email}
                       </a>
                     </div>
@@ -1581,12 +1582,12 @@ export const PublicWebsite: React.FC<PublicWebsiteProps> = ({
 
                 <StaggerItem>
                   <motion.div className="flex items-center gap-3 text-slate-700" whileHover={{ x: 4 }} transition={transitions.micro}>
-                    <div className="w-10 h-10 rounded-xl bg-[#123B60]/10 flex items-center justify-center text-[#123B60] shrink-0">
+                    <div className="w-10 h-10 rounded-xl bg-brand/10 flex items-center justify-center text-brand shrink-0">
                       <Phone className="w-5 h-5" />
                     </div>
                     <div className="min-w-0">
                       <div className="text-xs text-slate-500 font-semibold">Phone</div>
-                      <a href={`tel:${content.contact.phone}`} className="text-sm font-bold text-[#123B60] hover:text-[#F59A16] transition-colors break-all">
+                      <a href={`tel:${content.contact.phone}`} className="text-sm font-bold text-brand hover:text-accent transition-colors break-all">
                         {content.contact.phone}
                       </a>
                     </div>
@@ -1595,12 +1596,12 @@ export const PublicWebsite: React.FC<PublicWebsiteProps> = ({
 
                 <StaggerItem>
                   <motion.div className="flex items-center gap-3 text-slate-700" whileHover={{ x: 4 }} transition={transitions.micro}>
-                    <div className="w-10 h-10 rounded-xl bg-[#123B60]/10 flex items-center justify-center text-[#123B60] shrink-0">
+                    <div className="w-10 h-10 rounded-xl bg-brand/10 flex items-center justify-center text-brand shrink-0">
                       <MapPin className="w-5 h-5" />
                     </div>
                     <div className="min-w-0">
                       <div className="text-xs text-slate-500 font-semibold">Location</div>
-                      <div className="text-sm font-bold text-[#123B60] break-words">
+                      <div className="text-sm font-bold text-brand break-words">
                         {content.contact.location}
                       </div>
                     </div>
@@ -1617,7 +1618,7 @@ export const PublicWebsite: React.FC<PublicWebsiteProps> = ({
                       .map((social) => (
                         <span
                           key={social.id}
-                          className="px-3 py-1 bg-slate-100 border border-slate-200 text-[#123B60] font-bold text-xs rounded-md hover:border-[#F59A16] transition-colors"
+                          className="px-3 py-1 bg-slate-100 border border-slate-200 text-brand font-bold text-xs rounded-md hover:border-accent transition-colors"
                         >
                           {social.handle}
                         </span>
@@ -1629,10 +1630,10 @@ export const PublicWebsite: React.FC<PublicWebsiteProps> = ({
 
             {/* Quick Inquiry / Recruitment CTA Box */}
             <Reveal delay={0.1} y={32} className="lg:col-span-6">
-              <div data-cta="card" className="bg-gradient-to-br from-[#123B60] to-[#0A2239] rounded-3xl p-8 sm:p-10 text-white shadow-2xl relative overflow-hidden">
+              <div data-cta="card" className="bg-gradient-to-br from-brand to-brand-ink rounded-3xl p-8 sm:p-10 text-white shadow-2xl relative overflow-hidden">
                 <div className="absolute inset-0 bg-grid-pattern-dark opacity-10 pointer-events-none"></div>
                 <div className="relative z-10">
-                  <span className="text-xs font-bold text-[#F59A16] uppercase tracking-wider">Recruitment 2026-2027</span>
+                  <span className="text-xs font-bold text-accent uppercase tracking-wider">Recruitment 2026-2027</span>
                   <h3 className="text-2xl sm:text-3xl font-black text-white mt-1">Ready to Join the Chapter?</h3>
                   <p className="text-xs text-slate-200 mt-3 leading-relaxed">
                     Step into a community dedicated to real engineering excellence, advanced materials, and career leadership.
@@ -1642,7 +1643,7 @@ export const PublicWebsite: React.FC<PublicWebsiteProps> = ({
                     <MagneticButton
                       onClick={onNavigateToJoin}
                       strength={0.15}
-                      className="w-full py-4 bg-[#F59A16] hover:bg-[#D47F0A] text-white font-bold rounded-xl shadow-lg flex items-center justify-center gap-2 text-sm"
+                      className="w-full py-4 bg-accent hover:bg-accent-strong text-white font-bold rounded-xl shadow-lg flex items-center justify-center gap-2 text-sm"
                     >
                       Apply For Membership
                       <ArrowRight className="w-4 h-4" />
@@ -1654,7 +1655,7 @@ export const PublicWebsite: React.FC<PublicWebsiteProps> = ({
                       whileTap={{ scale: 0.98 }}
                       transition={transitions.micro}
                     >
-                      <ShieldCheck className="w-4 h-4 text-[#F59A16]" />
+                      <ShieldCheck className="w-4 h-4 text-accent" />
                       Internal Leadership Login
                     </motion.button>
                   </div>

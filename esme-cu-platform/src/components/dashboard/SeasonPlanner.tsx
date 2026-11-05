@@ -167,7 +167,7 @@ export const SeasonPlanner: React.FC = () => {
                     'success'
                   );
                 }}
-                className="px-4 py-2 bg-white dark:bg-slate-900 text-[#123B60] dark:text-[#F59A16] text-xs font-bold rounded-xl border border-slate-200 dark:border-slate-700 hover:border-[#F59A16] transition flex items-center gap-1.5"
+                className="px-4 py-2 bg-white dark:bg-slate-900 text-brand dark:text-accent text-xs font-bold rounded-xl border border-slate-200 dark:border-slate-700 hover:border-accent transition flex items-center gap-1.5"
               >
                 <ClipboardCopy className="w-4 h-4" />
                 Copy the transcribed plan
@@ -175,7 +175,7 @@ export const SeasonPlanner: React.FC = () => {
             )}
             <button
               onClick={openAdd}
-              className="px-4 py-2 bg-[#F59A16] hover:bg-[#D47F0A] text-white text-xs font-bold rounded-xl shadow-md transition flex items-center gap-1.5"
+              className="px-4 py-2 bg-accent hover:bg-accent-strong text-white text-xs font-bold rounded-xl shadow-md transition flex items-center gap-1.5"
             >
               <Plus className="w-4 h-4" />
               Add Milestone / Event
@@ -203,7 +203,7 @@ export const SeasonPlanner: React.FC = () => {
               aria-pressed={categoryFilter === cat}
               className={`px-3 py-1.5 rounded-xl text-xs font-bold transition whitespace-nowrap ${
                 categoryFilter === cat
-                  ? 'bg-[#123B60] text-white shadow-sm'
+                  ? 'bg-brand text-white shadow-sm'
                   : 'bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700'
               }`}
             >
@@ -227,7 +227,7 @@ export const SeasonPlanner: React.FC = () => {
             mayPlan ? (
               <button
                 onClick={openAdd}
-                className="px-4 py-2 bg-[#123B60] text-white text-xs font-bold rounded-xl"
+                className="px-4 py-2 bg-brand text-white text-xs font-bold rounded-xl"
               >
                 Write the first milestone
               </button>
@@ -248,7 +248,7 @@ export const SeasonPlanner: React.FC = () => {
             >
               <div>
                 <div className="flex items-center justify-between gap-2 mb-3">
-                  <span className="px-2.5 py-0.5 rounded-full bg-[#123B60] text-white font-bold text-[10px] uppercase">
+                  <span className="px-2.5 py-0.5 rounded-full bg-brand text-white font-bold text-[10px] uppercase">
                     {evt.category}
                   </span>
                   <span className={`text-[10px] px-2.5 py-1 rounded-full font-bold uppercase tracking-wider text-slate-700 dark:text-slate-100 ${
@@ -265,7 +265,7 @@ export const SeasonPlanner: React.FC = () => {
                   {evt.title}
                 </h2>
                 {evt.acronym && (
-                  <span className="text-xs font-extrabold text-[#F59A16] uppercase mt-0.5 block">
+                  <span className="text-xs font-extrabold text-accent uppercase mt-0.5 block">
                     [{evt.acronym}]
                   </span>
                 )}
@@ -281,7 +281,7 @@ export const SeasonPlanner: React.FC = () => {
                   </div>
                   <div className="flex justify-between gap-2">
                     <span className="text-slate-400">Target written:</span>
-                    <strong className="text-[#F59A16] text-right">{evt.targetMetric || 'None stated'}</strong>
+                    <strong className="text-accent text-right">{evt.targetMetric || 'None stated'}</strong>
                   </div>
                   <div className="flex justify-between gap-2">
                     <span className="text-slate-400">Result recorded:</span>
@@ -324,7 +324,7 @@ export const SeasonPlanner: React.FC = () => {
                     <button
                       onClick={() => openEdit(evt)}
                       aria-label={`Edit ${evt.title}`}
-                      className="px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-bold text-[#123B60] dark:text-[#F59A16] hover:border-[#123B60] dark:hover:border-[#F59A16] transition flex items-center gap-1.5"
+                      className="px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-bold text-brand dark:text-accent hover:border-brand dark:hover:border-accent transition flex items-center gap-1.5"
                     >
                       <Pencil className="w-3.5 h-3.5" aria-hidden />
                       Edit
@@ -460,7 +460,7 @@ export const SeasonPlanner: React.FC = () => {
             </button>
             <button
               type="submit"
-              className="px-5 py-2 bg-[#F59A16] hover:bg-[#D47F0A] text-white font-bold rounded-xl"
+              className="px-5 py-2 bg-accent hover:bg-accent-strong text-white font-bold rounded-xl"
             >
               {editingId ? 'Save Changes' : 'Save Milestone'}
             </button>

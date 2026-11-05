@@ -26,7 +26,7 @@ import { OBJECTIVE_STATUS_LABEL, OKR_RULES } from '../../domain/seasons';
 const cardClass =
   'bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm';
 const fieldClass =
-  'px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs outline-none focus:ring-2 focus:ring-[#123B60]';
+  'px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs outline-none focus:ring-2 focus:ring-brand';
 
 const severityStyles: Record<Signal['severity'], string> = {
   action: 'border-rose-200 dark:border-rose-900 bg-rose-50/60 dark:bg-rose-950/20',
@@ -47,7 +47,7 @@ const SignalRow: React.FC<{ signal: Signal; onNavigate: (view: DashboardView) =>
       {signal.view && (
         <button
           onClick={() => onNavigate(signal.view as DashboardView)}
-          className="shrink-0 px-2.5 py-1 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-[11px] font-bold text-[#123B60] dark:text-[#F59A16] flex items-center gap-1"
+          className="shrink-0 px-2.5 py-1 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-[11px] font-bold text-brand dark:text-accent flex items-center gap-1"
         >
           Open {signal.view.replace('_', ' ')}
           <ArrowUpRight className="w-3 h-3" aria-hidden />
@@ -148,7 +148,7 @@ export const ExecutiveDecisionCenter: React.FC<{ onNavigate: (view: DashboardVie
       </div>
 
       <div className={`${cardClass} p-4 flex items-start gap-2.5`}>
-        <Eye className="w-4 h-4 text-[#123B60] dark:text-[#F59A16] mt-0.5 shrink-0" aria-hidden />
+        <Eye className="w-4 h-4 text-brand dark:text-accent mt-0.5 shrink-0" aria-hidden />
         <p className="text-[11px] text-slate-600 dark:text-slate-300">
           The four sections below are deliberately separate. A confirmed reading is arithmetic over records. An alert is
           one of {Object.keys(DECISION_RULES).length} stated thresholds crossing ({Object.entries(DECISION_RULES)
@@ -252,7 +252,7 @@ export const ExecutiveDecisionCenter: React.FC<{ onNavigate: (view: DashboardVie
           {seasons.length > 0 && (
             <button
               onClick={() => onNavigate('seasons_objectives')}
-              className="px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700 text-[11px] font-bold text-[#123B60] dark:text-[#F59A16] flex items-center gap-1"
+              className="px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700 text-[11px] font-bold text-brand dark:text-accent flex items-center gap-1"
             >
               Seasons &amp; Objectives
               <ArrowUpRight className="w-3 h-3" aria-hidden />
@@ -290,7 +290,7 @@ export const ExecutiveDecisionCenter: React.FC<{ onNavigate: (view: DashboardVie
                       {rollup.attainment === null && ` · ${rollup.method}`}
                     </p>
                   </div>
-                  <Target className="w-4 h-4 text-[#F59A16] shrink-0" aria-hidden />
+                  <Target className="w-4 h-4 text-accent shrink-0" aria-hidden />
                 </div>
                 <p className="mt-2 text-[10px] text-slate-500">
                   Rule: on track holds the elapsed pace, at risk allows {Math.round(OKR_RULES.atRiskSlack * 100)} points of
@@ -310,7 +310,7 @@ export const ExecutiveDecisionCenter: React.FC<{ onNavigate: (view: DashboardVie
       {/* 6. Suggestions */}
       <section className={cardClass}>
         <div className="p-4 border-b border-slate-100 dark:border-slate-800 flex items-center gap-2">
-          <Sparkles className="w-4 h-4 text-[#F59A16]" aria-hidden />
+          <Sparkles className="w-4 h-4 text-accent" aria-hidden />
           <h2 className="text-xs font-bold text-slate-800 dark:text-slate-100">Candidate next actions</h2>
         </div>
         {suggestions.length === 0 ? (
@@ -321,9 +321,9 @@ export const ExecutiveDecisionCenter: React.FC<{ onNavigate: (view: DashboardVie
           <ul className="p-4 space-y-2">
             {suggestions.map((suggestion) => (
               <li key={`${suggestion.signalId}-${suggestion.action}`} className="text-xs text-slate-600 dark:text-slate-300 flex gap-2">
-                <span className="mt-1 shrink-0 w-1.5 h-1.5 rounded-full bg-[#F59A16]" aria-hidden />
+                <span className="mt-1 shrink-0 w-1.5 h-1.5 rounded-full bg-accent" aria-hidden />
                 <span>
-                  <span className="font-bold text-[10px] uppercase tracking-wide text-[#F59A16]">Suggestion — not a confirmed fact.</span>{' '}
+                  <span className="font-bold text-[10px] uppercase tracking-wide text-accent">Suggestion — not a confirmed fact.</span>{' '}
                   {suggestion.action}{' '}
                   <span className="text-[10px] text-slate-400">
                     From “{alerts.find((a) => a.id === suggestion.signalId)?.title}”. Nothing here changes a record by

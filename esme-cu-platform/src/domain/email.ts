@@ -1,4 +1,5 @@
 import type { WarningSeverity } from './rewards';
+import { PALETTE } from '../theme/palette';
 
 /**
  * Outbound email is a server concern. This module owns only what is safe to decide on either
@@ -113,8 +114,14 @@ export function escapeHtml(value: string): string {
     .replace(/'/g, '&#39;');
 }
 
-const NAVY = '#123B60';
-const ORANGE = '#F59A16';
+const NAVY = PALETTE.navy;
+const ORANGE = PALETTE.orange;
+const CARD = PALETTE.white;
+const INK = PALETTE.slate900;
+const EDGE = PALETTE.slate200;
+const PAGE = PALETTE.slate100;
+const FOOTER = PALETTE.slate50;
+const MUTED = PALETTE.slate500;
 
 type Copy = { subject: string; preheader: string; greeting: string; lines: string[]; cta?: string };
 
@@ -331,22 +338,22 @@ export function renderEmail(input: {
 
   const html = [
     `<html lang="${ar ? 'ar' : 'en'}" dir="${ar ? 'rtl' : 'ltr'}">`,
-    `<body style="margin:0;padding:0;background:#f1f5f9;font-family:${ar ? "'Segoe UI', Tahoma, Arial" : "'Segoe UI', Arial"},sans-serif;">`,
+    `<body style="margin:0;padding:0;background:${PAGE};font-family:${ar ? "'Segoe UI', Tahoma, Arial" : "'Segoe UI', Arial"},sans-serif;">`,
     `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="padding:24px 12px;">`,
     `<tr><td align="center">`,
-    `<table role="presentation" width="100%" style="max-width:560px;background:#ffffff;border-radius:16px;overflow:hidden;border:1px solid #e2e8f0;">`,
+    `<table role="presentation" width="100%" style="max-width:560px;background:${CARD};border-radius:16px;overflow:hidden;border:1px solid ${EDGE};">`,
     `<tr><td style="background:${NAVY};padding:18px 24px;">`,
-    `<span style="color:#ffffff;font-size:14px;font-weight:700;letter-spacing:.4px;">ESME CU</span>`,
+    `<span style="color:${CARD};font-size:14px;font-weight:700;letter-spacing:.4px;">ESME CU</span>`,
     `<span style="color:${ORANGE};font-size:12px;font-weight:700;display:block;">${ar ? 'شعبة طلاب كلية الهندسة — جامعة القاهرة' : 'Engineering Students of Cairo University'}</span>`,
     `</td></tr>`,
-    `<tr><td style="padding:24px;color:#0f172a;font-size:14px;line-height:1.7;">`,
+    `<tr><td style="padding:24px;color:${INK};font-size:14px;line-height:1.7;">`,
     `<p style="margin:0 0 12px;font-weight:700;">${escapeHtml(copy.greeting)}</p>`,
     copy.lines.map((line) => `<p style="margin:0 0 10px;">${escapeHtml(line)}</p>`).join(''),
     ctaHref && copy.cta
-      ? `<p style="margin:18px 0 4px;"><a href="${escapeHtml(ctaHref)}" style="display:inline-block;background:${ORANGE};color:#0f172a;font-weight:700;text-decoration:none;padding:10px 18px;border-radius:10px;">${escapeHtml(copy.cta)}</a></p>`
+      ? `<p style="margin:18px 0 4px;"><a href="${escapeHtml(ctaHref)}" style="display:inline-block;background:${ORANGE};color:${INK};font-weight:700;text-decoration:none;padding:10px 18px;border-radius:10px;">${escapeHtml(copy.cta)}</a></p>`
       : '',
     `</td></tr>`,
-    `<tr><td style="padding:16px 24px;background:#f8fafc;color:#64748b;font-size:11px;border-top:1px solid #e2e8f0;">`,
+    `<tr><td style="padding:16px 24px;background:${FOOTER};color:${MUTED};font-size:11px;border-top:1px solid ${EDGE};">`,
     `<p style="margin:0;">${ar ? 'رسالة آلية من نظام أعضاء ESME CU. لا ترسل كلمة مرورك لأي شخص.' : 'Automated message from the ESME CU member system. Never send your password to anyone.'}</p>`,
     `</td></tr>`,
     `</table></td></tr></table></body></html>`,
