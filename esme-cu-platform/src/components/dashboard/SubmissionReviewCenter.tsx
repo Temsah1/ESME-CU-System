@@ -5,6 +5,7 @@ import { useStickyNonNull, ModalShell, useToast } from '../../motion';
 import { scopeFor } from '../../domain/roles';
 import { rubricFor, scoreRubric, type RubricMark } from '../../domain/workflow';
 import { EmptyState } from '../EmptyState';
+import { StatusBadge } from '../ui';
 import type { TaskSubmission } from '../../types';
 
 const STATUSES: TaskSubmission['status'][] = ['submitted', 'under_review', 'revision_requested', 'approved', 'rejected'];
@@ -173,19 +174,10 @@ export const SubmissionReviewCenter: React.FC = () => {
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100 dark:border-slate-800">
               <div>
                 <div className="flex items-center gap-2">
-                  <span className="px-2.5 py-0.5 rounded-full bg-brand text-white font-bold text-[10px] uppercase">
+                  <span className="px-2.5 py-0.5 rounded-pill bg-brand text-white font-bold text-micro uppercase tracking-wider">
                     {sub.committeeName}
                   </span>
-                  <span
-                    key={sub.status}
-                    className={`dash-badge px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
-                    sub.status === 'approved' ? 'bg-emerald-100 text-emerald-700' :
-                    sub.status === 'revision_requested' ? 'bg-amber-100 text-amber-700' :
-                    sub.status === 'rejected' ? 'bg-red-100 text-red-700' :
-                    'bg-blue-100 text-blue-700'
-                  }`}>
-                    {sub.status.replace('_', ' ')}
-                  </span>
+                  <StatusBadge status={sub.status} />
                 </div>
                 <h2 className="text-base font-bold text-slate-900 dark:text-white mt-1.5">{sub.taskTitle}</h2>
               </div>

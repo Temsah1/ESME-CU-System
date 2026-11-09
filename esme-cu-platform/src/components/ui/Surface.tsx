@@ -1,5 +1,5 @@
 import React from 'react';
-import { AlertTriangle, CheckCircle2, Info, XCircle } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, ChevronRight, Info, XCircle } from 'lucide-react';
 import { cn } from '../../lib/cn';
 
 /*
@@ -83,7 +83,7 @@ export const Badge: React.FC<{
 }> = ({ children, tone = 'neutral', dot, className }) => (
   <span
     className={cn(
-      'inline-flex items-center gap-1.5 rounded-pill border px-2.5 py-1',
+      'inline-flex items-center gap-2 rounded-pill border px-2 py-1',
       'text-micro font-bold whitespace-nowrap',
       badgeTones[tone],
       className
@@ -131,9 +131,27 @@ export const PageHeader: React.FC<{
   </header>
 );
 
+/** The hues a metric is allowed to wear. Each one is a wash plus an ink that clears AA on it. */
+export type StatTone = 'brand' | 'accent' | 'info' | 'success' | 'warning' | 'danger' | 'violet';
+
+const statTones: Record<StatTone, string> = {
+  brand: 'bg-tint-brand text-ink-brand',
+  accent: 'bg-tint-accent text-ink',
+  info: 'bg-info/15 text-info',
+  success: 'bg-success/15 text-success-ink',
+  warning: 'bg-warning/15 text-ink',
+  danger: 'bg-danger/15 text-danger',
+  violet: 'bg-violet/15 text-violet',
+};
+
 /**
  * One number that matters. `label` is read before the value by design — a bare figure with no name
  * ("47") is the thing a dashboard does wrong most often.
+ *
+ * With `onClick` the tile is a real button: the home screens use it to jump to the register the
+ * figure counts, and a native button carries Enter/Space and the focus ring without each screen
+ * re-deriving them. The figure itself is printed, never counted up — a number that animates from
+ * zero is read as zero by anyone who glances away, and by every screen reader.
  */
 export const StatTile: React.FC<{
   label: string;
@@ -141,37 +159,67 @@ export const StatTile: React.FC<{
   trend?: { value: string; direction: 'up' | 'down' | 'flat'; good?: boolean };
   hint?: React.ReactNode;
   icon?: React.ComponentType<{ className?: string }>;
+  tone?: StatTone;
+  onClick?: () => void;
   className?: string;
-}> = ({ label, value, trend, hint, icon: Icon, className }) => (
-  <div className={cn('rounded-sheet border border-border bg-surface shadow-card p-4 sm:p-5', className)}>
-    <div className="flex items-center justify-between gap-3">
-      <p className="text-micro font-bold uppercase tracking-wider text-ink-muted">{label}</p>
-      {Icon ? <Icon className="w-4 h-4 text-ink-faint shrink-0" aria-hidden /> : null}
-    </div>
-    <p className="mt-2 text-headline font-extrabold text-ink-strong leading-none font-numbers">{value}</p>
-    <div className="mt-2 flex items-center gap-2 min-h-[1rem]">
-      {trend ? (
-        <span
-          className={cn(
-            'text-micro font-bold font-numbers',
-            // Direction alone is not a verdict: a rising churn count is bad news. `good` decides the
-            // colour and the arrow says which way the number moved, so the two never conflict.
-            trend.good === false ? 'text-danger' : trend.good === true ? 'text-success-ink' : 'text-ink-subtle'
-          )}
-        >
-          {/* The triangle is decoration — some screen readers announce it as "up-pointing triangle",
-              which is the same sentence the sr-only text already says, worse. */}
-          <span aria-hidden>{trend.direction === 'up' ? '▲' : trend.direction === 'down' ? '▼' : '●'} </span>
-          {trend.value}
-          <span className="sr-only">
-            {trend.direction === 'up' ? ' higher' : trend.direction === 'down' ? ' lower' : ' unchanged'} than last period
-          </span>
+}> = ({ label, value, trend, hint, icon: Icon, tone, onClick, className }) => {
+  const base = cn(
+    'rounded-card border border-border bg-surface shadow-card p-4 flex flex-col justify-between h-full',
+    'transition-[border-color,box-shadow] duration-standard ease-smooth motion-reduce:transition-none',
+    onClick && 'w-full text-left cursor-pointer hover:border-brand/40 hover:shadow-raised',
+    className
+  );
+  const body = (
+    <>
+      <span className="flex items-start justify-between gap-3">
+        <span className="text-micro font-bold uppercase tracking-wider text-ink-muted">{label}</span>
+        {Icon ? (
+          tone ? (
+            <span className={cn('w-8 h-8 shrink-0 rounded-control flex items-center justify-center', statTones[tone])}>
+              <Icon className="w-4 h-4" aria-hidden />
+            </span>
+          ) : (
+            <Icon className="w-4 h-4 text-ink-faint shrink-0 mt-0.5" aria-hidden />
+          )
+        ) : null}
+      </span>
+      <span className="mt-3 block text-headline font-extrabold text-ink-strong leading-none font-numbers tracking-tight">
+        {value}
+      </span>
+      <span className="mt-2 flex items-start justify-between gap-2 min-h-4">
+        <span className="min-w-0 flex items-start gap-2">
+          {trend ? (
+            <span
+              className={cn(
+                'text-micro font-bold font-numbers shrink-0',
+                // Direction alone is not a verdict: a rising churn count is bad news. `good` decides
+                // the colour and the arrow says which way the number moved, so the two never conflict.
+                trend.good === false ? 'text-danger' : trend.good === true ? 'text-success-ink' : 'text-ink-subtle'
+              )}
+            >
+              {/* The triangle is decoration — some screen readers announce it as "up-pointing
+                  triangle", which is the same sentence the sr-only text already says, worse. */}
+              <span aria-hidden>{trend.direction === 'up' ? '▲' : trend.direction === 'down' ? '▼' : '●'} </span>
+              {trend.value}
+              <span className="sr-only">
+                {trend.direction === 'up' ? ' higher' : trend.direction === 'down' ? ' lower' : ' unchanged'} than last period
+              </span>
+            </span>
+          ) : null}
+          {hint ? <span className="text-micro text-ink-subtle leading-snug">{hint}</span> : null}
         </span>
-      ) : null}
-      {hint ? <span className="text-micro text-ink-subtle truncate">{hint}</span> : null}
-    </div>
-  </div>
-);
+        {onClick ? <ChevronRight className="w-4 h-4 shrink-0 text-ink-faint" aria-hidden /> : null}
+      </span>
+    </>
+  );
+  return onClick ? (
+    <button type="button" onClick={onClick} className={base}>
+      {body}
+    </button>
+  ) : (
+    <div className={base}>{body}</div>
+  );
+};
 
 type AlertTone = 'info' | 'success' | 'warning' | 'danger';
 

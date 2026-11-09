@@ -31,6 +31,7 @@ import {
 } from '../../domain/rewards';
 import { ModalShell, useToast } from '../../motion';
 import { EmptyState } from '../EmptyState';
+import { StatusBadge } from '../ui';
 import type { DashboardView } from './DashboardShell';
 
 type Props = { onNavigate: (view: DashboardView) => void };
@@ -1082,21 +1083,11 @@ export const RewardsAndDiscipline: React.FC<Props> = ({ onNavigate }) => {
 
 const EntryBadge: React.FC<{ entry: RewardEntry }> = ({ entry }) => (
   <span className="inline-flex items-center gap-1.5">
-    <span
-      className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
-        entry.kind === 'bonus'
-          ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300'
-          : 'bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300'
-      }`}
-    >
+    <StatusBadge status={entry.kind}>
       {KIND_LABEL[entry.kind]}
       {entry.kind === 'warning' && entry.severity ? ` · ${SEVERITY_LABELS[entry.severity]}` : ''}
-    </span>
-    {entry.status === 'reversed' && (
-      <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-slate-200 text-slate-600 dark:bg-slate-800 dark:text-slate-300">
-        reversed
-      </span>
-    )}
+    </StatusBadge>
+    {entry.status === 'reversed' && <StatusBadge status="reversed" />}
   </span>
 );
 

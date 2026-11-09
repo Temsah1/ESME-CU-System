@@ -7,10 +7,10 @@ import {
   Plus,
   Search,
   Send,
-  TriangleAlert,
   Users,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
+import { Alert } from '../ui';
 import { EmptyState } from '../EmptyState';
 import { ROLE_LABELS } from '../../domain/roles';
 import {
@@ -62,34 +62,6 @@ const formatWhen = (value: string | null): string => {
 };
 
 const roleLabel = (contact: ChatContact): string => (contact.role ? ROLE_LABELS[contact.role] : 'Member');
-
-const Alert: React.FC<{ tone: 'amber' | 'rose'; title: string; children: React.ReactNode }> = ({
-  tone,
-  title,
-  children,
-}) => (
-  <div
-    role="alert"
-    className={`rounded-2xl border p-4 flex items-start gap-3 ${
-      tone === 'amber'
-        ? 'border-amber-200 dark:border-amber-500/30 bg-amber-50 dark:bg-amber-500/10'
-        : 'border-rose-200 dark:border-rose-500/30 bg-rose-50 dark:bg-rose-500/10'
-    }`}
-  >
-    <TriangleAlert
-      className={`w-4 h-4 shrink-0 mt-0.5 ${tone === 'amber' ? 'text-amber-600' : 'text-rose-600'}`}
-      aria-hidden
-    />
-    <div className="text-xs space-y-1 min-w-0">
-      <p className={`font-bold ${tone === 'amber' ? 'text-amber-900 dark:text-amber-200' : 'text-rose-900 dark:text-rose-200'}`}>
-        {title}
-      </p>
-      <div className={tone === 'amber' ? 'text-amber-800 dark:text-amber-300' : 'text-rose-800 dark:text-rose-300'}>
-        {children}
-      </div>
-    </div>
-  </div>
-);
 
 const ConversationButton: React.FC<{
   conversation: ChatConversation;
@@ -361,14 +333,14 @@ export const MessagesView: React.FC = () => {
           </p>
         </div>
         {unread > 0 && (
-          <span className="text-[11px] font-bold text-accent" aria-label={`${unread} unread messages`}>
+          <span className="text-micro font-bold text-ink-accent font-numbers" aria-label={`${unread} unread messages`}>
             {unread} unread
           </span>
         )}
       </div>
 
       {load?.state === 'blocked' && (
-        <Alert tone="amber" title="Chat is blocked in this build">
+        <Alert tone="warning" title="Chat is blocked in this build">
           <p>
             No project is configured, so no conversation can be read or written: this build does not
             hold {load.missing.join(', ')}. The page keeps no local copy of a message, because one
@@ -379,17 +351,14 @@ export const MessagesView: React.FC = () => {
       )}
 
       {load?.state === 'error' && (
-        <Alert tone="rose" title="The conversation list could not be read">
+        <Alert tone="danger" title="The conversation list could not be read">
           <p>{load.message}</p>
         </Alert>
       )}
 
       {error && (
-        <Alert tone="rose" title="The last action did not complete">
+        <Alert tone="danger" title="The last action did not complete" onDismiss={() => setError(null)}>
           <p>{error}</p>
-          <button type="button" onClick={() => setError(null)} className="mt-1 font-bold underline">
-            Dismiss
-          </button>
         </Alert>
       )}
 
@@ -442,7 +411,7 @@ export const MessagesView: React.FC = () => {
                       <LoaderCircle className="w-3.5 h-3.5 animate-spin" aria-hidden /> Reading the directory…
                     </p>
                   )}
-                  {contactsError && <p className="text-[11px] text-rose-600 px-1 py-2">{contactsError}</p>}
+                  {contactsError && <p className="text-micro text-danger px-1 py-2">{contactsError}</p>}
                   {!contactsBusy && !contactsError && contacts.length === 0 && (
                     <p className="text-[11px] text-slate-500 px-1 py-2">
                       No reachable contact. A member can message their own committee; leadership reaches

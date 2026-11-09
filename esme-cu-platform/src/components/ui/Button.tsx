@@ -6,7 +6,7 @@ export type ButtonVariant = 'accent' | 'brand' | 'outline' | 'ghost' | 'danger';
 export type ButtonSize = 'sm' | 'md' | 'lg';
 
 const base =
-  'relative inline-flex items-center justify-center gap-2 rounded-xl font-bold whitespace-nowrap ' +
+  'relative inline-flex items-center justify-center gap-2 rounded-control font-bold whitespace-nowrap ' +
   'transition-[background-color,border-color,color,box-shadow,filter,transform] duration-micro ease-smooth ' +
   'motion-safe:active:scale-[0.98] motion-reduce:active:scale-100 ' +
   'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg ' +
@@ -21,15 +21,16 @@ const variants: Record<ButtonVariant, string> = {
   brand: 'bg-brand text-white hover:bg-brand-hover shadow-sm',
   outline: 'bg-surface text-ink border border-border-strong hover:border-accent',
   ghost: 'text-ink-muted hover:bg-surface-muted hover:text-ink',
-  // `danger` is already the darkest red the palette allows in light mode, so the hover goes by
-  // luminance rather than by reaching for a red that does not exist in the brand.
-  danger: 'bg-danger text-white hover:brightness-95 shadow-sm',
+  // `danger` is an ink token that pales on slate, so a destructive *fill* uses the solid role:
+  // white on `--esme-red` clears 8:1 in light and dark alike, and the hover lightens rather than
+  // reaching for a red the palette does not have.
+  danger: 'bg-danger-solid text-white hover:bg-danger-solid-hover shadow-sm',
 };
 
 const sizes: Record<ButtonSize, string> = {
   // `md` is 44px so the default control clears the touch target a phone demands; `sm` is for the
   // dense rows of a table, where a bigger button would push the row itself past what fits.
-  sm: 'h-9 px-3 text-caption rounded-control',
+  sm: 'h-9 px-3 text-caption',
   md: 'h-11 px-4 text-caption',
   lg: 'h-12 px-5 text-label rounded-card',
 };

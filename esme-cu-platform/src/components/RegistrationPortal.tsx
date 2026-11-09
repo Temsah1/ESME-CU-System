@@ -390,7 +390,7 @@ export const RegistrationPortal: React.FC<RegistrationPortalProps> = ({
         {/* Header */}
         <div data-rv className="rv reg-step bg-gradient-to-r from-brand to-brand-ink text-white rounded-3xl p-8 sm:p-10 shadow-xl mb-8 relative overflow-hidden">
           <div className="relative z-10">
-            <span className="px-3 py-1 bg-accent text-[10px] font-black uppercase rounded tracking-wider">
+            <span className="px-3 py-1 bg-accent text-slate-950 text-[10px] font-black uppercase rounded tracking-wider">
               Student Registration Portal
             </span>
             <h1 className="text-2xl sm:text-3xl font-extrabold mt-3">
@@ -741,7 +741,7 @@ export const RegistrationPortal: React.FC<RegistrationPortalProps> = ({
             <button
               type="submit"
               disabled={busy}
-              className="px-8 py-3.5 bg-accent hover:bg-accent-strong disabled:opacity-60 text-white font-bold rounded-xl text-xs shadow-md transition flex items-center gap-2"
+              className="px-8 py-3.5 bg-accent hover:bg-accent-strong disabled:opacity-60 text-slate-950 font-bold rounded-xl text-xs shadow-md transition flex items-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
             >
               {busy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
               {busy ? 'Submitting…' : 'Submit Application'}

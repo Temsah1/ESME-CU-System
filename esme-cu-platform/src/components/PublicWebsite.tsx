@@ -2,10 +2,7 @@ import React, { Suspense, lazy, useEffect, useMemo, useRef, useState } from 'rea
 import {
   motion,
   AnimatePresence,
-  useMotionValue,
   useReducedMotion,
-  useSpring,
-  useTransform,
 } from 'motion/react';
 import {
   ChevronRight,
@@ -38,7 +35,6 @@ import {
   scaleIn,
   staggerGroup,
   transitions,
-  usePremiumMotion,
 } from '../motion';
 import {
   Counter,
@@ -98,18 +94,18 @@ const HERO_CHAT: StudioMessage[] = [
 const HOW_IT_WORKS: AccordionStep[] = [
   {
     label: '01',
-    title: 'Tell us what you build',
-    body: 'One form, six short steps, saved as you go. It asks for the work you have done and the work you want to do — committee by committee, not a cover letter.',
+    title: 'Submit your technical profile',
+    body: 'Complete the student registration portal with your academic year, department, engineering skills, and committee preferences.',
   },
   {
     label: '02',
-    title: 'Three committees read it',
-    body: 'Each answer is routed to the committee it belongs to and read twice: the first reviewer scores it, the second checks that score before anything moves.',
+    title: 'Committee leadership review',
+    body: 'Applications are reviewed directly by committee directors and heads based on technical interest, dedication, and past projects.',
   },
   {
     label: '03',
-    title: 'Thirty minutes, one list',
-    body: 'An interview, one technical question and one honest one. The board signs a single list, and everyone on the shortlist is told what is on it.',
+    title: 'Interview and roster placement',
+    body: 'A focused discussion with committee leadership. Roster placements and committee assignments are posted directly to the portal.',
   },
 ];
 
@@ -291,7 +287,6 @@ export const PublicWebsite: React.FC<PublicWebsiteProps> = ({
         } and ${sessionCount} professional session${sessionCount === 1 ? '' : 's'} recorded in the planner.`;
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [activeHistoryTab, setActiveHistoryTab] = useState(0);
-  const premiumMotion = usePremiumMotion();
 
   /**
    * The motion runtime for this page and nothing else: one Lenis instance fed by the GSAP ticker, one
@@ -355,32 +350,6 @@ export const PublicWebsite: React.FC<PublicWebsiteProps> = ({
   const campusImage = image('about.campus', '/history/xref_585.png', 'Faculty of Engineering, Cairo University');
   const boardImage = image('history.boardPoster', '/branding/board_poster_2025_2026.png', 'Board of the 2025-2026 academic year');
   const shareImage = image('sharing.ogImage', '/branding/esme_team_celebration.png', 'ESME CU Student Chapter');
-
-  const pointerX = useMotionValue(0);
-  const pointerY = useMotionValue(0);
-  const springX = useSpring(pointerX, { stiffness: 55, damping: 18, mass: 0.6 });
-  const springY = useSpring(pointerY, { stiffness: 55, damping: 18, mass: 0.6 });
-
-  const blobOrangeX = useTransform(springX, [-1, 1], [28, -28]);
-  const blobOrangeY = useTransform(springY, [-1, 1], [18, -18]);
-  const blobBlueX = useTransform(springX, [-1, 1], [-18, 18]);
-  const blobBlueY = useTransform(springY, [-1, 1], [-12, 12]);
-  const gridX = useTransform(springX, [-1, 1], [8, -8]);
-  const gridY = useTransform(springY, [-1, 1], [5, -5]);
-  const cardX = useTransform(springX, [-1, 1], [-10, 10]);
-  const cardY = useTransform(springY, [-1, 1], [-7, 7]);
-
-  const handleHeroPointer = (e: React.MouseEvent<HTMLElement>) => {
-    if (!premiumMotion) return;
-    const rect = e.currentTarget.getBoundingClientRect();
-    pointerX.set(((e.clientX - rect.left) / rect.width) * 2 - 1);
-    pointerY.set(((e.clientY - rect.top) / rect.height) * 2 - 1);
-  };
-
-  const resetHeroPointer = () => {
-    pointerX.set(0);
-    pointerY.set(0);
-  };
 
   // The header offers what the document lists, in the order the operator left it, minus the blocks
   // that are switched off. A link the page would not follow is already gone — the validator dropped
@@ -506,10 +475,10 @@ export const PublicWebsite: React.FC<PublicWebsiteProps> = ({
             <span className="text-slate-300 hidden md:inline">| Faculty of Engineering</span>
           </div>
           <div className="flex items-center gap-4 text-slate-300">
-            <span className="italic font-medium text-accent">"Be Positive Valuable"</span>
+            <span className="font-semibold text-accent">"Be Positive Valuable"</span>
             <motion.button
               onClick={onNavigateToDashboard}
-              className="text-xs bg-accent hover:bg-accent-strong text-white px-3 py-1 rounded font-semibold shadow-sm"
+              className="text-xs bg-accent hover:bg-accent-strong text-slate-950 px-3 py-1 rounded font-bold shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
               whileHover={{ scale: 1.04 }}
               whileTap={{ scale: 0.96 }}
               transition={transitions.micro}
@@ -546,7 +515,7 @@ export const PublicWebsite: React.FC<PublicWebsiteProps> = ({
                 />
               </div>
               <div className="flex flex-col">
-                <span className="text-lg font-black tracking-wider text-white leading-tight font-serif">ESME CU</span>
+                <span className="text-lg font-black tracking-wider text-white leading-tight">ESME CU</span>
                 <span className="text-[10px] tracking-widest text-accent font-bold uppercase">Cairo Student Chapter</span>
               </div>
             </motion.a>
@@ -586,7 +555,7 @@ export const PublicWebsite: React.FC<PublicWebsiteProps> = ({
               <MagneticButton
                 onClick={onNavigateToJoin}
                 strength={0.18}
-                className="pill px-5 py-2 text-xs font-bold text-white bg-accent hover:bg-accent-strong rounded-lg shadow-md shadow-accent/20 flex items-center gap-1.5"
+                className="pill px-5 py-2 text-xs font-bold text-slate-950 bg-accent hover:bg-accent-strong rounded-lg shadow-md shadow-accent/20 flex items-center gap-1.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
                 initial={{ opacity: 0, y: -8 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.35, delay: 0.45 }}
@@ -600,7 +569,7 @@ export const PublicWebsite: React.FC<PublicWebsiteProps> = ({
             <div className="xl:hidden flex items-center gap-2">
               <button
                 onClick={onNavigateToDashboard}
-                className="px-3 py-1.5 text-xs font-bold text-white bg-accent rounded-md"
+                className="px-3 py-1.5 text-xs font-bold text-slate-950 bg-accent hover:bg-accent-strong rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
               >
                 Login
               </button>
@@ -646,13 +615,13 @@ export const PublicWebsite: React.FC<PublicWebsiteProps> = ({
                 <div className="pt-4 border-t border-white/10 flex flex-col gap-2">
                   <button
                     onClick={() => { setMobileMenuOpen(false); onNavigateToDashboard(); }}
-                    className="w-full text-center py-2.5 rounded-md text-xs font-bold text-white border border-accent"
+                    className="w-full text-center py-2.5 rounded-md text-xs font-bold text-white border border-accent hover:bg-accent/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
                   >
                     Dashboard Login
                   </button>
                   <button
                     onClick={() => { setMobileMenuOpen(false); onNavigateToJoin(); }}
-                    className="w-full text-center py-2.5 rounded-md text-xs font-bold text-white bg-accent"
+                    className="w-full text-center py-2.5 rounded-md text-xs font-bold text-slate-950 bg-accent hover:bg-accent-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
                   >
                     Recruitment 2026-2027
                   </button>
@@ -669,19 +638,11 @@ export const PublicWebsite: React.FC<PublicWebsiteProps> = ({
         id="home"
         ref={heroRef}
         className="relative overflow-hidden bg-gradient-to-b from-brand via-navy-mid to-brand-ink text-white pt-16 pb-28"
-        onMouseMove={handleHeroPointer}
-        onMouseLeave={resetHeroPointer}
       >
         {/* Subtle engineering decorative grid */}
-        <motion.div className="absolute inset-[-24px] bg-grid-pattern-dark opacity-15 pointer-events-none" style={{ x: gridX, y: gridY }} />
-        <motion.div
-          className="absolute -top-32 -right-32 w-96 h-96 bg-accent/10 rounded-full blur-3xl pointer-events-none"
-          style={{ x: blobOrangeX, y: blobOrangeY }}
-        />
-        <motion.div
-          className="absolute bottom-0 -left-20 w-80 h-80 bg-brand-hover/20 rounded-full blur-2xl pointer-events-none"
-          style={{ x: blobBlueX, y: blobBlueY }}
-        />
+        <div className="absolute inset-0 bg-grid-pattern-dark opacity-15 pointer-events-none" />
+        <div className="absolute -top-32 -right-32 w-96 h-96 bg-accent/10 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute bottom-0 -left-20 w-80 h-80 bg-brand-hover/20 rounded-full blur-2xl pointer-events-none" />
         <EngineeringBackdrop />
         <GlassSquares />
 
@@ -730,7 +691,7 @@ export const PublicWebsite: React.FC<PublicWebsiteProps> = ({
               <motion.div variants={heroItem} className="pt-4 flex flex-wrap items-center gap-4">
                 <MagneticButton
                   onClick={onNavigateToDashboard}
-                  className="px-7 py-3.5 bg-accent hover:bg-accent-strong text-white font-bold rounded-xl shadow-xl shadow-accent/25 flex items-center gap-2 group text-sm"
+                  className="px-7 py-3.5 bg-accent hover:bg-accent-strong text-slate-950 font-bold rounded-xl shadow-xl shadow-accent/25 flex items-center gap-2 group text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
                 >
                   <ShieldCheck className="w-4 h-4 transition group-hover:scale-110" />
                   {content.hero.ctaPrimary}
@@ -772,7 +733,7 @@ export const PublicWebsite: React.FC<PublicWebsiteProps> = ({
             </div>
 
             {/* Right Column Official Brand Imagery */}
-            <motion.div className="lg:col-span-5 space-y-4" style={{ x: cardX, y: cardY }} variants={scaleIn}>
+            <motion.div className="lg:col-span-5 space-y-4" variants={scaleIn}>
               <div className="glass-card relative rounded-2xl overflow-hidden border-2 border-white/20 shadow-2xl bg-brand-ink" data-par="media">
                 <img
                   src={heroImage.src}
@@ -781,7 +742,7 @@ export const PublicWebsite: React.FC<PublicWebsiteProps> = ({
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-brand-ink via-transparent to-transparent"></div>
                 <div className="absolute bottom-4 left-4 right-4 text-white">
-                  <span className="px-2.5 py-1 bg-accent text-[10px] font-black uppercase rounded tracking-wider">Official 2026-2027 Vision Launch</span>
+                  <span className="px-2.5 py-1 bg-accent text-slate-950 text-micro font-extrabold uppercase rounded-control tracking-wider">Official 2026-2027 Vision Launch</span>
                   <p className="text-xs text-slate-200 mt-1">
                     {heroImage.caption ?? 'Zerust Presentation & ESME-Cairo University General Assembly'}
                   </p>
@@ -795,7 +756,7 @@ export const PublicWebsite: React.FC<PublicWebsiteProps> = ({
                 transition={transitions.standard}
               >
                 <div className="w-12 h-12 rounded-lg bg-accent flex items-center justify-center shrink-0">
-                  <Flame className="w-6 h-6 text-white" />
+                  <Flame className="w-6 h-6 text-slate-950" />
                 </div>
                 <div className="text-xs">
                   <div className="font-bold text-white text-sm">Empowering Engineers</div>
@@ -952,7 +913,7 @@ export const PublicWebsite: React.FC<PublicWebsiteProps> = ({
               </h2>
             </Reveal>
             <Reveal delay={0.15}>
-              <blockquote className="text-xl sm:text-2xl font-serif italic text-accent mt-4 border-y border-white/10 py-4 max-w-3xl mx-auto">
+              <blockquote className="text-xl sm:text-2xl font-sans font-semibold leading-snug tracking-tight text-accent mt-4 border-y border-white/10 py-4 max-w-3xl mx-auto">
                 {content.vision2027.quote}
               </blockquote>
             </Reveal>
@@ -1027,8 +988,8 @@ export const PublicWebsite: React.FC<PublicWebsiteProps> = ({
                     />
                   )}
                   <span className="relative z-10">{m.period}</span>
-                  <span className={`relative z-10 text-[10px] px-2 py-0.5 rounded-full transition-colors duration-200 ${
-                    isActive ? 'bg-accent text-white' : 'bg-slate-300 text-slate-800'
+                  <span className={`relative z-10 text-micro font-bold px-2 py-0.5 rounded-full transition-colors duration-200 ${
+                    isActive ? 'bg-accent text-slate-950 font-bold' : 'bg-slate-300 text-slate-800'
                   }`}>
                     {m.activities.length} Events
                   </span>
@@ -1162,7 +1123,7 @@ export const PublicWebsite: React.FC<PublicWebsiteProps> = ({
                       <CheckCircle2 className="w-3.5 h-3.5" />
                       Named in the appreciation record
                     </span>
-                    <span className="italic text-slate-400">Source: PDF p.3</span>
+                    <span className="text-slate-400">Source: PDF p.3</span>
                   </div>
                 </motion.div>
               </StaggerItem>
@@ -1174,7 +1135,7 @@ export const PublicWebsite: React.FC<PublicWebsiteProps> = ({
             <div className="bg-brand rounded-2xl p-6 sm:p-8 text-white relative overflow-hidden hover:shadow-2xl transition-shadow duration-300">
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
                 <div className="lg:col-span-5 space-y-4">
-                  <span className="px-3 py-1 bg-accent text-[10px] font-black uppercase rounded tracking-wider inline-block">Historical Board Roster</span>
+                  <span className="px-3 py-1 bg-accent text-slate-950 text-micro font-extrabold uppercase rounded-control tracking-wider inline-block">Historical Board Roster</span>
                   <h3 className="text-2xl font-bold text-white">Board to Year 25/26 Leadership</h3>
                   <p className="text-xs text-slate-300 leading-relaxed">
                     Preserving the official roster from the recruitment archive: President Ahmed Abbas, Vice President Omar Mohamed, Secretary Nada Yehia, along with HR, PR, OC, TE, TR, and MM directors.
@@ -1643,7 +1604,7 @@ export const PublicWebsite: React.FC<PublicWebsiteProps> = ({
                     <MagneticButton
                       onClick={onNavigateToJoin}
                       strength={0.15}
-                      className="w-full py-4 bg-accent hover:bg-accent-strong text-white font-bold rounded-xl shadow-lg flex items-center justify-center gap-2 text-sm"
+                      className="w-full py-4 bg-accent hover:bg-accent-strong text-slate-950 font-bold rounded-xl shadow-lg flex items-center justify-center gap-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
                     >
                       Apply For Membership
                       <ArrowRight className="w-4 h-4" />

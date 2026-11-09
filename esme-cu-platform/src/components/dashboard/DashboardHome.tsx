@@ -1,5 +1,4 @@
 import React, { useMemo } from 'react';
-import { motion } from 'motion/react';
 import {
   AlertTriangle,
   Award,
@@ -17,7 +16,7 @@ import type { ActionItem } from '../../domain/actions';
 import { leadershipPostsOf, POSITION_LABELS, rosterOf } from '../../domain/committees';
 import { activeWarningsOf, bonusPointsOf } from '../../domain/rewards';
 import { ROLE_LABELS, scopeFor } from '../../domain/roles';
-import { AnimatedNumber, StaggerGroup, StaggerItem, groupItemScale, transitions } from '../../motion';
+import { Card, StatTile, StatusBadge, type StatTone } from '../ui';
 import { SuperAdminOverview } from './SuperAdminOverview';
 import type { DashboardView } from './DashboardShell';
 import type { User } from '../../types';
@@ -34,50 +33,24 @@ type Stat = {
   hint: string;
   icon: LucideIcon;
   view: DashboardView;
-  tone: string;
+  tone: StatTone;
 };
 
-const StatCard: React.FC<{ stat: Stat; onNavigate: (view: DashboardView) => void }> = ({ stat, onNavigate }) => {
-  const Icon = stat.icon;
-  return (
-    <StaggerItem variants={groupItemScale} className="h-full">
-      <motion.div
-        role="button"
-        tabIndex={0}
-        onClick={() => onNavigate(stat.view)}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter' || e.key === ' ') {
-            e.preventDefault();
-            onNavigate(stat.view);
-          }
-        }}
-        whileHover={{ y: -4 }}
-        whileTap={{ scale: 0.98 }}
-        transition={transitions.standard}
-        className="group/card bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 hover:shadow-md hover:border-brand/30 transition-[box-shadow,border-color] cursor-pointer flex flex-col justify-between h-full focus-visible:outline-2 focus-visible:outline-accent"
-      >
-        <div className="flex items-center justify-between gap-3">
-          <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">{stat.label}</span>
-          <div className={`w-8 h-8 shrink-0 rounded-xl ${stat.tone} flex items-center justify-center`}>
-            <Icon className="w-4 h-4" />
-          </div>
-        </div>
-        <div className="mt-4">
-          <div className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">
-            {stat.value === null ? '—' : <AnimatedNumber value={stat.value} format={stat.format} startOnView />}
-          </div>
-          <div className="text-[11px] text-slate-400 mt-1 flex items-start justify-between gap-2">
-            <span>{stat.hint}</span>
-            <ChevronRight className="w-3.5 h-3.5 shrink-0 mt-0.5 opacity-60 transition-transform duration-200 group-hover/card:translate-x-0.5" />
-          </div>
-        </div>
-      </motion.div>
-    </StaggerItem>
-  );
-};
+const count = (n: number) => Math.round(n).toLocaleString();
+
+const StatCard: React.FC<{ stat: Stat; onNavigate: (view: DashboardView) => void }> = ({ stat, onNavigate }) => (
+  <StatTile
+    label={stat.label}
+    value={stat.value === null ? '—' : (stat.format ?? count)(stat.value)}
+    hint={stat.hint}
+    icon={stat.icon}
+    tone={stat.tone}
+    onClick={() => onNavigate(stat.view)}
+  />
+);
 
 const Note: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-  <p className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/60 p-4 text-xs text-slate-600 dark:text-slate-300">
+  <p className="rounded-card border border-border bg-surface-muted p-4 text-caption text-ink-muted leading-relaxed">
     {children}
   </p>
 );
@@ -87,18 +60,13 @@ const Panel: React.FC<{ title: string; caption?: string; children: React.ReactNo
   caption,
   children,
 }) => (
-  <motion.section
-    initial={{ opacity: 0, y: 16 }}
-    animate={{ opacity: 1, y: 0 }}
-    transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
-    className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-5 sm:p-6 shadow-sm"
-  >
+  <Card as="section" ariaLabel={title} className="p-4 sm:p-6">
     <div className="mb-4">
-      <h2 className="text-sm font-bold text-slate-900 dark:text-white">{title}</h2>
-      {caption && <p className="text-[11px] text-slate-400">{caption}</p>}
+      <h2 className="text-label font-bold text-ink-strong">{title}</h2>
+      {caption && <p className="text-micro text-ink-subtle mt-1">{caption}</p>}
     </div>
     {children}
-  </motion.section>
+  </Card>
 );
 
 const greeting = (hour: number) => (hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening');
@@ -118,21 +86,21 @@ const RoleAndSeat: React.FC<{ actor: User }> = ({ actor }) => {
   const { committees } = useApp();
   const posts = leadershipPostsOf(actor.id, committees);
   return (
-    <div className="flex flex-wrap items-center gap-2 text-[11px]">
-      <span className="px-2.5 py-1 rounded-full bg-white/15 border border-white/20 font-bold">
+    <div className="flex flex-wrap items-center gap-2 text-micro">
+      <span className="px-3 py-1 rounded-pill bg-white/15 border border-white/25 font-bold">
         Account role: {ROLE_LABELS[actor.role]}
       </span>
       {posts.length === 0 ? (
-        <span className="px-2.5 py-1 rounded-full bg-white/10 border border-white/15 text-slate-100">
+        <span className="px-3 py-1 rounded-pill bg-white/10 border border-white/20 text-slate-100">
           No committee seat assigned
         </span>
       ) : (
         posts.map(({ committee, position }) => (
           <span
             key={`${committee.id}-${position}`}
-            className="px-2.5 py-1 rounded-full bg-accent text-brand-ink font-bold"
+            className="px-3 py-1 rounded-pill bg-accent text-brand-ink font-bold"
           >
-            {POSITION_LABELS[position]} — {committee.name}
+            {POSITION_LABELS[position]} · {committee.name}
           </span>
         ))
       )}
@@ -153,51 +121,73 @@ const QueuePanel: React.FC<{ items: ActionItem[]; caption: string; onNavigate: (
         has no work in it.
       </Note>
     ) : (
-      <StaggerGroup className="space-y-2" step={0.05} amount={0.1}>
+      <ul className="space-y-2">
         {items.map((item) => (
-          <StaggerItem key={item.key}>
-            <motion.button
+          <li key={item.key}>
+            <button
+              type="button"
               onClick={() => onNavigate(item.view)}
-              whileHover={{ x: 3 }}
-              transition={transitions.micro}
-              className="w-full text-left p-3 rounded-2xl border border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/40 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors flex items-center justify-between gap-3"
+              className="w-full text-left p-3 rounded-card border border-border-subtle bg-surface-muted hover:bg-tint-hover hover:border-border-strong transition-colors duration-micro ease-smooth motion-reduce:transition-none flex items-center justify-between gap-3"
             >
               <span className="min-w-0">
-                <span className="block font-bold text-xs text-slate-800 dark:text-slate-100 truncate">{item.title}</span>
-                <span className="block text-[11px] text-slate-400 mt-0.5 truncate">
+                <span className="block font-bold text-caption text-ink truncate">{item.title}</span>
+                <span className="block text-micro text-ink-subtle mt-1 truncate">
                   {item.kind} · {item.detail}
                 </span>
               </span>
-              <span className="shrink-0 text-[10px] font-bold uppercase tracking-wider text-right text-slate-500 dark:text-slate-300">
+              <span className="shrink-0 text-micro font-bold uppercase tracking-wider text-right text-ink-muted font-numbers">
                 {item.dueInDays === null
                   ? 'no date'
                   : item.dueInDays < 0
                     ? `${Math.abs(item.dueInDays)}d late`
                     : `${item.dueInDays}d left`}
               </span>
-            </motion.button>
-          </StaggerItem>
+            </button>
+          </li>
         ))}
-      </StaggerGroup>
+      </ul>
     )}
-    <div className="mt-3 flex justify-end">
+    <div className="mt-4 flex justify-end">
       <button
+        type="button"
         onClick={() => onNavigate('action_center')}
-        className="text-xs text-accent font-bold hover:underline flex items-center gap-1"
+        className="text-caption text-ink-accent font-bold hover:underline underline-offset-4 flex items-center gap-1 rounded-control"
       >
         Open Action Center
-        <ChevronRight className="w-3.5 h-3.5" />
+        <ChevronRight className="w-4 h-4" aria-hidden />
       </button>
     </div>
   </Panel>
 );
 
 const StatGrid: React.FC<{ stats: Stat[]; onNavigate: (view: DashboardView) => void }> = ({ stats, onNavigate }) => (
-  <StaggerGroup className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4" step={0.06} amount={0.1}>
+  <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
     {stats.map((stat) => (
       <StatCard key={stat.label} stat={stat} onNavigate={onNavigate} />
     ))}
-  </StaggerGroup>
+  </div>
+);
+
+/** The banner both scoped homes open on: one greeting, one statement of what the figures count. */
+const HomeBanner: React.FC<{
+  eyebrow: string;
+  name: string;
+  hour: number;
+  children: React.ReactNode;
+  actor: User;
+}> = ({ eyebrow, name, hour, children, actor }) => (
+  <header className="bg-gradient-to-r from-brand via-navy-mid to-brand-ink rounded-sheet p-6 text-white shadow-raised border border-white/10">
+    <div className="space-y-3">
+      <span className="inline-flex items-center gap-2 px-3 py-1 rounded-pill bg-white/10 text-accent text-micro font-bold uppercase tracking-wider border border-white/20">
+        {eyebrow}
+      </span>
+      <h1 className="text-title sm:text-headline font-extrabold tracking-tight">
+        {greeting(hour)}, {name}
+      </h1>
+      <p className="text-caption sm:text-label text-slate-200 max-w-2xl leading-relaxed">{children}</p>
+      <RoleAndSeat actor={actor} />
+    </div>
+  </header>
 );
 
 /** Leadership whose read scope reaches a whole committee — Directors and Team Heads. */
@@ -233,7 +223,7 @@ const CommitteeHome: React.FC<{ actor: User; onNavigate: (view: DashboardView) =
       hint: committee ? `${roster.filter((m) => m.status === 'active').length} active account(s) filed under ${committee.shortCode}` : 'This account holds no committee',
       icon: Users,
       view: 'members',
-      tone: 'bg-brand/10 text-brand dark:text-accent',
+      tone: 'brand',
     },
     {
       label: 'Open tasks',
@@ -241,7 +231,7 @@ const CommitteeHome: React.FC<{ actor: User; onNavigate: (view: DashboardView) =
       hint: `${committeeTasks.length} task(s) written for this committee`,
       icon: CheckSquare,
       view: 'tasks',
-      tone: 'bg-blue-500/10 text-blue-600',
+      tone: 'info',
     },
     {
       label: 'Awaiting your review',
@@ -249,7 +239,7 @@ const CommitteeHome: React.FC<{ actor: User; onNavigate: (view: DashboardView) =
       hint: 'Submissions filed as submitted or under review',
       icon: FileCheck2,
       view: 'submissions',
-      tone: 'bg-amber-500/10 text-amber-600',
+      tone: 'warning',
     },
     {
       label: 'Past their deadline',
@@ -257,7 +247,7 @@ const CommitteeHome: React.FC<{ actor: User; onNavigate: (view: DashboardView) =
       hint: `${openTasks.length} still open while ${lateTasks.length} run past their date`,
       icon: AlertTriangle,
       view: 'tasks',
-      tone: 'bg-rose-500/10 text-rose-600',
+      tone: 'danger',
     },
   ];
 
@@ -268,7 +258,7 @@ const CommitteeHome: React.FC<{ actor: User; onNavigate: (view: DashboardView) =
       hint: `${ledgerForRoster.length} ledger entry(ies) for this roster`,
       icon: Award,
       view: 'scoring',
-      tone: 'bg-purple-500/10 text-purple-600',
+      tone: 'violet',
     });
   }
   if (mayReadRewards) {
@@ -278,34 +268,17 @@ const CommitteeHome: React.FC<{ actor: User; onNavigate: (view: DashboardView) =
       hint: 'Entries nobody has reversed; bonuses are counted in the ledger',
       icon: ShieldAlert,
       view: 'rewards',
-      tone: 'bg-rose-500/10 text-rose-600',
+      tone: 'danger',
     });
   }
 
   return (
     <div className="space-y-6">
-      <motion.header
-        initial={{ opacity: 0, y: 16 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
-        className="bg-gradient-to-r from-brand via-navy-mid to-brand-ink rounded-3xl p-6 sm:p-7 text-white shadow-xl relative overflow-hidden border border-white/10"
-      >
-        <div className="absolute inset-0 bg-grid-pattern-dark opacity-10 pointer-events-none" />
-        <div className="relative z-10 space-y-3">
-          <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 text-accent text-xs font-bold border border-white/15">
-            Committee command
-          </span>
-          <h1 className="text-xl sm:text-2xl font-black tracking-tight">
-            {greeting(clock.hour)}, {actor.name}
-          </h1>
-          <p className="text-xs sm:text-sm text-slate-200 max-w-2xl leading-relaxed">
-            {committee
-              ? `${committee.name} (${committee.shortCode}) — every figure below counts records filed under this committee. Anything outside it is not shown here because your read scope stops at the committee line.`
-              : 'Your account is not filed under a committee, so there is no committee scope to report. Ask an officer to place the account; until then only records that name you personally are reachable.'}
-          </p>
-          <RoleAndSeat actor={actor} />
-        </div>
-      </motion.header>
+      <HomeBanner eyebrow="Committee command" name={actor.name} hour={clock.hour} actor={actor}>
+        {committee
+          ? `${committee.name} (${committee.shortCode}): every figure below counts records filed under this committee. Anything outside it is not shown here because your read scope stops at the committee line.`
+          : 'Your account is not filed under a committee, so there is no committee scope to report. Ask an officer to place the account; until then only records that name you personally are reachable.'}
+      </HomeBanner>
 
       <StatGrid stats={stats} onNavigate={onNavigate} />
       <QueuePanel
@@ -355,7 +328,7 @@ const MemberHome: React.FC<{ actor: User; onNavigate: (view: DashboardView) => v
           : `${myLedger.length} entry(ies) recorded against your account`,
       icon: Award,
       view: 'scoring',
-      tone: 'bg-purple-500/10 text-purple-600',
+      tone: 'violet',
     },
     {
       label: 'Tasks assigned to you',
@@ -364,7 +337,7 @@ const MemberHome: React.FC<{ actor: User; onNavigate: (view: DashboardView) => v
       hint: `${myTasks.length} in total, ${lateMyTasks.length} past their deadline`,
       icon: CheckSquare,
       view: 'tasks',
-      tone: 'bg-blue-500/10 text-blue-600',
+      tone: 'info',
     },
     {
       label: 'Work awaiting a decision',
@@ -372,7 +345,7 @@ const MemberHome: React.FC<{ actor: User; onNavigate: (view: DashboardView) => v
       hint: revisions.length === 0 ? `${mine.length} submission(s) filed by you` : `${revisions.length} sent back for revision`,
       icon: FileCheck2,
       view: 'submissions',
-      tone: 'bg-amber-500/10 text-amber-600',
+      tone: 'warning',
     },
     {
       label: 'Unread alerts',
@@ -380,7 +353,7 @@ const MemberHome: React.FC<{ actor: User; onNavigate: (view: DashboardView) => v
       hint: 'Raised in this browser by the notification sweep',
       icon: Inbox,
       view: 'notifications',
-      tone: 'bg-brand/10 text-brand dark:text-accent',
+      tone: 'brand',
     },
   ];
 
@@ -390,28 +363,11 @@ const MemberHome: React.FC<{ actor: User; onNavigate: (view: DashboardView) => v
 
   return (
     <div className="space-y-6">
-      <motion.header
-        initial={{ opacity: 0, y: 16 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
-        className="bg-gradient-to-r from-brand via-navy-mid to-brand-ink rounded-3xl p-6 sm:p-7 text-white shadow-xl relative overflow-hidden border border-white/10"
-      >
-        <div className="absolute inset-0 bg-grid-pattern-dark opacity-10 pointer-events-none" />
-        <div className="relative z-10 space-y-3">
-          <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 text-accent text-xs font-bold border border-white/15">
-            My standing
-          </span>
-          <h1 className="text-xl sm:text-2xl font-black tracking-tight">
-            {greeting(clock.hour)}, {actor.name}
-          </h1>
-          <p className="text-xs sm:text-sm text-slate-200 max-w-2xl leading-relaxed">
-            {committee ? `${committee.name} — ${committee.description || 'no committee description recorded'}. ` : ''}
-            This page lists only records that name you: your own scores, tasks and submissions. Chapter and committee
-            totals are outside your read scope, so they are not hidden here — they are simply not returned to you.
-          </p>
-          <RoleAndSeat actor={actor} />
-        </div>
-      </motion.header>
+      <HomeBanner eyebrow="My standing" name={actor.name} hour={clock.hour} actor={actor}>
+        {committee ? `${committee.name}: ${committee.description || 'no committee description recorded'}. ` : ''}
+        This page lists only records that name you: your own scores, tasks and submissions. Chapter and committee
+        totals are outside your read scope, so they are not hidden here — they are simply not returned to you.
+      </HomeBanner>
 
       <StatGrid stats={stats} onNavigate={onNavigate} />
 
@@ -424,29 +380,34 @@ const MemberHome: React.FC<{ actor: User; onNavigate: (view: DashboardView) => v
               appears here as soon as one names your account.
             </Note>
           ) : (
-            <StaggerGroup className="space-y-2" step={0.05} amount={0.1}>
+            <ul className="space-y-2">
               {nextUp.map((task) => {
                 const days = Math.floor((Date.parse(task.deadline) - clock.ms) / 86400000);
                 return (
-                  <StaggerItem key={task.id}>
-                    <div className="p-3 rounded-2xl border border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/40 flex items-center justify-between gap-3">
-                      <span className="min-w-0">
-                        <span className="block font-bold text-xs text-slate-800 dark:text-slate-100 truncate">{task.title}</span>
-                        <span className="block text-[11px] text-slate-400 mt-0.5">
-                          {task.committeeName} · {task.points} pts · {task.status.replace('_', ' ')}
-                        </span>
+                  <li
+                    key={task.id}
+                    className="p-3 rounded-card border border-border-subtle bg-surface-muted flex items-center justify-between gap-3"
+                  >
+                    <span className="min-w-0">
+                      <span className="block font-bold text-caption text-ink truncate">{task.title}</span>
+                      <span className="block text-micro text-ink-subtle mt-1 truncate">
+                        {task.committeeName} · {task.points} pts
                       </span>
-                      <CalendarClock
-                        className={`w-4 h-4 shrink-0 ${days < 0 ? 'text-rose-500' : days <= 2 ? 'text-amber-500' : 'text-slate-400'}`}
-                      />
-                      <span className="shrink-0 text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-300">
+                    </span>
+                    <span className="shrink-0 flex flex-col items-end gap-1">
+                      <StatusBadge status={task.status} />
+                      <span className="flex items-center gap-1 text-micro font-bold uppercase tracking-wider text-ink-muted font-numbers">
+                        <CalendarClock
+                          aria-hidden
+                          className={`w-4 h-4 shrink-0 ${days < 0 ? 'text-danger' : days <= 2 ? 'text-ink-accent' : 'text-ink-faint'}`}
+                        />
                         {days < 0 ? `${Math.abs(days)}d late` : `${days}d left`}
                       </span>
-                    </div>
-                  </StaggerItem>
+                    </span>
+                  </li>
                 );
               })}
-            </StaggerGroup>
+            </ul>
           )}
           </Panel>
         </div>
@@ -467,31 +428,31 @@ const MemberHome: React.FC<{ actor: User; onNavigate: (view: DashboardView) => v
             </Note>
           ) : (
             <div className="space-y-3">
-              <div className="flex flex-wrap gap-2 text-[11px] font-bold">
-                <span className="px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-200">
+              <div className="flex flex-wrap gap-2 text-micro font-bold">
+                <span className="px-2 py-1 rounded-pill border border-success/30 bg-success/15 text-success-ink">
                   {bonuses} bonus point(s) awarded
                 </span>
-                <span className="px-2.5 py-1 rounded-full bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-200">
+                <span className="px-2 py-1 rounded-pill border border-warning/30 bg-warning/15 text-ink">
                   {warnings.length} active warning(s)
                 </span>
               </div>
-              <ul className="space-y-2 text-xs">
+              <ul className="space-y-2 text-caption">
                 {rewardEntries
                   .filter((e) => e.targetId === actor.id)
                   .slice(0, 4)
                   .map((entry) => (
                     <li
                       key={entry.id}
-                      className="p-3 rounded-2xl border border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/40"
+                      className="p-3 rounded-card border border-border-subtle bg-surface-muted"
                     >
                       <div className="flex items-center justify-between gap-2">
-                        <span className="font-bold text-slate-800 dark:text-slate-100">
+                        <span className="font-bold text-ink font-numbers">
                           {entry.kind === 'bonus' ? `+${entry.points} pts` : `${entry.severity ?? 'warning'} warning`}
                         </span>
-                        <span className="text-[10px] text-slate-400">{entry.issuedAt.slice(0, 16).replace('T', ' ')}</span>
+                        <span className="text-micro text-ink-subtle font-numbers">{entry.issuedAt.slice(0, 16).replace('T', ' ')}</span>
                       </div>
-                      <p className="text-[11px] text-slate-500 dark:text-slate-300 mt-1">{entry.reason}</p>
-                      <p className="text-[10px] text-slate-400 mt-1">
+                      <p className="text-micro text-ink-muted mt-1 leading-relaxed">{entry.reason}</p>
+                      <p className="text-micro text-ink-subtle mt-1">
                         Recorded by {entry.actorName} ({ROLE_LABELS[entry.actorRole]})
                         {entry.status === 'reversed' ? ' · reversed by a later entry' : ''}
                       </p>

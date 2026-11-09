@@ -3,6 +3,7 @@ import { Archive, Building2, Crown, Eye, EyeOff, Pencil, Plus, RefreshCw, Search
 import { useApp, useActor } from '../../context/AppContext';
 import { ModalShell, useToast } from '../../motion';
 import { EmptyState } from '../EmptyState';
+import { StatusBadge } from '../ui';
 import type { Committee } from '../../types';
 import { ACCOUNT_STATUS_LABELS } from '../../domain/accountState';
 import { ROLE_LABELS } from '../../domain/roles';
@@ -275,14 +276,8 @@ export const CommitteeManagement: React.FC = () => {
                   <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
                     <div className="flex flex-wrap items-center gap-2 min-w-0">
                       <span className="px-3 py-1 bg-brand text-white font-black text-xs rounded-lg">{comm.shortCode}</span>
-                      <span
-                        className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase text-slate-700 dark:text-slate-200 ${
-                          comm.status === 'active' ? 'bg-emerald-100 dark:bg-emerald-900/40' : 'bg-slate-100 dark:bg-slate-800'
-                        }`}
-                      >
-                        {comm.status}
-                      </span>
-                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 capitalize">
+                      <StatusBadge status={comm.status} />
+                      <span className="text-micro px-2.5 py-0.5 rounded-pill bg-surface-muted border border-border-strong text-ink-muted capitalize">
                         {comm.category}
                       </span>
                     </div>

@@ -183,7 +183,7 @@ const UploadDialog: React.FC<{
       {!check.ok && (
         <p
           role="alert"
-          className="rounded-xl border border-rose-200 dark:border-rose-500/30 bg-rose-50 dark:bg-rose-500/10 px-3 py-2 text-[11px] font-bold text-rose-700 dark:text-rose-300"
+          className="rounded-control border border-danger/30 bg-danger/10 px-3 py-2 text-caption font-bold text-danger"
         >
           {check.message}
         </p>
@@ -224,7 +224,7 @@ const AssetCard: React.FC<{
     <li className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 overflow-hidden flex flex-col">
       <div className="aspect-video bg-slate-100 dark:bg-slate-800 grid place-items-center overflow-hidden">
         {broken ? (
-          <span className="text-[10px] font-bold text-amber-700 dark:text-amber-400 px-3 text-center">
+          <span className="text-micro font-bold text-ink-accent px-3 text-center">
             These bytes did not survive a reload. Upload the file again to put it back.
           </span>
         ) : (
@@ -301,7 +301,7 @@ const AssetCard: React.FC<{
             type="button"
             onClick={() => onDelete(asset)}
             disabled={!mayManage}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-rose-200 dark:border-rose-500/40 text-[11px] font-bold text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-500/10 transition disabled:opacity-40"
+            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-control border border-danger/30 text-caption font-bold text-danger hover:bg-danger/10 transition-colors duration-micro disabled:opacity-40"
           >
             <Trash2 className="w-3.5 h-3.5" aria-hidden /> Delete
           </button>
@@ -547,7 +547,7 @@ export const MediaLibrary: React.FC<{ onNavigate: (view: DashboardView) => void 
                 bytes are on this device only, and the deletion is written to the audit trail.
               </p>
             ) : (
-              <ul className="list-disc pl-5 space-y-1.5 text-xs leading-relaxed text-rose-700 dark:text-rose-300">
+              <ul className="list-disc pl-5 space-y-1.5 text-caption leading-relaxed text-danger">
                 {deletion.reasons.map((reason) => (
                   <li key={reason}>{reason}</li>
                 ))}
@@ -563,7 +563,7 @@ export const MediaLibrary: React.FC<{ onNavigate: (view: DashboardView) => void 
               {deletion.allowed && (
                 <button
                   onClick={() => confirmDelete(confirming)}
-                  className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold flex items-center gap-1.5"
+                  className="px-4 py-2 rounded-control bg-danger-solid hover:bg-danger-solid-hover text-white text-caption font-bold flex items-center gap-1.5 transition-colors duration-micro"
                 >
                   <CircleCheck className="w-4 h-4" aria-hidden /> Delete from this device
                 </button>

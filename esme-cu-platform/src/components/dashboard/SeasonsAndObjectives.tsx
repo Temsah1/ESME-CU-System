@@ -3,6 +3,7 @@ import { CalendarRange, Flag, Target, Trophy, X } from 'lucide-react';
 import { useApp, useActor } from '../../context/AppContext';
 import { scopeFor } from '../../domain/roles';
 import { EmptyState } from '../EmptyState';
+import { StatusBadge } from '../ui';
 import { useToast } from '../../motion';
 import { METRIC_DEFINITIONS, type MetricId } from '../../domain/metrics';
 import {
@@ -20,16 +21,6 @@ const METRIC_IDS = Object.keys(METRIC_DEFINITIONS) as MetricId[];
 
 const unitFor = (unit: 'count' | '%' | 'pts' | 'ratio') =>
   unit === '%' ? '%' : unit === 'pts' ? ' pts' : unit === 'ratio' ? '×' : '';
-
-const STATUS_STYLES: Record<string, string> = {
-  achieved: 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300',
-  on_track: 'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300',
-  at_risk: 'bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300',
-  behind: 'bg-rose-100 dark:bg-rose-900/40 text-rose-700 dark:text-rose-300',
-  not_measurable: 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300',
-  no_key_results: 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300',
-  before_start: 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300',
-};
 
 const emptySeason = { label: '', startDate: '', endDate: '', status: 'planning' as ChapterSeason['status'], theme: '', handover: '' };
 const emptyObjective = { seasonId: '', title: '', why: '', committeeId: '' };
@@ -348,9 +339,7 @@ export const SeasonsAndObjectives: React.FC<{ onNavigate: (view: DashboardView) 
                                   {committeeName(rollup.objective.committeeId)} · owner {rollup.objective.ownerName} · {rollup.objective.why}
                                 </div>
                               </div>
-                              <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${STATUS_STYLES[rollup.status]}`}>
-                                {OBJECTIVE_STATUS_LABEL[rollup.status]}
-                              </span>
+                              <StatusBadge status={rollup.status}>{OBJECTIVE_STATUS_LABEL[rollup.status]}</StatusBadge>
                             </div>
 
                             {rollup.attainment !== null && (

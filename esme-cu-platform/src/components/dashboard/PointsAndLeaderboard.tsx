@@ -146,36 +146,36 @@ export const PointsAndLeaderboard: React.FC = () => {
             {sortedUsers.slice(0, 3).map((u, idx) => (
               <div
                 key={u.id}
-                className={`p-6 rounded-3xl border relative overflow-hidden flex flex-col justify-between ${
-                  idx === 0 
-                    ? 'bg-gradient-to-br from-amber-500/10 via-amber-500/5 to-transparent border-amber-300 dark:border-amber-700' 
-                    : idx === 1 
-                      ? 'bg-gradient-to-br from-slate-400/10 via-slate-400/5 to-transparent border-slate-300 dark:border-slate-700'
-                      : 'bg-gradient-to-br from-orange-400/10 via-orange-400/5 to-transparent border-orange-300 dark:border-orange-800'
+                className={`p-6 rounded-sheet border relative overflow-hidden flex flex-col justify-between ${
+                  idx === 0
+                    ? 'bg-gradient-to-br from-accent/15 via-accent/5 to-transparent border-accent/40'
+                    : idx === 1
+                      ? 'bg-gradient-to-br from-border-strong/50 via-border-strong/15 to-transparent border-border-strong'
+                      : 'bg-gradient-to-br from-wood/15 via-wood/5 to-transparent border-wood/40'
                 }`}
               >
                 <div className="flex items-center justify-between">
-                  <span className={`w-8 h-8 rounded-xl flex items-center justify-center font-black text-xs ${
-                    idx === 0 ? 'bg-amber-500 text-white' : idx === 1 ? 'bg-slate-400 text-white' : 'bg-orange-600 text-white'
+                  {/* The rank chip carries the medal colour; the ink on it is the readable member of
+                      the pair in both themes, which white on amber and white on silver never were. */}
+                  <span className={`w-8 h-8 rounded-control flex items-center justify-center font-black text-caption font-numbers ${
+                    idx === 0 ? 'bg-accent text-slate-950' : idx === 1 ? 'bg-border-strong text-ink-strong' : 'bg-wood text-white'
                   }`}>
                     #{idx + 1}
                   </span>
-                  <Award className={`w-6 h-6 ${
-                    idx === 0 ? 'text-amber-500' : idx === 1 ? 'text-slate-400' : 'text-orange-500'
-                  }`} />
+                  <Award className="w-6 h-6 text-ink-muted" aria-hidden />
                 </div>
 
                 <div className="mt-4">
-                  <h2 className="text-base font-black text-slate-900 dark:text-white">{u.name}</h2>
-                  <p className="text-xs text-slate-500">
+                  <h2 className="text-lead font-extrabold text-ink-strong tracking-tight">{u.name}</h2>
+                  <p className="text-caption text-ink-muted mt-1">
                     {u.role.replace('_', ' ')}
-                    {u.department ? ` • ${u.department}` : ' • department not recorded'}
+                    {u.department ? ` · ${u.department}` : ' · department not recorded'}
                   </p>
                 </div>
 
-                <div className="mt-4 pt-3 border-t border-slate-200/60 dark:border-slate-700/60 flex items-center justify-between text-xs">
-                  <span className="text-slate-500">{u.approvedTasksCount} approved tasks</span>
-                  <span className="font-extrabold text-base text-accent">{u.totalPoints} pts</span>
+                <div className="mt-4 pt-3 border-t border-border flex items-center justify-between gap-3 text-caption">
+                  <span className="text-ink-muted">{u.approvedTasksCount} approved tasks</span>
+                  <span className="font-extrabold text-lead text-ink-accent font-numbers">{u.totalPoints} pts</span>
                 </div>
               </div>
             ))}

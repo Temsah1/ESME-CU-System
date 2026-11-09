@@ -157,7 +157,10 @@
   --app-text-strong: var(--esme-slate-950);
   --app-text-inverse: var(--esme-white);
   --app-text-brand: var(--esme-navy);
-  --app-text-accent: var(--esme-orange-dark);
+  /* Orange is a fill, not an ink: #f59a16 on paper is 2.2:1 and #d47f0a is 3.1:1, both under AA at
+     caption size. The deep brown sibling of the same hue is the one that reads (7.3:1), so the
+     adapting accent text role wears it on paper and the light orange on slate. */
+  --app-text-accent: var(--esme-orange-ink);
 
   --app-brand: var(--esme-navy);
   --app-brand-hover: var(--esme-navy-light);
@@ -175,6 +178,11 @@
   --app-success: var(--esme-green);
   --app-success-ink: var(--esme-green-dark);
   --app-danger: color-mix(in srgb, var(--esme-red) 82%, var(--esme-black));
+  /* `--app-danger` is an ink: it pales in dark mode so it stays readable on slate. A destructive
+     button needs the opposite — a fill that keeps white text above 7:1 in both themes — so the
+     solid role is separate and never flips. */
+  --app-danger-solid: var(--esme-red);
+  --app-danger-solid-hover: color-mix(in srgb, var(--esme-red) 86%, var(--esme-white));
   --app-warning: var(--esme-orange);
   --app-info: var(--esme-navy-light);
 
@@ -270,6 +278,8 @@
      ways. Same logic a screen already follows for `brand` versus `text-brand`. */
   --color-success-ink: var(--app-success-ink);
   --color-danger: var(--app-danger);
+  --color-danger-solid: var(--app-danger-solid);
+  --color-danger-solid-hover: var(--app-danger-solid-hover);
   --color-warning: var(--app-warning);
   --color-info: var(--app-info);
 
@@ -282,6 +292,10 @@
   --color-ink-accent: var(--app-text-accent);
   --color-tint-accent: var(--app-tint-accent);
   --color-tint-brand: var(--app-tint-brand);
+  /* The neutral hover/press washes. Without these aliases `bg-tint-hover` compiled to nothing and a
+     control changed colour by luck of the neighbouring rule rather than by the token. */
+  --color-tint-hover: var(--app-tint-hover);
+  --color-tint-active: var(--app-tint-active);
 
   /* Primitives as utilities — for the scenes, charts and paper tones whose exact value a screen
      needs without a semantic role to hang it on. Screens should still prefer the tier above. */
@@ -359,13 +373,26 @@
   --transition-duration-section: 600ms;
   --transition-duration-hero: 900ms;
 
-  /* Layout — the fixed chrome heights and content widths the shell already uses. */
+  /* Layout — the fixed chrome the shell reads. The rail is sized so its 12px gutter, a 40px icon
+     and a truncated label fit without a second line, and the collapsed rail is exactly one icon
+     button wide. Both are consumed as inline `width`, so the collapse animates one box rather than
+     a JS value that React has to re-render. */
   --layout-header: 4rem;
-  --layout-rail: 16rem;
-  --layout-rail-collapsed: 5rem;
+  --layout-header-mobile: 3.5rem;
+  --layout-rail: 16.5rem;
+  --layout-rail-collapsed: 4.75rem;
   --layout-prose: 65rem;
   --layout-wide: 80rem;
 
+  /*
+   * Typography:
+   * Inter Tight, Newsreader and IBM Plex Mono ARE loaded — index.html preconnects to Google Fonts
+   * and requests them in one stylesheet, so these stacks resolve to real faces, not system UI.
+   * TODO: PROJECT_MASTER_GUIDE.md §16 P2 item #60 — self-host those three families so the chapter
+   * site renders offline and without a third-party request, and add IBM Plex Sans Arabic: no Arabic
+   * face is loaded today, so Arabic copy still falls back to the system font.
+   * Typographic hierarchy is built deliberately through size, weight, leading, and tracking.
+   */
   --font-sans: 'Inter Tight', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
   --font-serif: 'Newsreader', Georgia, 'Times New Roman', serif;
   --font-mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
@@ -441,4 +468,63 @@ body {
   background-image:
     linear-gradient(to right, color-mix(in srgb, var(--esme-white) 5%, transparent) 1px, transparent 1px),
     linear-gradient(to bottom, color-mix(in srgb, var(--esme-white) 5%, transparent) 1px, transparent 1px);
+}
+
+/*
+ * Chart chrome. Recharts paints its axis ticks and direct labels with library-default greys as SVG
+ * presentation attributes, which are invisible on the dark surface. A CSS rule outranks a
+ * presentation attribute, so binding them to the same ink the tables use fixes both themes without
+ * every chart passing a fill of its own.
+ */
+.recharts-wrapper .recharts-cartesian-axis-tick-value,
+.recharts-wrapper .recharts-label-list text {
+  fill: var(--app-text-muted);
+}
+
+/*
+ * The active marker in the dashboard nav. The brand panel keeps squared corners on the edge it
+ * hangs from and swells into a curve on the edge it flows out of, which the row then clips — that
+ * cut-off swell is what reads as the ribbon rather than a filled rectangle. Percentages, not
+ * pixels, so the shape survives both rail widths and a wrapped label.
+ */
+.nav-ribbon {
+  border-radius: var(--radius-control) 45% 45% var(--radius-control) /
+    var(--radius-control) 90% 90% var(--radius-control);
+}
+
+/*
+ * Notched devices: the workspace chrome is in flow, so the only bars that can end up under a
+ * home indicator or a notch are the ones that overlay it — the nav drawer and the long scroll of
+ * a report. These two utilities carry the inset so a component never has to write the env() call.
+ */
+.pb-safe {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+.pt-safe {
+  padding-top: env(safe-area-inset-top, 0px);
+}
+
+/*
+ * Print. A printed report is the table and its numbers, not the workspace around it, so the rail,
+ * the topbar and every button leave and the scroll container stops clipping. `!important` is
+ * deliberate here and only here: the rules it beats are Tailwind display and padding utilities on
+ * the same element, and a print rule that loses to a class is a print rule that does nothing.
+ * Colours come from the palette because a theme-following printout is unreadable on paper.
+ */
+@media print {
+  .chrome-print-hide {
+    display: none !important;
+  }
+  .print-surface {
+    padding: 0 !important;
+    overflow: visible !important;
+    max-width: none !important;
+  }
+  body {
+    background: var(--esme-white);
+    color: var(--esme-navy);
+  }
+  * {
+    box-shadow: none !important;
+  }
 }

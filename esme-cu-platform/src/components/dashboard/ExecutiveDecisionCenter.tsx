@@ -16,6 +16,7 @@ import {
 import { EmptyState } from '../EmptyState';
 import { METRIC_DEFINITIONS } from '../../domain/metrics';
 import { OBJECTIVE_STATUS_LABEL, OKR_RULES } from '../../domain/seasons';
+import { Button } from '../ui';
 
 /**
  * Spec A: an executive view that keeps four things apart and says which one it is showing —
@@ -23,41 +24,46 @@ import { OBJECTIVE_STATUS_LABEL, OKR_RULES } from '../../domain/seasons';
  * Every row carries its window, its method and the records behind it.
  */
 
-const cardClass =
-  'bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm';
+const cardClass = 'rounded-card border border-border bg-surface shadow-card';
+const headClass =
+  'bg-surface-muted border-b border-border text-ink-muted font-semibold uppercase text-micro tracking-wider';
 const fieldClass =
-  'px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs outline-none focus:ring-2 focus:ring-brand';
+  'px-3 py-2 rounded-control border border-border bg-surface text-caption text-ink outline-none focus-visible:ring-2 focus-visible:ring-focus';
 
+/* Severity is a wash plus a border in the same tone as the status badges, so an "action" row and a
+ * "refused" badge read as the same urgency everywhere in the product. */
 const severityStyles: Record<Signal['severity'], string> = {
-  action: 'border-rose-200 dark:border-rose-900 bg-rose-50/60 dark:bg-rose-950/20',
-  watch: 'border-amber-200 dark:border-amber-900 bg-amber-50/60 dark:bg-amber-950/20',
-  info: 'border-slate-200 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-800/40',
+  action: 'border-danger/30 bg-danger/10',
+  watch: 'border-warning/30 bg-warning/10',
+  info: 'border-border bg-surface-muted',
 };
 
 const SignalRow: React.FC<{ signal: Signal; onNavigate: (view: DashboardView) => void }> = ({
   signal,
   onNavigate,
 }) => (
-  <li className={`p-4 rounded-xl border ${severityStyles[signal.severity]}`}>
+  <li className={`p-4 rounded-card border ${severityStyles[signal.severity]}`}>
     <div className="flex flex-wrap items-start justify-between gap-2">
       <div className="min-w-0">
-        <p className="text-xs font-bold text-slate-800 dark:text-slate-100">{signal.title}</p>
-        <p className="mt-1 text-[11px] text-slate-600 dark:text-slate-300">{signal.detail}</p>
+        <p className="text-label font-bold text-ink-strong">{signal.title}</p>
+        <p className="mt-1 text-caption text-ink-muted">{signal.detail}</p>
       </div>
       {signal.view && (
-        <button
+        <Button
+          variant="outline"
+          size="sm"
+          className="shrink-0"
           onClick={() => onNavigate(signal.view as DashboardView)}
-          className="shrink-0 px-2.5 py-1 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-[11px] font-bold text-brand dark:text-accent flex items-center gap-1"
         >
           Open {signal.view.replace('_', ' ')}
           <ArrowUpRight className="w-3 h-3" aria-hidden />
-        </button>
+        </Button>
       )}
     </div>
-    <p className="mt-2 text-[10px] text-slate-500">
+    <p className="mt-2 text-micro text-ink-muted">
       Window: {signal.period} · Records: {signal.recordIds.length > 0 ? signal.recordIds.join(', ') : 'none'}
     </p>
-    <p className="mt-0.5 text-[10px] text-slate-400">How: {signal.method}</p>
+    <p className="mt-0.5 text-micro text-ink-subtle">How: {signal.method}</p>
   </li>
 );
 
@@ -123,8 +129,8 @@ export const ExecutiveDecisionCenter: React.FC<{ onNavigate: (view: DashboardVie
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
         <div>
-          <h1 className="text-xl font-black text-slate-900 dark:text-white">Executive Decision Center</h1>
-          <p className="text-xs text-slate-500">
+          <h1 className="text-title font-black text-ink-strong">Executive Decision Center</h1>
+          <p className="mt-1 text-caption text-ink-muted">
             Readings are computed from the {scoped.tasks.length} task, {scoped.submissions.length} submission and{' '}
             {scoped.ledger.length} ledger records this account can see
             {taskScope === 'committee' ? ` within ${actor.committeeId ?? 'your committee'}` : ''}. Nothing here is
@@ -133,13 +139,13 @@ export const ExecutiveDecisionCenter: React.FC<{ onNavigate: (view: DashboardVie
         </div>
         <div className="flex items-end gap-2">
           <div>
-            <label className="block text-[10px] font-bold text-slate-500 mb-1" htmlFor="dc-from">
+            <label className="block text-micro font-bold text-ink-muted mb-1" htmlFor="dc-from">
               From
             </label>
             <input id="dc-from" type="date" value={from} onChange={(e) => setFrom(e.target.value)} className={fieldClass} />
           </div>
           <div>
-            <label className="block text-[10px] font-bold text-slate-500 mb-1" htmlFor="dc-to">
+            <label className="block text-micro font-bold text-ink-muted mb-1" htmlFor="dc-to">
               To
             </label>
             <input id="dc-to" type="date" value={to} onChange={(e) => setTo(e.target.value)} className={fieldClass} />
@@ -148,8 +154,8 @@ export const ExecutiveDecisionCenter: React.FC<{ onNavigate: (view: DashboardVie
       </div>
 
       <div className={`${cardClass} p-4 flex items-start gap-2.5`}>
-        <Eye className="w-4 h-4 text-brand dark:text-accent mt-0.5 shrink-0" aria-hidden />
-        <p className="text-[11px] text-slate-600 dark:text-slate-300">
+        <Eye className="w-4 h-4 text-ink-brand mt-0.5 shrink-0" aria-hidden />
+        <p className="text-caption text-ink-muted">
           The four sections below are deliberately separate. A confirmed reading is arithmetic over records. An alert is
           one of {Object.keys(DECISION_RULES).length} stated thresholds crossing ({Object.entries(DECISION_RULES)
             .map(([k, v]) => `${k}: ${typeof v === 'number' && k === 'imbalanceShare' ? `${v * 100}%` : v}`)
@@ -168,12 +174,12 @@ export const ExecutiveDecisionCenter: React.FC<{ onNavigate: (view: DashboardVie
 
       {/* 1. Needs action */}
       <section className={cardClass}>
-        <div className="p-4 border-b border-slate-100 dark:border-slate-800 flex items-center gap-2">
-          <AlertTriangle className="w-4 h-4 text-rose-600" aria-hidden />
-          <h2 className="text-xs font-bold text-slate-800 dark:text-slate-100">Rule-based alerts that need someone now</h2>
+        <div className="p-4 border-b border-border-subtle flex items-center gap-2">
+          <AlertTriangle className="w-4 h-4 text-danger" aria-hidden />
+          <h2 className="text-label font-bold text-ink-strong">Rule-based alerts that need someone now</h2>
         </div>
         {actionNeeded.length === 0 ? (
-          <p className="p-6 text-xs text-slate-400">No alert rule crossed in this window. That is an absence of records or of breaches, not a clean bill of health.</p>
+          <p className="p-6 text-caption text-ink-subtle">No alert rule crossed in this window. That is an absence of records or of breaches, not a clean bill of health.</p>
         ) : (
           <ul className="p-4 space-y-3">
             {actionNeeded.map((signal) => (
@@ -186,8 +192,8 @@ export const ExecutiveDecisionCenter: React.FC<{ onNavigate: (view: DashboardVie
       {/* 2. Worth watching */}
       {worthWatching.length > 0 && (
         <section className={cardClass}>
-          <div className="p-4 border-b border-slate-100 dark:border-slate-800">
-            <h2 className="text-xs font-bold text-slate-800 dark:text-slate-100">Rule-based alerts worth watching</h2>
+          <div className="p-4 border-b border-border-subtle">
+            <h2 className="text-label font-bold text-ink-strong">Rule-based alerts worth watching</h2>
           </div>
           <ul className="p-4 space-y-3">
             {worthWatching.map((signal) => (
@@ -199,13 +205,13 @@ export const ExecutiveDecisionCenter: React.FC<{ onNavigate: (view: DashboardVie
 
       {/* 3. Confirmed readings */}
       <section className={cardClass}>
-        <div className="p-4 border-b border-slate-100 dark:border-slate-800">
-          <h2 className="text-xs font-bold text-slate-800 dark:text-slate-100">Confirmed readings</h2>
-          <p className="text-[11px] text-slate-400">Arithmetic over the records in the window above. No model, no estimate.</p>
+        <div className="p-4 border-b border-border-subtle">
+          <h2 className="text-label font-bold text-ink-strong">Confirmed readings</h2>
+          <p className="text-caption text-ink-subtle">Arithmetic over the records in the window above. No model, no estimate.</p>
         </div>
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs">
-            <thead className="bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800 text-slate-500 font-semibold uppercase text-[10px]">
+          <table className="w-full text-left text-caption">
+            <thead className={headClass}>
               <tr>
                 <th className="py-2.5 px-4">Reading</th>
                 <th className="py-2.5 px-4">What the records say</th>
@@ -213,28 +219,28 @@ export const ExecutiveDecisionCenter: React.FC<{ onNavigate: (view: DashboardVie
                 <th className="py-2.5 px-4">Method</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+            <tbody className="divide-y divide-border-subtle">
               {confirmed.map((row) => (
                 <tr key={row.id}>
-                  <td className="py-2.5 px-4 font-bold text-slate-800 dark:text-slate-100">{row.title}</td>
-                  <td className="py-2.5 px-4 text-slate-600 dark:text-slate-300">{row.detail}</td>
-                  <td className="py-2.5 px-4 text-[11px] text-slate-500 whitespace-nowrap">{row.period}</td>
-                  <td className="py-2.5 px-4 text-[10px] text-slate-400">{row.method}</td>
+                  <td className="py-2.5 px-4 font-bold text-ink-strong">{row.title}</td>
+                  <td className="py-2.5 px-4 text-ink-muted">{row.detail}</td>
+                  <td className="py-2.5 px-4 text-caption text-ink-muted whitespace-nowrap">{row.period}</td>
+                  <td className="py-2.5 px-4 text-micro text-ink-subtle">{row.method}</td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
-        <p className="px-4 py-3 text-[10px] text-slate-400">
+        <p className="px-4 py-3 text-micro text-ink-subtle">
           {can('audit.read') ? '' : 'Audit coverage is not listed: this account has no audit.read scope.'}
         </p>
       </section>
 
       {/* 4. Trends */}
       <section className={cardClass}>
-        <div className="p-4 border-b border-slate-100 dark:border-slate-800">
-          <h2 className="text-xs font-bold text-slate-800 dark:text-slate-100">Historical trend — this window against the equal window before it</h2>
-          <p className="text-[11px] text-slate-400">
+        <div className="p-4 border-b border-border-subtle">
+          <h2 className="text-label font-bold text-ink-strong">Historical trend — this window against the equal window before it</h2>
+          <p className="text-caption text-ink-subtle">
             A change is reported only when both windows can measure the same thing.
           </p>
         </div>
@@ -247,31 +253,28 @@ export const ExecutiveDecisionCenter: React.FC<{ onNavigate: (view: DashboardVie
 
       {/* 5. Objectives */}
       <section className={cardClass}>
-        <div className="p-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between gap-2">
-          <h2 className="text-xs font-bold text-slate-800 dark:text-slate-100">Objectives off pace</h2>
+        <div className="p-4 border-b border-border-subtle flex items-center justify-between gap-2">
+          <h2 className="text-label font-bold text-ink-strong">Objectives off pace</h2>
           {seasons.length > 0 && (
-            <button
-              onClick={() => onNavigate('seasons_objectives')}
-              className="px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700 text-[11px] font-bold text-brand dark:text-accent flex items-center gap-1"
-            >
+            <Button variant="outline" size="sm" onClick={() => onNavigate('seasons_objectives')}>
               Seasons &amp; Objectives
               <ArrowUpRight className="w-3 h-3" aria-hidden />
-            </button>
+            </Button>
           )}
         </div>
         {seasons.length === 0 ? (
-          <p className="p-6 text-xs text-slate-400">
+          <p className="p-6 text-caption text-ink-subtle">
             Not available. No season with dates on record exists, so an objective would have no window to be measured
             inside. The season planner holds event milestones — those appear in Milestone progress above, and they are
             not objectives.
           </p>
         ) : rollups.length === 0 ? (
-          <p className="p-6 text-xs text-slate-400">
+          <p className="p-6 text-caption text-ink-subtle">
             {seasons.length} season(s) on record, none carrying an objective your account can read. Nothing is estimated
             here: an objective has to be written before it can be measured.
           </p>
         ) : offPace.length === 0 ? (
-          <p className="p-6 text-xs text-slate-400">
+          <p className="p-6 text-caption text-ink-subtle">
             {rollups.length} objective(s) measured, none behind or at risk against the share of its season elapsed.
             Statuses are the stated rule over the mean of measurable key results, and an unmeasurable objective is
             listed as such rather than as on track.
@@ -279,24 +282,24 @@ export const ExecutiveDecisionCenter: React.FC<{ onNavigate: (view: DashboardVie
         ) : (
           <ul className="p-4 space-y-3">
             {offPace.map((rollup) => (
-              <li key={rollup.objective.id} className={`p-4 rounded-xl border ${severityStyles[rollup.status === 'behind' ? 'action' : 'watch']}`}>
+              <li key={rollup.objective.id} className={`p-4 rounded-card border ${severityStyles[rollup.status === 'behind' ? 'action' : 'watch']}`}>
                 <div className="flex flex-wrap items-start justify-between gap-2">
                   <div className="min-w-0">
-                    <p className="text-xs font-bold text-slate-800 dark:text-slate-100">{rollup.objective.title}</p>
-                    <p className="mt-1 text-[11px] text-slate-600 dark:text-slate-300">
+                    <p className="text-label font-bold text-ink-strong">{rollup.objective.title}</p>
+                    <p className="mt-1 text-caption text-ink-muted">
                       {OBJECTIVE_STATUS_LABEL[rollup.status]}
                       {rollup.attainment !== null && ` · ${Math.round(rollup.attainment * 100)}% of target`}
                       {rollup.elapsed !== null && ` against ${Math.round(rollup.elapsed * 100)}% of the season elapsed`}
                       {rollup.attainment === null && ` · ${rollup.method}`}
                     </p>
                   </div>
-                  <Target className="w-4 h-4 text-accent shrink-0" aria-hidden />
+                  <Target className="w-4 h-4 text-ink-accent shrink-0" aria-hidden />
                 </div>
-                <p className="mt-2 text-[10px] text-slate-500">
+                <p className="mt-2 text-micro text-ink-muted">
                   Rule: on track holds the elapsed pace, at risk allows {Math.round(OKR_RULES.atRiskSlack * 100)} points of
                   slip. Key results: {rollup.readings.map((r) => `${METRIC_DEFINITIONS[r.kr.metric].label} ${r.value.value === null ? 'not measurable' : r.value.value}`).join(' · ') || 'none written'}
                 </p>
-                <p className="mt-0.5 text-[10px] text-slate-400">
+                <p className="mt-0.5 text-micro text-ink-subtle">
                   Records behind this:
                   {' '}
                   {rollup.readings.flatMap((r) => r.value.recordIds).join(', ') || 'none — no record backs this reading yet'}
@@ -309,23 +312,23 @@ export const ExecutiveDecisionCenter: React.FC<{ onNavigate: (view: DashboardVie
 
       {/* 6. Suggestions */}
       <section className={cardClass}>
-        <div className="p-4 border-b border-slate-100 dark:border-slate-800 flex items-center gap-2">
-          <Sparkles className="w-4 h-4 text-accent" aria-hidden />
-          <h2 className="text-xs font-bold text-slate-800 dark:text-slate-100">Candidate next actions</h2>
+        <div className="p-4 border-b border-border-subtle flex items-center gap-2">
+          <Sparkles className="w-4 h-4 text-ink-accent" aria-hidden />
+          <h2 className="text-label font-bold text-ink-strong">Candidate next actions</h2>
         </div>
         {suggestions.length === 0 ? (
-          <p className="p-6 text-xs text-slate-400">
+          <p className="p-6 text-caption text-ink-subtle">
             No suggestion: every one of these is generated from an alert that fired, and none did in this window.
           </p>
         ) : (
           <ul className="p-4 space-y-2">
             {suggestions.map((suggestion) => (
-              <li key={`${suggestion.signalId}-${suggestion.action}`} className="text-xs text-slate-600 dark:text-slate-300 flex gap-2">
+              <li key={`${suggestion.signalId}-${suggestion.action}`} className="text-caption text-ink-muted flex gap-2">
                 <span className="mt-1 shrink-0 w-1.5 h-1.5 rounded-full bg-accent" aria-hidden />
                 <span>
-                  <span className="font-bold text-[10px] uppercase tracking-wide text-accent">Suggestion — not a confirmed fact.</span>{' '}
+                  <span className="font-bold text-micro uppercase tracking-wide text-ink-accent">Suggestion — not a confirmed fact.</span>{' '}
                   {suggestion.action}{' '}
-                  <span className="text-[10px] text-slate-400">
+                  <span className="text-micro text-ink-subtle">
                     From “{alerts.find((a) => a.id === suggestion.signalId)?.title}”. Nothing here changes a record by
                     itself; a person does that from the linked screen.
                   </span>
@@ -338,10 +341,10 @@ export const ExecutiveDecisionCenter: React.FC<{ onNavigate: (view: DashboardVie
 
       {/* 7. AI layer */}
       <section className={cardClass}>
-        <div className="p-4 border-b border-slate-100 dark:border-slate-800">
-          <h2 className="text-xs font-bold text-slate-800 dark:text-slate-100">AI insights layer</h2>
+        <div className="p-4 border-b border-border-subtle">
+          <h2 className="text-label font-bold text-ink-strong">AI insights layer</h2>
         </div>
-        <p className="p-6 text-xs text-slate-500">
+        <p className="p-6 text-caption text-ink-muted">
           {aiProvider}. Spec H makes this layer optional, so this build ships the deterministic parts — readings, rules
           and trends — and leaves natural-language questions and narrative summaries switched off. Official KPIs stay
           database arithmetic either way: a model would only restate what the tables above already compute, and it is

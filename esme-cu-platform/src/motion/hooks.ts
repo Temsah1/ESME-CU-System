@@ -3,6 +3,8 @@ import { useReducedMotion } from 'motion/react';
 
 const TOUCH_QUERY = '(hover: none), (pointer: coarse)';
 const DESKTOP_QUERY = '(min-width: 768px)';
+const NAV_RAIL_QUERY = '(min-width: 1024px)';
+const NAV_LABELS_QUERY = '(min-width: 1280px)';
 
 /**
  * A media query that keeps tracking. Reads the initial value while rendering — the same shape
@@ -26,6 +28,20 @@ export function useMediaQuery(query: string): boolean {
 /** Below this the sidebar is a drawer and tables are cards. */
 export function useIsDesktop(): boolean {
   return useMediaQuery(DESKTOP_QUERY);
+}
+
+/**
+ * Whether the navigation gets a permanent rail. This is wider than `useIsDesktop` on purpose: a
+ * 768px screen can still lay out a table, but a 264px rail there leaves a content column too narrow
+ * for the same table, so the nav goes off-canvas a whole breakpoint earlier than the chrome did.
+ */
+export function useHasNavRail(): boolean {
+  return useMediaQuery(NAV_RAIL_QUERY);
+}
+
+/** Room enough for the rail to carry its labels. Below it the rail starts collapsed. */
+export function useHasRoomForNavLabels(): boolean {
+  return useMediaQuery(NAV_LABELS_QUERY);
 }
 
 export function useIsTouch(): boolean {

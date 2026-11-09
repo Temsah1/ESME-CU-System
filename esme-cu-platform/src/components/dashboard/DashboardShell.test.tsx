@@ -58,6 +58,26 @@ const stubViewport = (desktop: boolean) => {
   })) as unknown as typeof window.matchMedia;
 };
 
+/**
+ * The same stub, but answering the actual width instead of every `min-width` at once. The rail
+ * now reads two breakpoints, so a test that wants "a laptop" has to say how wide it is.
+ */
+const stubWidth = (px: number) => {
+  window.matchMedia = ((query: string) => {
+    const min = /min-width:\s*(\d+)px/.exec(query);
+    return {
+      matches: min ? px >= Number(min[1]) : false,
+      media: query,
+      onchange: null,
+      addListener: () => {},
+      removeListener: () => {},
+      addEventListener: () => {},
+      removeEventListener: () => {},
+      dispatchEvent: () => false,
+    };
+  }) as unknown as typeof window.matchMedia;
+};
+
 beforeEach(async () => {
   localStorage.clear();
   sessionStorage.clear();
@@ -268,6 +288,52 @@ describe('what the rail counts', { timeout: 25_000 }, () => {
   });
 });
 
+describe('the rail and the content it hands over to', () => {
+  it('offers a skip link that lands on the content area', async () => {
+    const { user } = await renderShell();
+
+    await user.tab();
+    const skip = document.activeElement as HTMLAnchorElement | null;
+    expect(skip?.textContent).toBe('Skip to content');
+    // The link is only useful if its target is the scrollable content and is reachable by script,
+    // which is what `tabIndex={-1}` buys: a landmark a browser cannot focus is a link that does
+    // nothing when pressed.
+    const main = document.getElementById(skip!.hash.slice(1));
+    expect(main?.tagName).toBe('MAIN');
+    expect(main?.tabIndex).toBe(-1);
+  });
+
+  it('opens the rail collapsed when there is no room for labels, and expands on request', async () => {
+    stubWidth(1100);
+    const { user } = await renderShell();
+
+    expect(TL.screen.getByRole('button', { name: 'Expand sidebar' })).toBeTruthy();
+    // A collapsed rail prints no labels, so the screen name survives only in the accessible name
+    // the `title` attribute supplies. Both halves have to hold: the icons stay nameable.
+    expect(TL.screen.queryByText('Members Directory')).toBeNull();
+    expect(TL.screen.getByRole('button', { name: /Members Directory/i })).toBeTruthy();
+
+    await user.click(TL.screen.getByRole('button', { name: 'Expand sidebar' }));
+    expect(TL.screen.getByText('Members Directory')).toBeTruthy();
+  });
+
+  it('keeps a wide account on the expanded rail', async () => {
+    stubWidth(1440);
+    await renderShell();
+    expect(TL.screen.getByRole('button', { name: 'Collapse sidebar' })).toBeTruthy();
+    expect(TL.screen.getByText('Members Directory')).toBeTruthy();
+  });
+
+  it('moves the navigation into the drawer below the rail breakpoint, where it would eat the page', async () => {
+    stubWidth(900);
+    const { user } = await renderShell();
+
+    expect(TL.screen.queryByRole('navigation', { name: 'Dashboard sections' })).toBeNull();
+    await user.click(TL.screen.getByRole('button', { name: 'Open menu' }));
+    expect(await TL.screen.findByRole('dialog', { name: 'Dashboard navigation' })).toBeTruthy();
+  });
+});
+
 describe('the command palette', () => {
   it('opens on Ctrl+K, filters, and jumps to the chosen screen', async () => {
     const { user, navigate } = await renderShell();
@@ -337,7 +403,11 @@ describe('the notification centre', () => {
     );
     const { user, navigate } = await renderShell();
 
-    await user.click(TL.screen.getByRole('button', { name: /Notifications, 1 unread/ }));
+    // The provider hydrates the stored notices after first paint, so the count is awaited rather
+    // than read off the first frame — a synchronous query here races the store, not the shell.
+    // The wait is longer than the 1s default because the sign-in in `beforeEach` runs PBKDF2 on
+    // every worker at once, and under that contention hydration legitimately lands after 1s.
+    await user.click(await TL.screen.findByRole('button', { name: /Notifications, 1 unread/ }, { timeout: 5000 }));
     const notice = await TL.screen.findByRole('button', { name: /Bonus recorded/ });
     await user.click(notice);
 
