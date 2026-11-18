@@ -241,7 +241,8 @@
   margin-bottom: 12px;
   font-weight: 700;
 }
-.ship-col ul {
+/* Only the headed link lists stack vertically; the social badge row keeps its own horizontal flow. */
+.ship-col h4 + ul {
   display: flex;
   flex-direction: column;
   gap: 9px;
