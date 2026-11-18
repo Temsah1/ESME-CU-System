@@ -23,8 +23,8 @@ import { leaderAccounts, POSITION_LABELS } from '../domain/committees';
 import { hiddenSections, resolveImage, visibleFooterLinks, visibleNavigation } from '../domain/cms';
 import { seasonCovering, seasonsInOrder } from '../domain/seasons';
 import { HISTORICAL_MILESTONES, APPRECIATION_PROFILES, HISTORICAL_SOCIAL_INSIGHTS } from '../data/historyData';
-import { EXTERNAL_LINKS, RESOURCE_LINK_LABELS, platformFromNetwork } from '../config/externalLinks';
-import { PlatformIcon } from './PlatformIcons';
+import { EXTERNAL_LINKS, RESOURCE_LINK_LABELS, type SocialLinkItem } from '../config/externalLinks';
+import { SocialLinks, SocialGlyph, SocialIconLink } from './SocialLinks';
 import {
   AnimatedNumber,
   MagneticButton,
@@ -116,14 +116,6 @@ const ALWAYS_PRESENT = new Set(['journey', 'how-it-works', 'process']);
 
 /** The book cloth on the FOLIO row's spines, cycled per committee. */
 const SPINE_ACCENTS = [PALETTE.navy, PALETTE.orange, PALETTE.navyLight, PALETTE.orangeDark, PALETTE.navyDark, PALETTE.greenMid];
-
-/** Per-platform hover hues for the light contact band, all drawn from the palette the site owns. */
-const SOCIAL_HOVER: Record<string, string> = {
-  tiktok: 'hover:text-ink-strong hover:border-ink-strong',
-  instagram: 'hover:text-pink hover:border-pink',
-  linkedin: 'hover:text-navy-light hover:border-navy-light',
-  facebook: 'hover:text-indigo hover:border-indigo',
-};
 
 const SectionIntro: React.FC<{
   eyebrow: string;
@@ -448,6 +440,22 @@ export const PublicWebsite: React.FC<PublicWebsiteProps> = ({
     [content.socials]
   );
 
+  const followSocials = useMemo<SocialLinkItem[]>(() => {
+    const profiles = (content.socials ?? [])
+      .filter((social) => social.visible && social.handle !== '' && social.url !== '')
+      .map((social) => ({
+        id: social.id,
+        label: social.network ? `${social.network}: ${social.handle}` : social.handle,
+        href: social.url,
+        network: social.network,
+        text: social.handle,
+      }));
+    const email = content.contact.email;
+    return email
+      ? [...profiles, { id: 'social_email', label: `Email: ${email}`, href: `mailto:${email}`, network: 'Email', text: email }]
+      : profiles;
+  }, [content.socials, content.contact.email]);
+
   /** A book click lands on the same card the written list links to. */
   const openCommittee = (id: string) => {
     document.getElementById(`committee-${id}`)?.scrollIntoView({ block: 'center' });
@@ -498,16 +506,15 @@ export const PublicWebsite: React.FC<PublicWebsiteProps> = ({
           </div>
           <div className="flex items-center gap-4 text-slate-300">
             <span className="font-semibold text-accent">"Be Positive Valuable"</span>
-            <a
+            <SocialIconLink
               href={EXTERNAL_LINKS.whatsapp}
-              target="_blank"
-              rel="noopener noreferrer"
-              aria-label="Contact ESME CU Chapter on WhatsApp (opens in a new tab)"
-              title="WhatsApp the chapter"
-              className="text-slate-300 hover:text-white transition-colors rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
-            >
-              <PlatformIcon platform="whatsapp" className="w-4 h-4" />
-            </a>
+              label="Contact ESME CU Chapter on WhatsApp (opens in a new tab)"
+              platform="whatsapp"
+              variant="bare"
+              tone="dark"
+              size="sm"
+              className="text-slate-300"
+            />
             <motion.button
               onClick={onNavigateToDashboard}
               className="text-xs bg-accent hover:bg-accent-strong text-slate-950 px-3 py-1 rounded font-bold shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
@@ -1612,7 +1619,7 @@ export const PublicWebsite: React.FC<PublicWebsiteProps> = ({
                 <StaggerItem>
                   <motion.div className="flex items-center gap-3 text-slate-700" whileHover={{ x: 4 }} transition={transitions.micro}>
                     <div className="w-10 h-10 rounded-xl bg-success/15 flex items-center justify-center text-success-ink shrink-0">
-                      <PlatformIcon platform="whatsapp" className="w-5 h-5" />
+                      <SocialGlyph platform="whatsapp" className="w-5 h-5" />
                     </div>
                     <div className="min-w-0">
                       <div className="text-xs text-slate-500 font-semibold">WhatsApp</div>
@@ -1630,38 +1637,11 @@ export const PublicWebsite: React.FC<PublicWebsiteProps> = ({
                 </StaggerItem>
               </StaggerGroup>
 
-              {(content.socials ?? []).filter((social) => social.visible && social.handle !== '').length > 0 && (
+              {followSocials.length > 0 && (
                 <Reveal delay={0.2}>
                   <div className="pt-4 flex flex-wrap items-center gap-3">
                     <span className="text-xs font-bold text-slate-500 uppercase">Follow the chapter:</span>
-                    {(content.socials ?? [])
-                      .filter((social) => social.visible && social.handle !== '')
-                      .map((social) => {
-                        const platform = platformFromNetwork(social.network);
-                        const chip =
-                          'inline-flex items-center gap-1.5 px-3 py-1 bg-surface-muted border border-border text-brand font-bold text-xs rounded-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus';
-                        const hover = SOCIAL_HOVER[platform ?? ''] ?? 'hover:border-accent';
-                        const label = social.network ? `${social.network}: ${social.handle}` : social.handle;
-                        return social.url ? (
-                          <a
-                            key={social.id}
-                            href={social.url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            aria-label={label}
-                            title={label}
-                            className={`${chip} ${hover}`}
-                          >
-                            {platform && <PlatformIcon platform={platform} className="w-3.5 h-3.5" />}
-                            {social.handle}
-                          </a>
-                        ) : (
-                          <span key={social.id} className={chip}>
-                            {platform && <PlatformIcon platform={platform} className="w-3.5 h-3.5" />}
-                            {social.handle}
-                          </span>
-                        );
-                      })}
+                    <SocialLinks links={followSocials} size="sm" tone="light" showLabels />
                   </div>
                 </Reveal>
               )}

@@ -18,8 +18,20 @@ export const EXTERNAL_LINKS = {
 
 export type ExternalLinkKey = keyof typeof EXTERNAL_LINKS;
 
-/** The glyph keys the platform marks understand — one per official destination. */
-export type PlatformKey = 'tiktok' | 'instagram' | 'linkedin' | 'facebook' | 'whatsapp' | 'drive';
+/** The glyph keys the platform marks understand — one per destination the chapter can publish. */
+export type PlatformKey =
+  | 'tiktok'
+  | 'instagram'
+  | 'linkedin'
+  | 'facebook'
+  | 'whatsapp'
+  | 'drive'
+  | 'github'
+  | 'x'
+  | 'youtube'
+  | 'telegram'
+  | 'discord'
+  | 'email';
 
 /** Maps a CMS `network` string (or a link key) onto the glyph it should wear. */
 export const platformFromNetwork = (network: string): PlatformKey | null => {
@@ -30,7 +42,23 @@ export const platformFromNetwork = (network: string): PlatformKey | null => {
   if (n === 'facebook') return 'facebook';
   if (n === 'whatsapp') return 'whatsapp';
   if (n === 'drive' || n === 'google drive' || n === 'google-drive') return 'drive';
+  if (n === 'github') return 'github';
+  if (n === 'x' || n === 'twitter' || n === 'x (twitter)') return 'x';
+  if (n === 'youtube' || n === 'yt') return 'youtube';
+  if (n === 'telegram') return 'telegram';
+  if (n === 'discord') return 'discord';
+  if (n === 'email' || n === 'mail' || n === 'e-mail') return 'email';
   return null;
+};
+
+/** One addressable social destination, in the shape every SocialLinks surface consumes. */
+export type SocialLinkItem = {
+  id: string;
+  label: string;
+  href: string;
+  network?: string;
+  /** Optional visible caption for labeled rows; falls back to `label` (the accessible name). */
+  text?: string;
 };
 
 /**

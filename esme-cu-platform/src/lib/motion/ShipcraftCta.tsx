@@ -4,8 +4,7 @@ import { onRevealed } from './reveal';
 import { killTweens, LogoDraw, useGsap, type ScrollTween } from './petalyx';
 import './shipcraft.css';
 import { PALETTE } from '../../theme/palette';
-import { PlatformIcon } from '../../components/PlatformIcons';
-import { platformFromNetwork } from '../../config/externalLinks';
+import { SocialLinks } from '../../components/SocialLinks';
 
 /**
  * SHIPCRAFT — the closing band and the footer that belongs to it.
@@ -231,32 +230,7 @@ export const ShipcraftCta: React.FC<ShipcraftCtaProps> = ({
               ))}
             </nav>
           )}
-          {socials.length > 0 && (
-            <div className="ship-social">
-              {socials.map((social) => {
-                const platform = platformFromNetwork(social.network ?? '');
-                return (
-                  <a
-                    key={social.id}
-                    href={social.href}
-                    aria-label={social.label}
-                    title={social.label}
-                    rel="noopener noreferrer"
-                    target="_blank"
-                    data-platform={platform ?? undefined}
-                  >
-                    {platform ? (
-                      <PlatformIcon platform={platform} className="h-[15px] w-[15px]" />
-                    ) : (
-                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
-                        <path d="M7 17 17 7M9 7h8v8" strokeLinecap="round" strokeLinejoin="round" />
-                      </svg>
-                    )}
-                  </a>
-                );
-              })}
-            </div>
-          )}
+          {socials.length > 0 && <SocialLinks links={socials} tone="dark" className="mt-1" />}
         </div>
 
         {columns.map((column) => (
