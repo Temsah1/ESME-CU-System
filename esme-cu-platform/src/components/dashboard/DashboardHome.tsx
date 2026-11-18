@@ -16,7 +16,7 @@ import type { ActionItem } from '../../domain/actions';
 import { leadershipPostsOf, POSITION_LABELS, rosterOf } from '../../domain/committees';
 import { activeWarningsOf, bonusPointsOf } from '../../domain/rewards';
 import { ROLE_LABELS, scopeFor } from '../../domain/roles';
-import { Card, StatTile, StatusBadge, type StatTone } from '../ui';
+import { Card, CommandBanner, StatTile, StatusBadge, type StatTone } from '../ui';
 import { SuperAdminOverview } from './SuperAdminOverview';
 import type { DashboardView } from './DashboardShell';
 import type { User } from '../../types';
@@ -176,7 +176,7 @@ const HomeBanner: React.FC<{
   children: React.ReactNode;
   actor: User;
 }> = ({ eyebrow, name, hour, children, actor }) => (
-  <header className="bg-gradient-to-r from-brand via-navy-mid to-brand-ink rounded-sheet p-6 text-white shadow-raised border border-white/10">
+  <CommandBanner>
     <div className="space-y-3">
       <span className="inline-flex items-center gap-2 px-3 py-1 rounded-pill bg-white/10 text-accent text-micro font-bold uppercase tracking-wider border border-white/20">
         {eyebrow}
@@ -187,7 +187,7 @@ const HomeBanner: React.FC<{
       <p className="text-caption sm:text-label text-slate-200 max-w-2xl leading-relaxed">{children}</p>
       <RoleAndSeat actor={actor} />
     </div>
-  </header>
+  </CommandBanner>
 );
 
 /** Leadership whose read scope reaches a whole committee — Directors and Team Heads. */

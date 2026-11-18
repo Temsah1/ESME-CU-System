@@ -18,7 +18,7 @@ import { useApp, useActor } from '../../context/AppContext';
 import { leaderAccounts } from '../../domain/committees';
 import { seasonCovering, seasonsInOrder } from '../../domain/seasons';
 import type { DashboardView } from './DashboardShell';
-import { Button, Card, StatTile, StatusBadge, type StatTone } from '../ui';
+import { Button, Card, CommandBanner, StatTile, StatusBadge, type StatTone } from '../ui';
 
 interface SuperAdminOverviewProps {
   onNavigate: (view: DashboardView) => void;
@@ -183,7 +183,7 @@ export const SuperAdminOverview: React.FC<SuperAdminOverviewProps> = ({ onNaviga
   return (
     <div className="space-y-6">
 
-      <header className="bg-gradient-to-r from-brand via-navy-mid to-brand-ink rounded-sheet p-6 text-white shadow-raised border border-white/10">
+      <CommandBanner>
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div className="space-y-3 min-w-0">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-pill bg-white/10 text-accent text-micro font-bold uppercase tracking-wider border border-white/20">
@@ -236,7 +236,7 @@ export const SuperAdminOverview: React.FC<SuperAdminOverviewProps> = ({ onNaviga
             )}
           </div>
         </div>
-      </header>
+      </CommandBanner>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {visibleKpiCards.map((card) => (

@@ -131,6 +131,33 @@ export const PageHeader: React.FC<{
   </header>
 );
 
+/**
+ * The command banner the scoped home screens open on. It carries the same engineering identity as the
+ * public hero — a navy field, a hairline grid and two ambient glows — so the authenticated workspace
+ * reads as the same product as the website rather than a separate admin template. The decoration is
+ * static and `aria-hidden`, so reduced motion has nothing to suppress and a screen reader hears only
+ * the greeting and figures the caller puts inside.
+ */
+export const CommandBanner: React.FC<{
+  children: React.ReactNode;
+  className?: string;
+  /** Layout classes for the padded content well, e.g. a row that holds actions beside the greeting. */
+  contentClassName?: string;
+}> = ({ children, className, contentClassName }) => (
+  <header
+    className={cn(
+      'relative overflow-hidden rounded-sheet border border-white/10 text-white shadow-raised',
+      'bg-gradient-to-br from-brand via-navy-mid to-brand-ink',
+      className
+    )}
+  >
+    <div aria-hidden className="pointer-events-none absolute inset-0 bg-grid-pattern-dark opacity-15" />
+    <div aria-hidden className="pointer-events-none absolute -top-24 -right-16 h-64 w-64 rounded-full bg-accent/15 blur-3xl" />
+    <div aria-hidden className="pointer-events-none absolute -bottom-28 -left-12 h-60 w-60 rounded-full bg-brand-hover/25 blur-3xl" />
+    <div className={cn('relative z-10 p-6 sm:p-7', contentClassName)}>{children}</div>
+  </header>
+);
+
 /** The hues a metric is allowed to wear. Each one is a wash plus an ink that clears AA on it. */
 export type StatTone = 'brand' | 'accent' | 'info' | 'success' | 'warning' | 'danger' | 'violet';
 
