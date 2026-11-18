@@ -50,6 +50,26 @@ bootstrap, the verification checklist, and backups.
   enters the review queue the moment it exists
   ([`src/domain/registration.ts`](src/domain/registration.ts)).
 
+## Roles
+
+Seven labels, each a row of the capability matrix rather than a hard-coded branch. The full
+scope-by-scope table lives in
+[docs/AUTHORIZATION.md](docs/AUTHORIZATION.md#capability-matrix-current).
+
+| Role | Runs | Does not touch |
+| --- | --- | --- |
+| Super Administrator | Everything, including roles, settings, integrations and backups | — |
+| High Board | Chapter-wide reading, season plan, content and publishing, discipline | Role changes, settings, backups |
+| IT Moderator | The registration queue, the website and media, diagnostics, audit | Roles, discipline policy, backups |
+| HR Manager | Recruiting and the application queue, the member directory, committee placement, attendance-and-workload reading, recognition, HR reporting and member announcements | Money-equivalent modules (none exist yet), the website, audit, settings, integrations, backups, any role change, hard deletes |
+| Committee Director | Their committee: members, tasks, reviews, events, skills, content drafts | Roles, settings, another committee's writes |
+| Team Head | Their team's tasks, submissions and content | Committee writes and seats, roles |
+| Member | Their own tasks, submissions, points and record | Everything else |
+
+An HR Manager is seated by a Super Admin from the Members Directory (role assignment is not one of
+the capabilities the role holds, so nobody inside it can grow it). Public registration still only
+ever creates a `member`-track request.
+
 ## Data and browser storage
 
 **There is no backend running in this repository.** No database instance, no API service, no

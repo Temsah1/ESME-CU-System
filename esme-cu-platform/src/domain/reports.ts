@@ -8,6 +8,7 @@ import type {
   TaskSubmission,
   User,
 } from '../types';
+import { PALETTE } from '../theme/palette';
 import { METRIC_DEFINITIONS, type MetricValue, inPeriod, type Period } from './metrics';
 import { OBJECTIVE_STATUS_LABEL, type ChapterSeason, type ObjectiveRollup } from './seasons';
 import { scopeFor, type Capability, type Role, type Scope } from './roles';
@@ -475,14 +476,14 @@ export function toPrintableHtml(sheets: ReportSheet[], title: string): string {
     <meta charset="utf-8" />
     <title>${escapeHtml(title)}</title>
     <style>
-      body { font-family: system-ui, sans-serif; color: #0f172a; margin: 24px; }
+      body { font-family: system-ui, sans-serif; color: ${PALETTE.slate900}; margin: 24px; }
       h1 { font-size: 18px; margin: 0 0 4px; }
-      h2 { font-size: 14px; margin: 24px 0 6px; border-bottom: 2px solid #123B60; padding-bottom: 4px; }
-      .notes { font-size: 10px; color: #475569; margin: 0 0 8px; padding-left: 16px; }
+      h2 { font-size: 14px; margin: 24px 0 6px; border-bottom: 2px solid ${PALETTE.navy}; padding-bottom: 4px; }
+      .notes { font-size: 10px; color: ${PALETTE.slate600}; margin: 0 0 8px; padding-left: 16px; }
       table { border-collapse: collapse; width: 100%; font-size: 10px; }
-      th, td { border: 1px solid #cbd5e1; padding: 4px 6px; text-align: left; vertical-align: top; }
-      th { background: #f1f5f9; }
-      .count { font-size: 10px; color: #64748b; }
+      th, td { border: 1px solid ${PALETTE.slate300}; padding: 4px 6px; text-align: left; vertical-align: top; }
+      th { background: ${PALETTE.slate100}; }
+      .count { font-size: 10px; color: ${PALETTE.slate500}; }
       @media print { body { margin: 8mm; } h2 { break-after: avoid; } table { break-inside: auto; } }
     </style>
   </head>

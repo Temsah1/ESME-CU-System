@@ -175,7 +175,7 @@ export const CommitteeForm: React.FC<Props> = ({ initial, issues, submitLabel, s
           type="checkbox"
           checked={values.isPublic}
           onChange={(e) => set('isPublic', e.target.checked)}
-          className="mt-0.5 accent-[#123B60]"
+          className="mt-0.5 accent-brand"
         />
         <span>
           <span className="block font-bold text-slate-700 dark:text-slate-300">Show on the public website</span>
@@ -210,7 +210,7 @@ export const CommitteeForm: React.FC<Props> = ({ initial, issues, submitLabel, s
         <button
           type="submit"
           disabled={busy}
-          className="px-5 py-2 bg-[#F59A16] hover:bg-[#D47F0A] text-white font-bold rounded-xl disabled:opacity-60"
+          className="px-5 py-2 bg-accent hover:bg-accent-strong text-white font-bold rounded-xl disabled:opacity-60"
         >
           {busy ? 'Saving…' : submitLabel}
         </button>

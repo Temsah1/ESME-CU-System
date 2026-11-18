@@ -16,12 +16,12 @@ const row = (message: StudioMessage) => (
     <div
       className={`chat-msg chat-line max-w-[85%] rounded-2xl px-3.5 py-2.5 text-xs leading-relaxed ${
         message.from === 'chapter'
-          ? 'bg-[#F59A16]/15 border border-[#F59A16]/40 text-white'
+          ? 'bg-accent/15 border border-accent/40 text-white'
           : 'bg-white/8 border border-white/15 text-slate-100'
       }`}
       aria-label={message.text}
     >
-      <span className="block text-[10px] uppercase tracking-widest font-bold text-[#F59A16]/90 mb-1">
+      <span className="block text-[10px] uppercase tracking-widest font-bold text-accent/90 mb-1">
         {message.from === 'chapter' ? 'ESME CU' : 'Applicant'}
       </span>
       <span className="ai-t">
@@ -34,7 +34,7 @@ const row = (message: StudioMessage) => (
           {message.text}
         </span>
       </span>
-      <span className="dots mt-1 text-[#F59A16]" aria-hidden="true" hidden>
+      <span className="dots mt-1 text-accent" aria-hidden="true" hidden>
         <i />
         <i />
         <i />
@@ -74,7 +74,7 @@ export const ChatStudio: React.FC<{ messages: StudioMessage[]; heading?: string 
       data-par="10"
     >
       <div className="flex items-center gap-2 mb-3 pb-3 border-b border-white/10">
-        <span className="w-2 h-2 rounded-full bg-[#F59A16]" aria-hidden="true" />
+        <span className="w-2 h-2 rounded-full bg-accent" aria-hidden="true" />
         <span className="text-[11px] font-bold uppercase tracking-widest text-slate-200">{heading}</span>
       </div>
       <div className="space-y-2.5">{messages.map(row)}</div>

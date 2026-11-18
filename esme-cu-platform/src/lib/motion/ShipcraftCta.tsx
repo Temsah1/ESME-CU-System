@@ -3,6 +3,8 @@ import { canAnimate, prefersReduced } from './env';
 import { onRevealed } from './reveal';
 import { killTweens, LogoDraw, useGsap, type ScrollTween } from './petalyx';
 import './shipcraft.css';
+import { PALETTE } from '../../theme/palette';
+import { SocialLinks } from '../../components/SocialLinks';
 
 /**
  * SHIPCRAFT — the closing band and the footer that belongs to it.
@@ -13,7 +15,7 @@ import './shipcraft.css';
  * columns rhythm readable in the markup instead of scattered across timeouts.
  */
 
-export type ShipColumn = { heading: string; links: { label: string; href: string }[] };
+export type ShipColumn = { heading: string; links: { label: string; href: string; external?: boolean }[] };
 
 export type ShipcraftCtaProps = {
   eyebrow: string;
@@ -29,7 +31,7 @@ export type ShipcraftCtaProps = {
   copyright: string;
   legal?: string;
   footerLinks: { id: string; label: string; href: string }[];
-  socials?: { id: string; label: string; href: string }[];
+  socials?: { id: string; label: string; href: string; network?: string }[];
   newsletterLabel?: string;
   wordmark?: string;
 };
@@ -44,10 +46,10 @@ const Hand: React.FC<{ id: string }> = ({ id }) => (
   <svg viewBox="0 0 260 130" aria-hidden="true" focusable="false">
     <defs>
       <linearGradient id={id} x1="0" y1="0" x2="0.85" y2="1">
-        <stop offset="0" stopColor="#efe9e1" />
-        <stop offset="0.42" stopColor="#c3b7ab" />
-        <stop offset="0.72" stopColor="#8d8075" />
-        <stop offset="1" stopColor="#5b5249" />
+        <stop offset="0" stopColor={PALETTE.paper500} />
+        <stop offset="0.42" stopColor={PALETTE.clay500} />
+        <stop offset="0.72" stopColor={PALETTE.clay600} />
+        <stop offset="1" stopColor={PALETTE.clay700} />
       </linearGradient>
     </defs>
     <path d={HAND_PATH} fill={`url(#${id})`} />
@@ -228,17 +230,7 @@ export const ShipcraftCta: React.FC<ShipcraftCtaProps> = ({
               ))}
             </nav>
           )}
-          {socials.length > 0 && (
-            <div className="ship-social">
-              {socials.map((social) => (
-                <a key={social.id} href={social.href} aria-label={social.label} rel="noreferrer" target="_blank">
-                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
-                    <path d="M7 17 17 7M9 7h8v8" strokeLinecap="round" strokeLinejoin="round" />
-                  </svg>
-                </a>
-              ))}
-            </div>
-          )}
+          {socials.length > 0 && <SocialLinks links={socials} tone="dark" className="mt-1" />}
         </div>
 
         {columns.map((column) => (
@@ -247,7 +239,12 @@ export const ShipcraftCta: React.FC<ShipcraftCtaProps> = ({
             <ul>
               {column.links.map((link) => (
                 <li key={link.label}>
-                  <a href={link.href}>{link.label}</a>
+                  <a
+                    href={link.href}
+                    {...(link.external ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
+                  >
+                    {link.label}
+                  </a>
                 </li>
               ))}
             </ul>

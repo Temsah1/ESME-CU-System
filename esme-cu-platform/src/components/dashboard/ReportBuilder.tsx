@@ -249,11 +249,11 @@ export const ReportBuilder: React.FC = () => {
     <div className="space-y-6">
       <header className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6">
         <div className="flex items-start gap-4">
-          <span className="p-3 rounded-2xl bg-[#123B60] text-white shrink-0">
+          <span className="p-3 rounded-2xl bg-brand text-white shrink-0">
             <FileText className="w-6 h-6" aria-hidden />
           </span>
           <div>
-            <h2 className="text-xl font-extrabold text-[#123B60] dark:text-white">Executive report builder</h2>
+            <h2 className="text-xl font-extrabold text-brand dark:text-white">Executive report builder</h2>
             <p className="mt-1.5 text-sm text-slate-600 dark:text-slate-300 max-w-3xl leading-relaxed">
               Assembles a spreadsheet, a CSV or a printable document out of the records this account can read.
               A section you cannot read is never written into the file — not hidden, not blanked, not present.
@@ -282,8 +282,8 @@ export const ReportBuilder: React.FC = () => {
                 aria-pressed={active}
                 className={`px-3 py-1.5 rounded-xl text-xs font-semibold border transition-colors ${
                   active
-                    ? 'bg-[#123B60] text-white border-[#123B60]'
-                    : 'bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-[#F59A16]'
+                    ? 'bg-brand text-white border-brand'
+                    : 'bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-accent'
                 }`}
               >
                 {p.label}
@@ -334,8 +334,8 @@ export const ReportBuilder: React.FC = () => {
                     scope === null
                       ? 'border-dashed border-slate-200 dark:border-slate-800 opacity-60'
                       : checked
-                        ? 'border-[#F59A16] bg-amber-50/50 dark:bg-amber-500/5'
-                        : 'border-slate-200 dark:border-slate-700 hover:border-[#F59A16]'
+                        ? 'border-accent bg-amber-50/50 dark:bg-amber-500/5'
+                        : 'border-slate-200 dark:border-slate-700 hover:border-accent'
                   }`}
                 >
                   <input
@@ -343,7 +343,7 @@ export const ReportBuilder: React.FC = () => {
                     checked={checked && scope !== null}
                     disabled={scope === null}
                     onChange={() => toggle(section.id)}
-                    className="mt-0.5 w-4 h-4 accent-[#F59A16]"
+                    className="mt-0.5 w-4 h-4 accent-orange"
                   />
                   <span className="flex-1">
                     <span className="block text-sm font-bold text-slate-800 dark:text-slate-100">{section.label}</span>
@@ -388,7 +388,7 @@ export const ReportBuilder: React.FC = () => {
                 type="button"
                 onClick={downloadXlsx}
                 disabled={busy !== null}
-                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-[#F59A16] hover:bg-[#D47F0A] text-white text-sm font-bold disabled:opacity-60"
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-accent hover:bg-accent-strong text-white text-sm font-bold disabled:opacity-60"
               >
                 {busy === 'xlsx' ? <Loader2 className="w-4 h-4 animate-spin" aria-hidden /> : <Download className="w-4 h-4" aria-hidden />}
                 Download XLSX
@@ -397,7 +397,7 @@ export const ReportBuilder: React.FC = () => {
                 type="button"
                 onClick={downloadCsv}
                 disabled={busy !== null}
-                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 text-sm font-bold hover:border-[#F59A16] disabled:opacity-60"
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 text-sm font-bold hover:border-accent disabled:opacity-60"
               >
                 {busy === 'csv' ? <Loader2 className="w-4 h-4 animate-spin" aria-hidden /> : <FileSpreadsheet className="w-4 h-4" aria-hidden />}
                 Download CSV
@@ -406,7 +406,7 @@ export const ReportBuilder: React.FC = () => {
                 type="button"
                 onClick={printReport}
                 disabled={busy !== null}
-                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 text-sm font-bold hover:border-[#F59A16] disabled:opacity-60"
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 text-sm font-bold hover:border-accent disabled:opacity-60"
               >
                 {busy === 'print' ? <Loader2 className="w-4 h-4 animate-spin" aria-hidden /> : <Printer className="w-4 h-4" aria-hidden />}
                 Print or save as PDF

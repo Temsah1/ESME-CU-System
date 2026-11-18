@@ -379,7 +379,7 @@ export const SkillMatrix: React.FC = () => {
         {tab === 'matrix' && manageableMembers.length > 0 && (
           <button
             onClick={() => setIsAddModalOpen(true)}
-            className="px-4 py-2.5 bg-[#F59A16] hover:bg-[#D47F0A] text-white text-xs font-bold rounded-xl shadow-md transition flex items-center gap-1.5 self-start sm:self-auto"
+            className="px-4 py-2.5 bg-accent hover:bg-accent-strong text-white text-xs font-bold rounded-xl shadow-md transition flex items-center gap-1.5 self-start sm:self-auto"
           >
             <Plus className="w-4 h-4" />
             Assess Member
@@ -396,8 +396,8 @@ export const SkillMatrix: React.FC = () => {
             aria-current={tab === id ? 'page' : undefined}
             className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition border ${
               tab === id
-                ? 'bg-[#123B60] text-white border-[#123B60] shadow-sm'
-                : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-800 hover:border-[#F59A16]'
+                ? 'bg-brand text-white border-brand shadow-sm'
+                : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-800 hover:border-accent'
             }`}
           >
             <Icon className="w-4 h-4" />
@@ -409,9 +409,9 @@ export const SkillMatrix: React.FC = () => {
       {tab === 'matrix' && (
         <>
       {/* Season target */}
-      <div className="bg-gradient-to-r from-[#123B60] to-[#0A2239] rounded-2xl p-6 text-white shadow-md flex flex-col md:flex-row md:items-center justify-between gap-6">
+      <div className="bg-gradient-to-r from-brand to-brand-ink rounded-2xl p-6 text-white shadow-md flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div>
-          <span className="text-[10px] font-bold text-[#F59A16] uppercase tracking-wider">
+          <span className="text-[10px] font-bold text-accent uppercase tracking-wider">
             {skillTarget ? `${skillTarget.scopeLabel} target · ${skillTarget.seasonLabel}` : 'No written skill target'}
           </span>
           <h2 className="text-lg font-bold mt-1">
@@ -438,10 +438,10 @@ export const SkillMatrix: React.FC = () => {
 
         <div className="flex items-center gap-4 shrink-0 bg-white/10 px-5 py-3 rounded-2xl border border-white/15">
           <div className="text-right">
-            <div className="text-2xl font-black text-[#F59A16]">{l2PlusShare === null ? '—' : `${l2PlusShare}%`}</div>
+            <div className="text-2xl font-black text-accent">{l2PlusShare === null ? '—' : `${l2PlusShare}%`}</div>
             <div className="text-[10px] text-slate-300">of recorded assessments at L2+</div>
           </div>
-          <div className="w-12 h-12 rounded-full border-4 border-[#F59A16] border-t-white flex items-center justify-center font-bold text-xs">
+          <div className="w-12 h-12 rounded-full border-4 border-accent border-t-white flex items-center justify-center font-bold text-xs">
             {l2PlusEntries}/{visibleEntries.length}
           </div>
         </div>
@@ -464,7 +464,7 @@ export const SkillMatrix: React.FC = () => {
             placeholder="Search by member name or assessment evidence..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-9 pr-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-xs bg-slate-50 dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-[#123B60]"
+            className="w-full pl-9 pr-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-xs bg-slate-50 dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-brand"
           />
         </div>
 
@@ -509,7 +509,7 @@ export const SkillMatrix: React.FC = () => {
               >
                 <div>
                   <div className="flex items-center justify-between gap-2 mb-3">
-                    <span className="text-xs font-bold text-[#123B60] dark:text-[#F59A16]">
+                    <span className="text-xs font-bold text-brand dark:text-accent">
                       {entry.skillName}
                     </span>
                     <span className={`px-2.5 py-0.5 rounded-full font-black text-xs text-slate-700 dark:text-slate-100 ${
@@ -534,7 +534,7 @@ export const SkillMatrix: React.FC = () => {
                     </div>
                     <div>
                       <span className="font-bold text-slate-700 dark:text-slate-300 block text-[10px] uppercase">Goal for the next cycle:</span>
-                      <p className="text-[#123B60] dark:text-[#F59A16] font-medium mt-0.5">{entry.improvementGoal || 'None recorded.'}</p>
+                      <p className="text-brand dark:text-accent font-medium mt-0.5">{entry.improvementGoal || 'None recorded.'}</p>
                     </div>
                   </div>
                 </div>
@@ -610,7 +610,7 @@ export const SkillMatrix: React.FC = () => {
                 id="assess-level"
                 value={newEntry.level}
                 onChange={(e) => setNewEntry({ ...newEntry, level: e.target.value as SkillMatrixEntry['level'] })}
-                className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 outline-none font-bold text-[#123B60]"
+                className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 outline-none font-bold text-brand"
               >
                 {LEVELS.map((level) => (
                   <option key={level} value={level}>{level} — {LEVEL_DESCRIPTIONS[level].split('—')[0].trim()}</option>
@@ -657,7 +657,7 @@ export const SkillMatrix: React.FC = () => {
             </button>
             <button
               type="submit"
-              className="px-5 py-2 bg-[#F59A16] hover:bg-[#D47F0A] text-white font-bold rounded-xl"
+              className="px-5 py-2 bg-accent hover:bg-accent-strong text-white font-bold rounded-xl"
             >
               Record Assessment
             </button>
@@ -681,7 +681,7 @@ export const SkillMatrix: React.FC = () => {
                 { label: 'Completions', value: scopedReport.coursesCompleted },
               ].map((cell) => (
                 <div key={cell.label} className="rounded-xl bg-slate-50 dark:bg-slate-800/50 p-3">
-                  <div className="text-lg font-black text-[#123B60] dark:text-[#F59A16]">{cell.value}</div>
+                  <div className="text-lg font-black text-brand dark:text-accent">{cell.value}</div>
                   <div className="text-[10px] text-slate-500 leading-tight">{cell.label}</div>
                 </div>
               ))}
@@ -769,7 +769,7 @@ export const SkillMatrix: React.FC = () => {
                               <td className="py-1.5 pr-3 font-bold text-slate-800 dark:text-slate-200">{g.skillName}</td>
                               <td className="py-1.5 pr-3">{g.required}</td>
                               <td className="py-1.5 pr-3">{g.current}</td>
-                              <td className="py-1.5 pr-3 font-bold text-[#D47F0A]">{g.shortBy}</td>
+                              <td className="py-1.5 pr-3 font-bold text-accent-strong">{g.shortBy}</td>
                               <td className="py-1.5 text-slate-500">{g.rationale}</td>
                             </tr>
                           ))}
@@ -906,7 +906,7 @@ export const SkillMatrix: React.FC = () => {
                 so in the history. A goal that contradicts a recorded level is refused.
               </p>
               <div className="flex justify-end">
-                <button type="submit" className="px-4 py-2 bg-[#F59A16] hover:bg-[#D47F0A] text-white text-xs font-bold rounded-xl">
+                <button type="submit" className="px-4 py-2 bg-accent hover:bg-accent-strong text-white text-xs font-bold rounded-xl">
                   Open goal
                 </button>
               </div>
@@ -986,7 +986,7 @@ export const SkillMatrix: React.FC = () => {
                 committee; the rest must pick one they belong to.
               </p>
               <div className="flex justify-end">
-                <button type="submit" className="px-4 py-2 bg-[#123B60] hover:bg-[#0A2239] text-white text-xs font-bold rounded-xl">
+                <button type="submit" className="px-4 py-2 bg-brand hover:bg-brand-ink text-white text-xs font-bold rounded-xl">
                   Publish requirement
                 </button>
               </div>
@@ -1064,7 +1064,7 @@ export const SkillMatrix: React.FC = () => {
                 ))}
               </select>
               <div className="flex justify-end">
-                <button type="submit" className="px-4 py-2 bg-[#123B60] hover:bg-[#0A2239] text-white text-xs font-bold rounded-xl">
+                <button type="submit" className="px-4 py-2 bg-brand hover:bg-brand-ink text-white text-xs font-bold rounded-xl">
                   Add course
                 </button>
               </div>
@@ -1114,7 +1114,7 @@ export const SkillMatrix: React.FC = () => {
                 stays where the assessor left it.
               </p>
               <div className="flex justify-end">
-                <button type="submit" className="px-4 py-2 bg-[#F59A16] hover:bg-[#D47F0A] text-white text-xs font-bold rounded-xl">
+                <button type="submit" className="px-4 py-2 bg-accent hover:bg-accent-strong text-white text-xs font-bold rounded-xl">
                   Record completion
                 </button>
               </div>
@@ -1201,7 +1201,7 @@ export const SkillMatrix: React.FC = () => {
                 into a competency record.
               </p>
               <div className="flex justify-end">
-                <button type="submit" className="px-4 py-2 bg-[#123B60] hover:bg-[#0A2239] text-white text-xs font-bold rounded-xl">
+                <button type="submit" className="px-4 py-2 bg-brand hover:bg-brand-ink text-white text-xs font-bold rounded-xl">
                   Save note
                 </button>
               </div>
@@ -1209,7 +1209,7 @@ export const SkillMatrix: React.FC = () => {
           )}
 
           <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/60 p-4 text-xs text-slate-600 dark:text-slate-300 flex items-start gap-2.5">
-            <ListChecks className="w-4 h-4 shrink-0 text-[#F59A16] mt-0.5" />
+            <ListChecks className="w-4 h-4 shrink-0 text-accent mt-0.5" />
             <span>
               Every writer on this page is checked against the member&apos;s committee on the way in, and each write
               leaves an audit entry. Records sit in this browser&apos;s own storage until a backend is configured — the

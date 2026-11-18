@@ -58,7 +58,7 @@ const MediaPicker: React.FC<{ title: string; onClose: () => void; onPick: (asset
             key={asset.id}
             type="button"
             onClick={() => onPick(asset)}
-            className="text-left rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden hover:border-[#F59A16] transition"
+            className="text-left rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden hover:border-accent transition"
           >
             <span className="block aspect-video bg-slate-100 dark:bg-slate-800">
               <img src={asset.src} alt="" className="w-full h-full object-cover" loading="lazy" />

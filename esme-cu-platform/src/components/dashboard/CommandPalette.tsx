@@ -9,7 +9,7 @@ import {
 } from 'lucide-react';
 import { useApp, useActor } from '../../context/AppContext';
 import { scopeFor, type Capability } from '../../domain/roles';
-import { ModalShell, durations, easings } from '../../motion';
+import { ModalShell, transitions } from '../../motion';
 import { NAV_ITEMS } from './nav';
 import type { DashboardView } from './DashboardShell';
 
@@ -171,9 +171,9 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({ open, onClose, o
 
   return (
     <ModalShell open={open} onClose={onClose} className="w-[min(92vw,38rem)]">
-      <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xl overflow-hidden">
-        <div className="flex items-center gap-2.5 px-4 border-b border-slate-100 dark:border-slate-800">
-          <Search className="w-4 h-4 text-slate-400 shrink-0" aria-hidden="true" />
+      <div className="bg-surface rounded-sheet border border-border shadow-overlay overflow-hidden">
+        <div className="flex items-center gap-2.5 px-4 border-b border-border">
+          <Search className="w-4 h-4 text-ink-subtle shrink-0" aria-hidden="true" />
           <input
             autoFocus
             role="combobox"
@@ -198,23 +198,23 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({ open, onClose, o
                 flat[safeActive]?.run();
               }
             }}
-            className="flex-1 min-w-0 py-3.5 bg-transparent text-sm font-semibold text-slate-800 dark:text-slate-100 placeholder:font-normal placeholder:text-slate-400 focus:outline-none"
+            className="flex-1 min-w-0 py-3.5 bg-transparent text-caption font-bold text-ink placeholder:font-normal placeholder:text-ink-faint focus:outline-none"
           />
-          <kbd className="hidden sm:block text-[10px] font-bold text-slate-400 border border-slate-200 dark:border-slate-700 rounded px-1.5 py-0.5">
+          <kbd className="hidden sm:block text-micro font-bold text-ink-subtle border border-border-strong rounded px-1.5 py-0.5">
             esc
           </kbd>
         </div>
 
         <div id="palette-results" ref={listRef} role="listbox" aria-label="Results" className="max-h-[52vh] overflow-y-auto p-2 space-y-3">
           {flat.length === 0 && (
-            <p className="text-xs text-slate-500 px-3 py-8 text-center">
+            <p className="text-caption text-ink-muted px-3 py-8 text-center">
               Nothing matches “{query.trim()}”. A page this account cannot open is not listed here,
               and would be refused by the server all the same.
             </p>
           )}
           {sections.map((group) => (
             <div key={group.section}>
-              <div className="px-3 pb-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">{group.section}</div>
+              <div className="px-3 pb-1 text-micro font-bold uppercase tracking-wider text-ink-muted">{group.section}</div>
               <div className="space-y-0.5">
                 {group.rows.map((result) => {
                   const index = flat.indexOf(result);
@@ -229,19 +229,19 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({ open, onClose, o
                       aria-selected={isCurrentRow}
                       onMouseEnter={() => setActive(index)}
                       onClick={() => result.run()}
-                      initial={{ opacity: 0, y: 4 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ duration: durations.micro, ease: easings.smooth }}
-                      className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-left ${
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      transition={transitions.paletteFilter}
+                      className={`w-full flex items-center gap-3 px-3 py-2 rounded-control text-left transition-colors duration-[100ms] ${
                         isCurrentRow
-                          ? 'bg-[#123B60] text-white'
-                          : 'text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800'
+                          ? 'bg-brand text-white shadow-sm'
+                          : 'text-ink hover:bg-surface-muted'
                       }`}
                     >
-                      <Icon className={`w-4 h-4 shrink-0 ${isCurrentRow ? 'text-[#F59A16]' : 'text-slate-400'}`} />
+                      <Icon className={`w-4 h-4 shrink-0 ${isCurrentRow ? 'text-accent' : 'text-ink-subtle'}`} />
                       <span className="flex-1 min-w-0">
-                        <span className="block text-xs font-bold truncate">{result.label}</span>
-                        <span className={`block text-[10px] truncate ${isCurrentRow ? 'text-slate-200' : 'text-slate-400'}`}>
+                        <span className="block text-caption font-bold truncate">{result.label}</span>
+                        <span className={`block text-micro truncate ${isCurrentRow ? 'text-white/80' : 'text-ink-subtle'}`}>
                           {result.hint}
                         </span>
                       </span>
@@ -254,7 +254,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({ open, onClose, o
           ))}
         </div>
 
-        <div className="px-4 py-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between gap-4 text-[10px] text-slate-400 font-semibold">
+        <div className="px-4 py-2 border-t border-border flex items-center justify-between gap-4 text-micro text-ink-subtle font-medium">
           <span>↑ ↓ to move · Enter to open</span>
           <span>
             {flat.length} result{flat.length === 1 ? '' : 's'}

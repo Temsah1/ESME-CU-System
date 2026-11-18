@@ -65,7 +65,10 @@ export type RewardPolicy = {
 };
 
 export const DEFAULT_REWARD_POLICY: RewardPolicy = {
-  canAwardBonus: ['head', 'director', 'high_board', 'super_admin'],
+  // Recognition is people operations, so the HR Manager is on the bonus list. Discipline is not:
+  // `canIssueWarning` stays with committee leadership and the board, and the invariant in
+  // validatePolicyEdit requires the warning list to sit inside the bonus list.
+  canAwardBonus: ['head', 'director', 'hr_manager', 'high_board', 'super_admin'],
   canIssueWarning: ['head', 'director', 'high_board', 'super_admin'],
   maxBonusPointsPerAction: 25,
   maxBonusPointsPerMemberPerPeriod: 100,

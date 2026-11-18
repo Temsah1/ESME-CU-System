@@ -7,6 +7,7 @@ import {
   Flag,
   Gauge,
   Globe,
+  GraduationCap,
   History,
   Images,
   Inbox,
@@ -65,7 +66,7 @@ export const NAV_ITEMS: NavItem[] = [
 
   item('members', 'Members Directory', 'Organization & People', Users, 'users.read', 'people, accounts, roster'),
   item('committees', 'Committees & Teams', 'Organization & People', Layers, 'committees.read', 'structure, seats, director, head'),
-  item('skill_matrix', 'L0–L4 Skill Matrix', 'Organization & People', Award, 'skills.read', 'levels, courses, development'),
+  item('skill_matrix', 'L0–L4 Skill Matrix', 'Organization & People', GraduationCap, 'skills.read', 'levels, courses, development'),
 
   item('tasks', 'Tasks Command', 'Operations & Execution', CheckSquare, 'tasks.read', 'assignments, deadlines, create task'),
   item('submissions', 'Submissions Review', 'Operations & Execution', FileCheck2, 'submissions.read', 'review, approve, revision'),

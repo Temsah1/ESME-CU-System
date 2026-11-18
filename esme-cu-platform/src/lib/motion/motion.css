@@ -100,7 +100,7 @@ html.lenis body {
 }
 .dark .split .w > span.grad,
 .split .w > span.grad-light {
-  background: linear-gradient(96deg, #ffffff 6%, var(--esme-orange-light) 54%, #9ec5e8 96%);
+  background: linear-gradient(96deg, var(--esme-white) 6%, var(--esme-orange-light) 54%, var(--esme-blue-pale) 96%);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
@@ -317,13 +317,33 @@ button:hover .logo-mark {
   background: linear-gradient(90deg, var(--esme-navy), var(--esme-orange));
   transition: width 0.5s var(--ease);
 }
-/* A refusal says so twice: the line fades in, and the control that carries it shakes no further
-   than 6px for 300ms. Transform only — the fields under it never move. */
+/* A refusal says so twice (§2.8): the message unrolls from zero height so the fields under it are
+   eased apart rather than shoved, and the control that carries it shakes no further than 4px for
+   300ms. Transform and grid-rows only — nothing below jumps. */
+.reg-error-wrap {
+  display: grid;
+  grid-template-rows: 1fr;
+  animation: reg-unroll 0.2s var(--ease-out, var(--ease)) backwards;
+}
+.reg-error-wrap > * {
+  overflow: hidden;
+  min-height: 0;
+}
 .reg-error {
-  animation: reg-fade 0.3s var(--ease) backwards;
+  animation: reg-fade 0.2s var(--ease-out, var(--ease)) backwards;
 }
 .reg-field[data-refused='1'] {
   animation: reg-shake 0.3s cubic-bezier(0.36, 0.07, 0.19, 0.97);
+}
+@keyframes reg-unroll {
+  from {
+    grid-template-rows: 0fr;
+    opacity: 0;
+  }
+  to {
+    grid-template-rows: 1fr;
+    opacity: 1;
+  }
 }
 @keyframes reg-fade {
   from {
@@ -339,13 +359,13 @@ button:hover .logo-mark {
     transform: translateX(0);
   }
   15% {
-    transform: translateX(-6px);
+    transform: translateX(-4px);
   }
   30% {
-    transform: translateX(5px);
+    transform: translateX(4px);
   }
   45% {
-    transform: translateX(-4px);
+    transform: translateX(-3px);
   }
   60% {
     transform: translateX(3px);
@@ -380,25 +400,11 @@ button:hover .logo-mark {
 
 /*
  * --- restrained /admin motion (§8) ----------------------------------------------
- * The workspace is a screen somebody reads, not a page they are toured through: one-shot entrances
- * that always run to their end, no scroll runtime, no canvas, nothing pinned. None of it depends on
- * an observer — a row the observer never reached would sit at opacity 0, and a missing name on a
- * roster is a bug rather than a mood.
+ * The workspace is a screen somebody reads, not a page they are toured through: no scroll runtime,
+ * no canvas, nothing pinned, and no entrance cascade on rows — a table is data an officer scans, and
+ * staggering it in makes every page change cost a second before the first row is legible. What
+ * remains is state feedback: a bar drawing to its value, nothing else.
  */
-.js .dash-row {
-  animation: dash-enter 0.8s var(--ease) backwards;
-  animation-delay: calc(min(var(--i, 0), 8) * 140ms);
-}
-@keyframes dash-enter {
-  from {
-    opacity: 0;
-    transform: translateX(-14px);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(0);
-  }
-}
 /* A bar draws with scaleX, so the inline width stays the number a screen reader and the CSS agree on. */
 .dash-fill {
   transform-origin: left center;
@@ -411,29 +417,10 @@ button:hover .logo-mark {
     transform: scaleX(0);
   }
 }
-/* A status that changes mid-shift cross-fades: the badge is remounted on its own key. */
-.dash-badge {
-  transition:
-    color 0.3s var(--ease),
-    background-color 0.3s var(--ease);
-}
-.js .dash-badge {
-  animation: dash-swap 0.3s var(--ease) backwards;
-}
-@keyframes dash-swap {
-  from {
-    opacity: 0;
-  }
-}
 
 @media (prefers-reduced-motion: reduce) {
-  .js .dash-row,
-  .js .dash-fill,
-  .js .dash-badge {
+  .js .dash-fill {
     animation: none !important;
-  }
-  .dash-badge {
-    transition: none;
   }
   .js .rv,
   .js .rv-scale {
@@ -457,8 +444,12 @@ button:hover .logo-mark {
     stroke-dashoffset: 0 !important;
   }
   .reg-error,
+  .reg-error-wrap,
   .reg-field[data-refused='1'] {
     animation: none !important;
+  }
+  .reg-error-wrap {
+    grid-template-rows: 1fr;
   }
   .media.kb {
     animation: none;

@@ -7,10 +7,10 @@ import {
   Plus,
   Search,
   Send,
-  TriangleAlert,
   Users,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
+import { Alert } from '../ui';
 import { EmptyState } from '../EmptyState';
 import { ROLE_LABELS } from '../../domain/roles';
 import {
@@ -63,34 +63,6 @@ const formatWhen = (value: string | null): string => {
 
 const roleLabel = (contact: ChatContact): string => (contact.role ? ROLE_LABELS[contact.role] : 'Member');
 
-const Alert: React.FC<{ tone: 'amber' | 'rose'; title: string; children: React.ReactNode }> = ({
-  tone,
-  title,
-  children,
-}) => (
-  <div
-    role="alert"
-    className={`rounded-2xl border p-4 flex items-start gap-3 ${
-      tone === 'amber'
-        ? 'border-amber-200 dark:border-amber-500/30 bg-amber-50 dark:bg-amber-500/10'
-        : 'border-rose-200 dark:border-rose-500/30 bg-rose-50 dark:bg-rose-500/10'
-    }`}
-  >
-    <TriangleAlert
-      className={`w-4 h-4 shrink-0 mt-0.5 ${tone === 'amber' ? 'text-amber-600' : 'text-rose-600'}`}
-      aria-hidden
-    />
-    <div className="text-xs space-y-1 min-w-0">
-      <p className={`font-bold ${tone === 'amber' ? 'text-amber-900 dark:text-amber-200' : 'text-rose-900 dark:text-rose-200'}`}>
-        {title}
-      </p>
-      <div className={tone === 'amber' ? 'text-amber-800 dark:text-amber-300' : 'text-rose-800 dark:text-rose-300'}>
-        {children}
-      </div>
-    </div>
-  </div>
-);
-
 const ConversationButton: React.FC<{
   conversation: ChatConversation;
   selected: boolean;
@@ -103,7 +75,7 @@ const ConversationButton: React.FC<{
     aria-current={selected ? 'true' : undefined}
     className={`w-full text-left px-3 py-3 rounded-xl border transition ${
       selected
-        ? 'border-[#123B60] bg-[#123B60] text-white shadow-sm'
+        ? 'border-brand bg-brand text-white shadow-sm'
         : 'border-transparent hover:bg-slate-100 dark:hover:bg-slate-800'
     }`}
   >
@@ -123,7 +95,7 @@ const ConversationButton: React.FC<{
       {conversation.unreadCount > 0 && (
         <span
           aria-label={`${conversation.unreadCount} unread`}
-          className="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-[#F59A16] text-white"
+          className="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-accent text-white"
         >
           {conversation.unreadCount > 99 ? '99+' : conversation.unreadCount}
         </span>
@@ -148,7 +120,7 @@ const MessageBubble: React.FC<{ message: ChatMessage; mine: boolean }> = ({ mess
       <div
         className={`rounded-2xl px-3.5 py-2 text-xs whitespace-pre-wrap break-words ${
           mine
-            ? 'bg-[#123B60] text-white rounded-br-md'
+            ? 'bg-brand text-white rounded-br-md'
             : 'bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-100 rounded-bl-md'
         }`}
       >
@@ -361,14 +333,14 @@ export const MessagesView: React.FC = () => {
           </p>
         </div>
         {unread > 0 && (
-          <span className="text-[11px] font-bold text-[#F59A16]" aria-label={`${unread} unread messages`}>
+          <span className="text-micro font-bold text-ink-accent font-numbers" aria-label={`${unread} unread messages`}>
             {unread} unread
           </span>
         )}
       </div>
 
       {load?.state === 'blocked' && (
-        <Alert tone="amber" title="Chat is blocked in this build">
+        <Alert tone="warning" title="Chat is blocked in this build">
           <p>
             No project is configured, so no conversation can be read or written: this build does not
             hold {load.missing.join(', ')}. The page keeps no local copy of a message, because one
@@ -379,17 +351,14 @@ export const MessagesView: React.FC = () => {
       )}
 
       {load?.state === 'error' && (
-        <Alert tone="rose" title="The conversation list could not be read">
+        <Alert tone="danger" title="The conversation list could not be read">
           <p>{load.message}</p>
         </Alert>
       )}
 
       {error && (
-        <Alert tone="rose" title="The last action did not complete">
+        <Alert tone="danger" title="The last action did not complete" onDismiss={() => setError(null)}>
           <p>{error}</p>
-          <button type="button" onClick={() => setError(null)} className="mt-1 font-bold underline">
-            Dismiss
-          </button>
         </Alert>
       )}
 
@@ -416,7 +385,7 @@ export const MessagesView: React.FC = () => {
                 <button
                   type="button"
                   onClick={openContacts}
-                  className="p-2 rounded-lg bg-[#123B60] text-white hover:bg-[#0A2239]"
+                  className="p-2 rounded-lg bg-brand text-white hover:bg-brand-ink"
                   aria-label="New direct message"
                   title="New direct message"
                 >
@@ -442,7 +411,7 @@ export const MessagesView: React.FC = () => {
                       <LoaderCircle className="w-3.5 h-3.5 animate-spin" aria-hidden /> Reading the directory…
                     </p>
                   )}
-                  {contactsError && <p className="text-[11px] text-rose-600 px-1 py-2">{contactsError}</p>}
+                  {contactsError && <p className="text-micro text-danger px-1 py-2">{contactsError}</p>}
                   {!contactsBusy && !contactsError && contacts.length === 0 && (
                     <p className="text-[11px] text-slate-500 px-1 py-2">
                       No reachable contact. A member can message their own committee; leadership reaches
@@ -538,7 +507,7 @@ export const MessagesView: React.FC = () => {
                         type="button"
                         onClick={() => void loadEarlier()}
                         disabled={loadingEarlier}
-                        className="text-[11px] font-bold text-[#123B60] dark:text-[#F59A16] hover:underline disabled:opacity-50"
+                        className="text-[11px] font-bold text-brand dark:text-accent hover:underline disabled:opacity-50"
                       >
                         {loadingEarlier ? 'Loading earlier messages…' : 'Load earlier messages'}
                       </button>
@@ -587,7 +556,7 @@ export const MessagesView: React.FC = () => {
                     <button
                       type="submit"
                       disabled={sending || draft.trim().length === 0}
-                      className="px-3 py-2.5 rounded-xl bg-[#123B60] text-white text-xs font-bold disabled:opacity-50 inline-flex items-center gap-1.5"
+                      className="px-3 py-2.5 rounded-xl bg-brand text-white text-xs font-bold disabled:opacity-50 inline-flex items-center gap-1.5"
                     >
                       {sending ? (
                         <LoaderCircle className="w-3.5 h-3.5 animate-spin" aria-hidden />

@@ -85,7 +85,7 @@ export const AccountSearch: React.FC<Props> = ({
           onChange={(e) => setTerm(e.target.value)}
           placeholder="Search accounts by name, email or username…"
           aria-label={`Search accounts to appoint as ${POSITION_LABELS[position]}`}
-          className="w-full pl-9 pr-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs outline-none focus:ring-2 focus:ring-[#123B60]"
+          className="w-full pl-9 pr-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs outline-none focus:ring-2 focus:ring-brand"
         />
       </div>
 
@@ -145,7 +145,7 @@ export const AccountSearch: React.FC<Props> = ({
             <label className={`shrink-0 flex items-center gap-1.5 text-[11px] font-bold ${verdict.allowed ? 'cursor-pointer' : 'opacity-40'}`}>
               <input
                 type="checkbox"
-                className="accent-[#123B60]"
+                className="accent-brand"
                 checked={chosen.includes(account.id)}
                 disabled={!verdict.allowed || busy}
                 onChange={() => toggle(account.id)}
@@ -161,7 +161,7 @@ export const AccountSearch: React.FC<Props> = ({
         type="button"
         disabled={chosen.length === 0 || busy}
         onClick={() => onAdd(chosen)}
-        className="w-full px-3 py-2 rounded-xl bg-[#123B60] text-white text-xs font-bold flex items-center justify-center gap-1.5 disabled:bg-slate-200 disabled:text-slate-400 dark:disabled:bg-slate-800"
+        className="w-full px-3 py-2 rounded-xl bg-brand text-white text-xs font-bold flex items-center justify-center gap-1.5 disabled:bg-slate-200 disabled:text-slate-400 dark:disabled:bg-slate-800"
       >
         <Check className="w-4 h-4" />
         {busy ? 'Saving…' : `Appoint ${chosen.length} as ${POSITION_LABELS[position]}${chosen.length === 1 ? '' : 's'}`}

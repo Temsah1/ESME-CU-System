@@ -322,11 +322,23 @@ export const LoginScreen: React.FC<Props> = ({ onBackToHome, onNavigateToJoin, o
 
               <button
                 type="submit"
-                className={cx('cut-submit', seq(13))}
+                className={cx('cut-submit', 'relative', seq(13))}
                 disabled={busy || status === 'unavailable'}
+                aria-busy={busy || undefined}
               >
-                {busy && <Loader2 className="w-4 h-4 animate-spin" aria-hidden />}
-                {busy ? 'Checking credentials…' : 'Sign in'}
+                <span
+                  aria-hidden={busy || undefined}
+                  className={`inline-flex items-center gap-2 transition-opacity duration-micro ${busy ? 'opacity-0' : 'opacity-100'}`}
+                >
+                  Sign in
+                </span>
+                <span
+                  aria-hidden={!busy || undefined}
+                  className={`absolute inset-0 inline-flex items-center justify-center gap-2 transition-opacity duration-micro ${busy ? 'opacity-100' : 'opacity-0'}`}
+                >
+                  <Loader2 className="w-4 h-4 animate-spin" aria-hidden />
+                  Checking credentials…
+                </span>
               </button>
             </form>
           )}
@@ -478,11 +490,11 @@ select esme_bootstrap_primary_admin(
 };
 
 export const PasswordChecklist: React.FC<{ checks: { id: string; label: string; passed: boolean }[] }> = ({ checks }) => (
-  <ul className="grid grid-cols-2 gap-1.5 text-[11px]">
+  <ul className="grid grid-cols-2 gap-1.5 text-micro">
     {checks.map((c) => (
       <li
         key={c.id}
-        className={c.passed ? 'text-emerald-700 dark:text-emerald-400' : 'text-slate-500 dark:text-slate-400'}
+        className={c.passed ? 'text-success-ink' : 'text-ink-muted'}
       >
         <span aria-hidden>{c.passed ? '✓' : '○'}</span> {c.label}
       </li>

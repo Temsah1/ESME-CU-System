@@ -43,7 +43,7 @@ const DevAuthBanner: React.FC = () => {
   return (
     <div
       role="status"
-      className="w-full bg-amber-400/95 text-[#123B60] px-4 py-2 text-[11px] font-bold tracking-wide text-center border-b-2 border-amber-600"
+      className="w-full bg-amber-400/95 text-brand px-4 py-2 text-[11px] font-bold tracking-wide text-center border-b-2 border-amber-600"
     >
       {adapter.warningBanner}
     </div>

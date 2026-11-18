@@ -50,12 +50,14 @@ export type ActionScope = { role: User['role']; id: string; committeeId?: string
 
 /**
  * Who may see an item. A member only ever sees work that names them; committee leadership
- * sees its own committee; the chapter-wide roles — Super Admin, High Board and the IT
- * Moderator — see everything, because their read scope in the role matrix is `all`.
+ * sees its own committee; the chapter-wide roles — Super Admin, High Board, the IT Moderator
+ * and the HR Manager — see everything, because their read scope in the role matrix is `all`.
  * Derived from those scopes, never from which screen is open.
  */
 export function visibleTo(actor: ActionScope, item: { ownerId: string | null; committeeId: string | null }): boolean {
-  if (actor.role === 'super_admin' || actor.role === 'moderator' || actor.role === 'high_board') return true;
+  if (actor.role === 'super_admin' || actor.role === 'moderator' || actor.role === 'high_board' || actor.role === 'hr_manager') {
+    return true;
+  }
   if (actor.role === 'director' || actor.role === 'head') return item.committeeId === null || item.committeeId === actor.committeeId;
   return item.ownerId === actor.id;
 }

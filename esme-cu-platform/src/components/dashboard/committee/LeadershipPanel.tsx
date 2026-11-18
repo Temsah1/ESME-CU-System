@@ -94,13 +94,13 @@ export const LeadershipPanel: React.FC<Props> = ({
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">{POSITION_LABELS[position]}</span>
                 <div className="flex items-center gap-2">
-                  <span className="text-[11px] font-bold text-[#F59A16]">{entries.length} assigned</span>
+                  <span className="text-[11px] font-bold text-accent">{entries.length} assigned</span>
                   {mayWrite && actor && (
                     <button
                       type="button"
                       disabled={busy}
                       onClick={() => setChoosing(choosing === position ? null : position)}
-                      className="px-2.5 py-1.5 rounded-lg text-[11px] font-bold bg-[#123B60] text-white flex items-center gap-1 disabled:opacity-50"
+                      className="px-2.5 py-1.5 rounded-lg text-[11px] font-bold bg-brand text-white flex items-center gap-1 disabled:opacity-50"
                     >
                       {choosing === position ? <X className="w-3.5 h-3.5" /> : <UserPlus className="w-3.5 h-3.5" />}
                       {choosing === position ? 'Close' : 'Add'}

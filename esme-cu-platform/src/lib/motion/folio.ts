@@ -1,6 +1,7 @@
 import type * as Three from 'three';
 import { isHeadlessDom, isLowPower, onPageVisibleChange, prefersReduced } from './env';
 import { clampDt, stepSpring, type Spring } from './spring';
+import { PALETTE } from '../../theme/palette';
 
 /**
  * FOLIO — a diagonal row of standing committee books, drawn in three.js and lifted by a pointer wave.
@@ -41,9 +42,9 @@ function pageTexture(THREE: typeof import('three'), vertical: boolean) {
   canvas.height = 256;
   const ctx = canvas.getContext('2d');
   if (!ctx) return null;
-  ctx.fillStyle = '#efe7d6';
+  ctx.fillStyle = PALETTE.paper600;
   ctx.fillRect(0, 0, 256, 256);
-  ctx.strokeStyle = '#6b5335';
+  ctx.strokeStyle = PALETTE.wood200;
   ctx.lineWidth = 1;
   for (let i = 0; i < 256; i += 2) {
     ctx.globalAlpha = 0.05 + Math.random() * 0.12;
@@ -107,7 +108,7 @@ function coverTexture(THREE: typeof import('three'), item: FolioItem, maxAnisotr
   if (line) ctx.fillText(line, 128, y);
 
   ctx.font = '700 20px "IBM Plex Mono", monospace';
-  ctx.fillStyle = '#F59A16';
+  ctx.fillStyle = PALETTE.orange;
   ctx.fillText(item.code, 128, 348);
 
   const texture = new THREE.CanvasTexture(canvas);

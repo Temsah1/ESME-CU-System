@@ -17,13 +17,13 @@ export const AccessDenied: React.FC<{ title?: string; detail: string; onExit?: (
 }) => (
   <div className="min-h-[60vh] flex items-center justify-center px-6">
     <div className="max-w-md w-full rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-8 text-center">
-      <h2 className="text-lg font-bold text-[#123B60] dark:text-white">{title}</h2>
+      <h2 className="text-lg font-bold text-brand dark:text-white">{title}</h2>
       <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">{detail}</p>
       {onExit && (
         <button
           type="button"
           onClick={onExit}
-          className="mt-6 rounded-xl bg-[#F59A16] px-4 py-2 text-sm font-semibold text-[#123B60]"
+          className="mt-6 rounded-xl bg-accent px-4 py-2 text-sm font-semibold text-brand"
         >
           Return to the website
         </button>

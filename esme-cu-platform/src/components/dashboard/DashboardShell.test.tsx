@@ -58,6 +58,26 @@ const stubViewport = (desktop: boolean) => {
   })) as unknown as typeof window.matchMedia;
 };
 
+/**
+ * The same stub, but answering the actual width instead of every `min-width` at once. The rail
+ * now reads two breakpoints, so a test that wants "a laptop" has to say how wide it is.
+ */
+const stubWidth = (px: number) => {
+  window.matchMedia = ((query: string) => {
+    const min = /min-width:\s*(\d+)px/.exec(query);
+    return {
+      matches: min ? px >= Number(min[1]) : false,
+      media: query,
+      onchange: null,
+      addListener: () => {},
+      removeListener: () => {},
+      addEventListener: () => {},
+      removeEventListener: () => {},
+      dispatchEvent: () => false,
+    };
+  }) as unknown as typeof window.matchMedia;
+};
+
 beforeEach(async () => {
   localStorage.clear();
   sessionStorage.clear();
@@ -114,8 +134,30 @@ async function signInAsDirector() {
   await adapter.signIn(email, PASSWORD);
 }
 
-async function renderShell(view: DashboardView = 'overview') {
-  const [{ AppProvider }, auth, { DashboardShell }, motion, { MotionConfig }] = await Promise.all([
+/** Seat an applicant as the chapter's HR Manager and render the shell as that account. */
+async function signInAsHrManager() {
+  const email = 'rana.people@esme-cu.edu';
+  const registered = await adapter.register({
+    fullName: 'Rana People',
+    email,
+    username: 'rana.people',
+    password: PASSWORD,
+    confirmPassword: PASSWORD,
+    acceptedPolicies: true,
+  });
+  if (!registered.ok) throw new Error(`registration refused: ${registered.failure.code} — ${registered.failure.message}`);
+  const approved = await adapter.decideRegistration(registered.receipt.reference, 'approve');
+  if (!approved.ok) throw new Error(`approval refused: ${approved.error.code} — ${approved.error.message}`);
+  const applicant = (await adapter.listAccounts()).find((a) => a.email === email);
+  if (!applicant) throw new Error('the approved applicant is not in the provider directory');
+  const promoted = await adapter.assignRole(applicant.id, 'hr_manager');
+  if (!promoted.ok) throw new Error(`role change refused: ${promoted.error.code} — ${promoted.error.message}`);
+  await adapter.signOut();
+  const session = await adapter.signIn(email, PASSWORD);
+  if (session.identity.role !== 'hr_manager') throw new Error(`expected an hr_manager session, got ${session.identity.role}`);
+}
+
+async function renderShell(view: DashboardView = 'overview') {  const [{ AppProvider }, auth, { DashboardShell }, motion, { MotionConfig }] = await Promise.all([
     import('../../context/AppContext'),
     import('../../auth/AuthProvider'),
     import('./DashboardShell'),
@@ -162,6 +204,29 @@ describe('what the frame offers', () => {
     for (const label of ['Members Directory', 'IT Moderator Tools', 'Settings & Backups', 'Bonuses & Warnings']) {
       expect(TL.screen.getByRole('button', { name: new RegExp(label, 'i') })).toBeTruthy();
     }
+  });
+
+  it('offers an HR Manager the people screens and none of the machinery', async () => {
+    await signInAsHrManager();
+    await renderShell();
+
+    // People operations: the directory, placement, recognition, and the numbers to report on them.
+    for (const label of ['Members Directory', 'Committees & Teams', 'Bonuses & Warnings', 'KPI & Analytics', 'L0–L4 Skill Matrix']) {
+      expect(TL.screen.queryByRole('button', { name: new RegExp(label, 'i') }), label).toBeTruthy();
+    }
+    // Governance and content: withheld by the matrix, so the rail cannot offer them. Reading other
+    // people's work stays available — Tasks, Submissions, Points and the Season Planner are all
+    // granted at read scope, with no write or review alongside them.
+    for (const hidden of ['Website CMS', 'Media Library', 'Meta Post Insights', 'Audit Trail', 'Settings & Backups']) {
+      expect(TL.screen.queryByRole('button', { name: new RegExp(hidden, 'i') }), hidden).toBeNull();
+    }
+    for (const readOnly of ['Tasks Command', 'Submissions Review', 'Points & Ledger', 'Season Planner']) {
+      expect(TL.screen.queryByRole('button', { name: new RegExp(readOnly, 'i') }), readOnly).toBeTruthy();
+    }
+    // Deliberately present: this screen is gated by `registrations.decide`, the same grant that lets
+    // an HR Manager decide an application, and its own panels re-read the matrix — the seeded-tester
+    // deletion stays hidden because `users.delete` is not granted.
+    expect(TL.screen.queryByRole('button', { name: /IT Moderator Tools/i })).toBeTruthy();
   });
 
   it('offers a member only the screens their capabilities reach', async () => {
@@ -220,6 +285,52 @@ describe('what the rail counts', { timeout: 25_000 }, () => {
     expect(TL.within(submissionsButton).getByText('2')).toBeTruthy();
     // The media committee's row is real, but it is outside this director's review scope.
     expect(TL.within(submissionsButton).queryByText('3')).toBeNull();
+  });
+});
+
+describe('the rail and the content it hands over to', () => {
+  it('offers a skip link that lands on the content area', async () => {
+    const { user } = await renderShell();
+
+    await user.tab();
+    const skip = document.activeElement as HTMLAnchorElement | null;
+    expect(skip?.textContent).toBe('Skip to content');
+    // The link is only useful if its target is the scrollable content and is reachable by script,
+    // which is what `tabIndex={-1}` buys: a landmark a browser cannot focus is a link that does
+    // nothing when pressed.
+    const main = document.getElementById(skip!.hash.slice(1));
+    expect(main?.tagName).toBe('MAIN');
+    expect(main?.tabIndex).toBe(-1);
+  });
+
+  it('opens the rail collapsed when there is no room for labels, and expands on request', async () => {
+    stubWidth(1100);
+    const { user } = await renderShell();
+
+    expect(TL.screen.getByRole('button', { name: 'Expand sidebar' })).toBeTruthy();
+    // A collapsed rail prints no labels, so the screen name survives only in the accessible name
+    // the `title` attribute supplies. Both halves have to hold: the icons stay nameable.
+    expect(TL.screen.queryByText('Members Directory')).toBeNull();
+    expect(TL.screen.getByRole('button', { name: /Members Directory/i })).toBeTruthy();
+
+    await user.click(TL.screen.getByRole('button', { name: 'Expand sidebar' }));
+    expect(TL.screen.getByText('Members Directory')).toBeTruthy();
+  });
+
+  it('keeps a wide account on the expanded rail', async () => {
+    stubWidth(1440);
+    await renderShell();
+    expect(TL.screen.getByRole('button', { name: 'Collapse sidebar' })).toBeTruthy();
+    expect(TL.screen.getByText('Members Directory')).toBeTruthy();
+  });
+
+  it('moves the navigation into the drawer below the rail breakpoint, where it would eat the page', async () => {
+    stubWidth(900);
+    const { user } = await renderShell();
+
+    expect(TL.screen.queryByRole('navigation', { name: 'Dashboard sections' })).toBeNull();
+    await user.click(TL.screen.getByRole('button', { name: 'Open menu' }));
+    expect(await TL.screen.findByRole('dialog', { name: 'Dashboard navigation' })).toBeTruthy();
   });
 });
 
@@ -292,7 +403,11 @@ describe('the notification centre', () => {
     );
     const { user, navigate } = await renderShell();
 
-    await user.click(TL.screen.getByRole('button', { name: /Notifications, 1 unread/ }));
+    // The provider hydrates the stored notices after first paint, so the count is awaited rather
+    // than read off the first frame — a synchronous query here races the store, not the shell.
+    // The wait is longer than the 1s default because the sign-in in `beforeEach` runs PBKDF2 on
+    // every worker at once, and under that contention hydration legitimately lands after 1s.
+    await user.click(await TL.screen.findByRole('button', { name: /Notifications, 1 unread/ }, { timeout: 5000 }));
     const notice = await TL.screen.findByRole('button', { name: /Bonus recorded/ });
     await user.click(notice);
 

@@ -14,12 +14,12 @@ type Props = {
  * reason instead of filling the space with sample data.
  */
 export const EmptyState: React.FC<Props> = ({ title, description, icon: Icon = Inbox, action }) => (
-  <div className="rounded-3xl border border-dashed border-slate-300 dark:border-slate-700 bg-white/60 dark:bg-slate-900/40 px-6 py-12 text-center">
-    <span className="inline-flex p-3 rounded-2xl bg-slate-100 dark:bg-slate-800 text-slate-400">
+  <div className="rounded-sheet border border-dashed border-border-strong bg-surface/60 px-6 py-12 text-center">
+    <span className="inline-flex p-3 rounded-card bg-surface-muted text-ink-subtle">
       <Icon className="w-6 h-6" aria-hidden />
     </span>
-    <h3 className="mt-4 text-sm font-bold text-slate-800 dark:text-slate-100">{title}</h3>
-    <p className="mt-1.5 text-xs text-slate-500 dark:text-slate-400 max-w-md mx-auto leading-relaxed">{description}</p>
+    <h3 className="mt-4 text-label font-bold text-ink-strong">{title}</h3>
+    <p className="mt-1.5 text-caption text-ink-muted max-w-md mx-auto leading-relaxed">{description}</p>
     {action && <div className="mt-5 flex justify-center">{action}</div>}
   </div>
 );

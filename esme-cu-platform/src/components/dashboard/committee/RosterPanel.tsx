@@ -48,7 +48,7 @@ export const RosterPanel: React.FC<Props> = ({ committee, committees, users, may
           <button
             type="button"
             onClick={() => setAdding((open) => !open)}
-            className="px-2.5 py-1.5 rounded-lg text-[11px] font-bold bg-[#123B60] text-white flex items-center gap-1"
+            className="px-2.5 py-1.5 rounded-lg text-[11px] font-bold bg-brand text-white flex items-center gap-1"
           >
             <UserPlus className="w-3.5 h-3.5" />
             {adding ? 'Close picker' : 'Add member'}
@@ -90,7 +90,7 @@ export const RosterPanel: React.FC<Props> = ({ committee, committees, users, may
                     type="button"
                     disabled={u.status !== 'active'}
                     onClick={() => onMove(u.id, committee.id)}
-                    className="shrink-0 px-2.5 py-1.5 rounded-lg text-[11px] font-bold bg-[#F59A16] text-white disabled:bg-slate-200 disabled:text-slate-400 dark:disabled:bg-slate-800"
+                    className="shrink-0 px-2.5 py-1.5 rounded-lg text-[11px] font-bold bg-accent text-white disabled:bg-slate-200 disabled:text-slate-400 dark:disabled:bg-slate-800"
                   >
                     {u.status === 'active' ? 'Move in' : 'Not active'}
                   </button>
@@ -117,7 +117,7 @@ export const RosterPanel: React.FC<Props> = ({ committee, committees, users, may
                   <p className="text-xs font-bold text-slate-800 dark:text-slate-100 truncate">
                     {member.name}
                     {heldHere.length > 0 && (
-                      <span className="ml-2 text-[10px] font-semibold text-[#F59A16]">{heldHere.join(', ')} of this committee</span>
+                      <span className="ml-2 text-[10px] font-semibold text-accent">{heldHere.join(', ')} of this committee</span>
                     )}
                   </p>
                   <p className="text-[10px] text-slate-400 truncate">

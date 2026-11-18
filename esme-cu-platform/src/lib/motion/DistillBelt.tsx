@@ -2,6 +2,7 @@ import React, { useEffect, useRef } from 'react';
 import { cappedDpr, isHeadlessDom, onPageVisibleChange, prefersReduced } from './env';
 import { clampDt } from './spring';
 import './distill.css';
+import { PALETTE } from '../../theme/palette';
 
 /**
  * DISTILL — the six steps on a conveyor belt, cut in half by a scanner.
@@ -68,7 +69,7 @@ function hash(a: number, b: number, c: number): number {
   return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
 }
 
-const PALETTE = ['#FF4A12', '#FF5A1F', '#FF6B2C', '#FF8A3D', '#FFB06A', '#FFD9B5', '#FFF3E6'];
+const RAMP = [PALETTE.ember1100, PALETTE.ember1000, PALETTE.ember900, PALETTE.ember700, PALETTE.ember600, PALETTE.ember300, PALETTE.ember100];
 
 const MINUS = '−';
 
@@ -199,7 +200,7 @@ export const DistillBelt: React.FC<Props> = ({ steps = RECRUITMENT_PROCESS, labe
         code.style.transform = move;
         if (cut > 0) {
           const clip = `inset(0 0 0 ${cut.toFixed(2)}px round 0 1.6vw 1.6vw 0)`;
-          const fade = `linear-gradient(90deg,transparent ${cut.toFixed(2)}px,#000 ${(cut + 26).toFixed(2)}px)`;
+          const fade = `linear-gradient(90deg,transparent ${cut.toFixed(2)}px,black ${(cut + 26).toFixed(2)}px)`;
           card.style.setProperty('clip-path', clip);
           card.style.setProperty('-webkit-clip-path', clip);
           card.style.setProperty('mask-image', fade);
@@ -287,7 +288,7 @@ export const DistillBelt: React.FC<Props> = ({ steps = RECRUITMENT_PROCESS, labe
             if (!reduced && hash(gx, row, Math.floor(time * 9) + 97) < 0.22) continue;
             const h2 = hash(row, gx, index + 31);
             const near = sx - Lx < 10;
-            const colour = PALETTE[near ? 4 + Math.floor(h2 * 3) : Math.floor(h2 * h2 * 7)];
+            const colour = RAMP[near ? 4 + Math.floor(h2 * 3) : Math.floor(h2 * h2 * 7)];
             const jitterX = reduced ? 0 : (hash(gx, row + 1, index) - 0.5) * 1.6;
             const jitterY = reduced ? 0 : (hash(gx + 1, row, index) - 0.5) * 1.6;
             const size = 1.1 + h2 * 1.7;
@@ -311,7 +312,7 @@ export const DistillBelt: React.FC<Props> = ({ steps = RECRUITMENT_PROCESS, labe
             vy: (Math.random() - 0.5) * 50,
             size: 0.8 + Math.random() * 1.8,
             life: 0.3 + Math.random() * 0.8,
-            colour: PALETTE[Math.floor(Math.random() * PALETTE.length)],
+            colour: RAMP[Math.floor(Math.random() * RAMP.length)],
           });
         }
         for (let i = sparks.length - 1; i >= 0; i -= 1) {

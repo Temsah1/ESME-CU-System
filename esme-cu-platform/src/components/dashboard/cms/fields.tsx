@@ -8,7 +8,7 @@ import { Plus, Trash2 } from 'lucide-react';
  */
 
 const inputClass =
-  'w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-[#F59A16]/40 disabled:opacity-60';
+  'w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-accent/40 disabled:opacity-60';
 
 export const TextField: React.FC<{
   label: string;
@@ -59,7 +59,7 @@ export const Switch: React.FC<{
       aria-label={ariaLabel ?? label}
       checked={checked}
       onChange={(event) => onChange(event.target.checked)}
-      className="mt-0.5 w-4 h-4 accent-[#F59A16]"
+      className="mt-0.5 w-4 h-4 accent-orange"
     />
     <span className="min-w-0">
       <span className="block text-xs font-bold text-slate-700 dark:text-slate-300">{label}</span>
@@ -73,7 +73,7 @@ export const TinyButton: React.FC<
 > = ({ tone = 'neutral', className = '', ...rest }) => {
   const tones = {
     neutral: 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800',
-    brand: 'border-[#F59A16] text-[#D47F0A] dark:text-[#F59A16] hover:bg-amber-50 dark:hover:bg-amber-500/10',
+    brand: 'border-accent text-accent-strong dark:text-accent hover:bg-amber-50 dark:hover:bg-amber-500/10',
     danger: 'border-rose-200 dark:border-rose-500/40 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-500/10',
   };
   return (

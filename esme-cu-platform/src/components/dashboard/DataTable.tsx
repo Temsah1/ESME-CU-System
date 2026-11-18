@@ -1,10 +1,8 @@
 import React, { useState } from 'react';
 import { ArrowDown, ArrowUp, ChevronLeft, ChevronRight, Search, type LucideIcon } from 'lucide-react';
+import { cn } from '../../lib/cn';
 import { ModalShell, useIsDesktop, useStickyNonNull } from '../../motion';
 import { EmptyState } from '../EmptyState';
-
-/** The row's place in the entrance; the CSS caps the run at eight so a long page is never slow. */
-const rise = (index: number) => ({ '--i': String(index) }) as React.CSSProperties;
 
 export type DataTableColumn<T> = {
   key: string;
@@ -151,10 +149,10 @@ export function DataTable<T>({
   return (
     <div className="space-y-4">
       {(searchText || toolbar) && (
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 flex flex-wrap items-center gap-3">
+        <div className="bg-surface border border-border rounded-card p-3 sm:p-4 flex flex-wrap items-center gap-3 shadow-card">
           {searchText && (
             <div className="relative flex-1 min-w-[220px]">
-              <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" aria-hidden />
+              <Search className="w-4 h-4 text-ink-subtle absolute left-3.5 top-2.5" aria-hidden />
               <input
                 type="search"
                 value={term}
@@ -164,7 +162,7 @@ export function DataTable<T>({
                 }}
                 placeholder={searchPlaceholder}
                 aria-label={searchPlaceholder}
-                className="w-full pl-9 pr-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-xs bg-slate-50 dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-[#123B60]"
+                className="w-full pl-9 pr-4 py-2 rounded-control border border-border-strong text-caption text-ink bg-surface-sunken placeholder:text-ink-faint focus:outline-none focus:ring-2 focus:ring-focus focus:border-accent transition-colors"
               />
             </div>
           )}
@@ -173,15 +171,15 @@ export function DataTable<T>({
       )}
 
       {ordered.length === 0 ? (
-        <p className="text-xs text-slate-500 rounded-2xl border border-dashed border-slate-300 dark:border-slate-700 px-4 py-6 text-center">
+        <p className="text-caption text-ink-muted rounded-card border border-dashed border-border-strong px-4 py-8 text-center bg-surface-muted/20">
           {noMatchesLabel}
         </p>
       ) : (
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-sm">
+        <div className="bg-surface border border-border rounded-card overflow-hidden shadow-card">
           {isDesktop ? (
             <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs">
-                <thead className="bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800 text-slate-500 font-semibold uppercase tracking-wider text-[10px]">
+              <table className="w-full text-left text-caption">
+                <thead className="bg-surface-muted border-b border-border text-ink-muted font-bold uppercase tracking-wider text-micro">
                   <tr>
                     {columns.map((column) => {
                       const dir = sort?.key === column.key ? sort.dir : null;
@@ -195,14 +193,14 @@ export function DataTable<T>({
                           {column.sortValue ? (
                             <button
                               onClick={() => toggleSort(column)}
-                              className="inline-flex items-center gap-1 uppercase tracking-wider text-[10px] font-semibold hover:text-slate-800 dark:hover:text-slate-200"
+                              className="inline-flex items-center gap-1.5 uppercase tracking-wider text-micro font-bold hover:text-ink transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-focus rounded-sm"
                             >
                               {column.label}
                               {dir &&
                                 (dir === 'asc' ? (
-                                  <ArrowUp className="w-3 h-3" aria-hidden />
+                                  <ArrowUp className="w-3.5 h-3.5 text-accent" aria-hidden />
                                 ) : (
-                                  <ArrowDown className="w-3 h-3" aria-hidden />
+                                  <ArrowDown className="w-3.5 h-3.5 text-accent" aria-hidden />
                                 ))}
                             </button>
                           ) : (
@@ -218,23 +216,22 @@ export function DataTable<T>({
                     )}
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                  {shown.map((row, index) => (
+                <tbody className="divide-y divide-border">
+                  {shown.map((row) => (
                     <tr
                       key={rowKey(row)}
-                      style={rise(index)}
-                      className="dash-row hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition"
+                      className="hover:bg-tint-hover transition-colors duration-[100ms]"
                     >
                       {columns.map((column) => (
                         <td
                           key={column.key}
-                          className={`py-3.5 px-4 ${ALIGN[column.align ?? 'left']} ${column.cellClass ?? ''}`}
+                          className={cn("py-3 px-4 text-caption text-ink", ALIGN[column.align ?? 'left'], column.cellClass)}
                         >
                           {column.render(row)}
                         </td>
                       ))}
                       {showActions && (
-                        <td className="py-3.5 px-4">
+                        <td className="py-3 px-4">
                           <div className="flex items-center justify-end gap-1.5">
                             {actionsFor(row).map((action) => (
                               <RowActionButton key={action.key} action={action} row={row} onRequest={setConfirming} />
@@ -248,11 +245,11 @@ export function DataTable<T>({
               </table>
             </div>
           ) : (
-            <ul className="divide-y divide-slate-100 dark:divide-slate-800">
-              {shown.map((row, index) => (
-                <li key={rowKey(row)} style={rise(index)} className="dash-row p-4 space-y-3">
+            <ul className="divide-y divide-border">
+              {shown.map((row) => (
+                <li key={rowKey(row)} className="p-4 space-y-3 hover:bg-tint-hover transition-colors duration-[100ms]">
                   <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0 flex-1">{cardTitle ? cardTitle.render(row) : null}</div>
+                    <div className="min-w-0 flex-1 font-semibold text-ink">{cardTitle ? cardTitle.render(row) : null}</div>
                     <div className="flex items-center gap-1.5 shrink-0">
                       {actionsFor(row).map((action) => (
                         <RowActionButton key={action.key} action={action} row={row} onRequest={setConfirming} />
@@ -262,10 +259,10 @@ export function DataTable<T>({
                   <dl className="grid grid-cols-2 gap-x-3 gap-y-2">
                     {cardLines.map((column) => (
                       <div key={column.key} className="min-w-0">
-                        <dt className="text-[10px] uppercase tracking-wider font-semibold text-slate-400">
+                        <dt className="text-micro uppercase tracking-wider font-bold text-ink-subtle">
                           {column.label}
                         </dt>
-                        <dd className={`mt-0.5 text-xs ${column.cellClass ?? ''}`}>{column.render(row)}</dd>
+                        <dd className={cn("mt-0.5 text-caption text-ink", column.cellClass)}>{column.render(row)}</dd>
                       </div>
                     ))}
                   </dl>
@@ -275,7 +272,7 @@ export function DataTable<T>({
           )}
 
           {pageSize > 0 && ordered.length > pageSize && (
-            <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 border-t border-slate-200 dark:border-slate-800 text-[11px] text-slate-500">
+            <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 border-t border-border text-micro font-medium text-ink-muted bg-surface-muted/30">
               <span>
                 Showing {currentPage * pageSize + 1}–{currentPage * pageSize + shown.length} of {ordered.length}
               </span>
@@ -284,16 +281,16 @@ export function DataTable<T>({
                   onClick={() => setPage((p) => Math.max(0, p - 1))}
                   disabled={currentPage === 0}
                   aria-label="Previous page"
-                  className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 disabled:opacity-40"
+                  className="p-1.5 rounded-control border border-border-strong text-ink hover:bg-surface-muted disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus transition-colors"
                 >
                   <ChevronLeft className="w-4 h-4" aria-hidden />
                 </button>
-                <span className="px-1 font-semibold">Page {currentPage + 1} of {pages}</span>
+                <span className="px-1.5 font-bold text-ink">Page {currentPage + 1} of {pages}</span>
                 <button
                   onClick={() => setPage((p) => Math.min(pages - 1, p + 1))}
                   disabled={currentPage >= pages - 1}
                   aria-label="Next page"
-                  className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 disabled:opacity-40"
+                  className="p-1.5 rounded-control border border-border-strong text-ink hover:bg-surface-muted disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus transition-colors"
                 >
                   <ChevronRight className="w-4 h-4" aria-hidden />
                 </button>
@@ -306,18 +303,18 @@ export function DataTable<T>({
       <ModalShell
         open={confirming !== null}
         onClose={() => setConfirming(null)}
-        className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 max-w-md w-full shadow-2xl"
+        className="bg-surface border border-border rounded-sheet p-6 max-w-md w-full shadow-overlay"
       >
         {pendingConfirm && (
           <div className="space-y-4">
-            <h2 className="text-base font-bold text-slate-900 dark:text-white">{pendingConfirm.action.confirm?.title}</h2>
-            <p className="text-xs text-slate-500 leading-relaxed">
+            <h2 className="text-title font-extrabold text-ink-strong">{pendingConfirm.action.confirm?.title}</h2>
+            <p className="text-caption text-ink-muted leading-relaxed">
               {pendingConfirm.action.confirm?.body(pendingConfirm.row)}
             </p>
             <div className="flex items-center justify-end gap-3 pt-2">
               <button
                 onClick={() => setConfirming(null)}
-                className="px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-600 dark:text-slate-300"
+                className="px-4 py-2 rounded-control border border-border-strong text-caption font-bold text-ink-muted hover:text-ink hover:bg-surface-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus transition-colors"
               >
                 Cancel
               </button>
@@ -327,9 +324,12 @@ export function DataTable<T>({
                   setConfirming(null);
                   action.onClick(row);
                 }}
-                className={`px-4 py-2 rounded-xl text-xs font-bold text-white ${
-                  pendingConfirm.action.danger ? 'bg-rose-600 hover:bg-rose-700' : 'bg-[#123B60] hover:bg-[#0d2c48]'
-                }`}
+                className={cn(
+                  "px-4 py-2 rounded-control text-caption font-bold transition-colors shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus",
+                  pendingConfirm.action.danger
+                    ? "bg-danger-solid text-white hover:bg-danger-solid-hover"
+                    : "bg-accent text-slate-950 hover:bg-accent-hover"
+                )}
               >
                 {pendingConfirm.action.confirm?.confirmLabel ?? 'Confirm'}
               </button>
@@ -363,13 +363,16 @@ function RowActionButton<T>({
       disabled={disabled}
       title={action.label}
       aria-label={labelled ? undefined : action.label}
-      className={`inline-flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-[11px] font-semibold transition disabled:opacity-40 ${
+      className={cn(
+        "inline-flex items-center gap-1.5 rounded-control px-2.5 py-1.5 text-micro font-bold transition-colors disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus",
         labelled
           ? action.danger
-            ? 'border border-rose-200 dark:border-rose-900 text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/20'
-            : 'border border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
-          : 'text-slate-400 hover:text-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800'
-      } ${!labelled && action.danger ? 'hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/20' : ''}`}
+            ? "border border-danger/30 text-danger hover:bg-danger/10"
+            : "border border-border-strong text-ink-muted hover:text-ink hover:bg-surface-muted"
+          : action.danger
+            ? "text-danger hover:bg-danger/10"
+            : "text-ink-muted hover:text-ink hover:bg-surface-muted"
+      )}
     >
       <Icon className="w-3.5 h-3.5" aria-hidden />
       {labelled && action.label}

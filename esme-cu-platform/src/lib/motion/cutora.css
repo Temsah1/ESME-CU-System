@@ -11,10 +11,10 @@
  */
 .cutora {
   --u: max(0.62px, min(calc(100vw / 1672), calc(100dvh / 941)));
-  --amber: #f59a16;
-  --ink: #0b0b0d;
-  --paper: #f6f3ee;
-  --text: #171310;
+  --amber: var(--esme-orange);
+  --ink: var(--esme-ink-700);
+  --paper: var(--esme-paper-300);
+  --text: var(--esme-ink-400);
   min-height: 100vh;
   min-height: 100dvh;
   display: flex;
@@ -23,8 +23,8 @@
   color: var(--text);
 }
 .cutora[data-tone='dark'] {
-  --paper: #0b0a0c;
-  --text: #f8f5f0;
+  --paper: var(--esme-ink-600);
+  --text: var(--esme-paper-100);
 }
 
 /* --- the entrance: one keyframe, seventeen staged users -------------------------------- */
@@ -158,10 +158,10 @@
   border-radius: calc(var(--u) * 34);
   min-height: calc(var(--u) * 520);
   padding: calc(var(--u) * 60) calc(var(--u) * 54);
-  color: #f8f5f0;
-  background: radial-gradient(120% 90% at 12% 8%, #3a2a1c 0%, transparent 55%),
-    radial-gradient(90% 80% at 92% 22%, #55381d 0%, transparent 52%),
-    radial-gradient(140% 120% at 50% 120%, #1b1512 0%, transparent 60%), #171310;
+  color: var(--esme-paper-100);
+  background: radial-gradient(120% 90% at 12% 8%, var(--esme-wood-500) 0%, transparent 55%),
+    radial-gradient(90% 80% at 92% 22%, var(--esme-wood-400) 0%, transparent 52%),
+    radial-gradient(140% 120% at 50% 120%, var(--esme-ink-300) 0%, transparent 60%), var(--esme-ink-400);
   display: flex;
   flex-direction: column;
   justify-content: flex-end;
@@ -271,7 +271,7 @@
   justify-self: center;
   border-radius: calc(var(--u) * 26);
   border: 1px solid rgba(15, 23, 42, 0.08);
-  background: #ffffff;
+  background: var(--esme-white);
   box-shadow: 0 calc(var(--u) * 40) calc(var(--u) * 90) -50px rgba(23, 19, 16, 0.45);
   padding: calc(var(--u) * 40);
   display: flex;
@@ -279,9 +279,9 @@
   gap: calc(var(--u) * 14);
 }
 .cutora[data-tone='dark'] .cut-card {
-  background: #0f0e11;
+  background: var(--esme-ink-500);
   border-color: rgba(255, 255, 255, 0.08);
-  color: #f8f5f0;
+  color: var(--esme-paper-100);
   box-shadow: 0 calc(var(--u) * 40) calc(var(--u) * 90) -50px rgba(0, 0, 0, 0.7);
 }
 .cut-h {
@@ -320,26 +320,26 @@
 .cut-msg > p[data-kind='error'] {
   background: rgba(190, 40, 60, 0.09);
   border: 1px solid rgba(190, 40, 60, 0.28);
-  color: #8f1f2e;
+  color: var(--esme-red);
 }
 .cut-msg > p[data-kind='notice'] {
   background: rgba(245, 154, 22, 0.1);
   border: 1px solid rgba(245, 154, 22, 0.32);
-  color: #7a4d05;
+  color: var(--esme-orange-ink);
 }
 .cut-msg > p[data-kind='info'] {
   background: rgba(16, 140, 90, 0.09);
   border: 1px solid rgba(16, 140, 90, 0.28);
-  color: #0d6b45;
+  color: var(--esme-green-dark);
 }
 .cutora[data-tone='dark'] .cut-msg > p[data-kind='error'] {
-  color: #ffb3bd;
+  color: var(--esme-red-pale);
 }
 .cutora[data-tone='dark'] .cut-msg > p[data-kind='notice'] {
-  color: #ffd8a0;
+  color: var(--esme-ember-400);
 }
 .cutora[data-tone='dark'] .cut-msg > p[data-kind='info'] {
-  color: #a6e6c5;
+  color: var(--esme-green-pale);
 }
 @keyframes cutora-fade {
   from {
@@ -394,7 +394,7 @@
 }
 .cutora[data-tone='dark'] .cut-field input {
   border-color: rgba(255, 255, 255, 0.16);
-  color: #f8f5f0;
+  color: var(--esme-paper-100);
 }
 .cutora[data-tone='dark'] .cut-field input::placeholder {
   color: rgba(248, 245, 240, 0.34);
@@ -502,7 +502,7 @@
 }
 .cut-check .tick {
   fill: none;
-  stroke: #ffffff;
+  stroke: var(--esme-white);
   stroke-width: 2.2;
   stroke-linecap: round;
   stroke-linejoin: round;
@@ -521,11 +521,11 @@
   stroke: rgba(248, 245, 240, 0.34);
 }
 .cutora[data-tone='dark'] .cut-check input:checked ~ svg .box {
-  fill: #f8f5f0;
-  stroke: #f8f5f0;
+  fill: var(--esme-paper-100);
+  stroke: var(--esme-paper-100);
 }
 .cutora[data-tone='dark'] .cut-check input:checked ~ svg .tick {
-  stroke: #0f0e11;
+  stroke: var(--esme-ink-500);
 }
 .cut-check input:focus-visible ~ svg {
   outline: 2px solid var(--amber);
@@ -656,7 +656,7 @@
 }
 .cutora[data-tone='dark'] .cut-pre {
   background: rgba(255, 255, 255, 0.06);
-  color: #f8f5f0;
+  color: var(--esme-paper-100);
 }
 .cut-link {
   border: none;

@@ -90,7 +90,7 @@ export const PointsAndLeaderboard: React.FC = () => {
             <button
               onClick={() => setSelectedTab('leaderboard')}
               className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${
-                selectedTab === 'leaderboard' ? 'bg-[#123B60] text-white' : 'text-slate-500'
+                selectedTab === 'leaderboard' ? 'bg-brand text-white' : 'text-slate-500'
               }`}
             >
               Leaderboard
@@ -98,7 +98,7 @@ export const PointsAndLeaderboard: React.FC = () => {
             <button
               onClick={() => setSelectedTab('ledger')}
               className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${
-                selectedTab === 'ledger' ? 'bg-[#123B60] text-white' : 'text-slate-500'
+                selectedTab === 'ledger' ? 'bg-brand text-white' : 'text-slate-500'
               }`}
             >
               Scoring Ledger ({visibleLedger.length})
@@ -106,7 +106,7 @@ export const PointsAndLeaderboard: React.FC = () => {
             <button
               onClick={() => setSelectedTab('policy')}
               className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${
-                selectedTab === 'policy' ? 'bg-[#123B60] text-white' : 'text-slate-500'
+                selectedTab === 'policy' ? 'bg-brand text-white' : 'text-slate-500'
               }`}
             >
               How this is scored
@@ -117,7 +117,7 @@ export const PointsAndLeaderboard: React.FC = () => {
             <button
               onClick={openAdjustModal}
               disabled={visibleUsers.length === 0}
-              className="px-4 py-2 bg-[#F59A16] hover:bg-[#D47F0A] disabled:opacity-50 text-white text-xs font-bold rounded-xl shadow-md transition flex items-center gap-1.5"
+              className="px-4 py-2 bg-accent hover:bg-accent-strong disabled:opacity-50 text-white text-xs font-bold rounded-xl shadow-md transition flex items-center gap-1.5"
             >
               <PlusCircle className="w-4 h-4" />
               Adjust Points
@@ -146,36 +146,36 @@ export const PointsAndLeaderboard: React.FC = () => {
             {sortedUsers.slice(0, 3).map((u, idx) => (
               <div
                 key={u.id}
-                className={`p-6 rounded-3xl border relative overflow-hidden flex flex-col justify-between ${
-                  idx === 0 
-                    ? 'bg-gradient-to-br from-amber-500/10 via-amber-500/5 to-transparent border-amber-300 dark:border-amber-700' 
-                    : idx === 1 
-                      ? 'bg-gradient-to-br from-slate-400/10 via-slate-400/5 to-transparent border-slate-300 dark:border-slate-700'
-                      : 'bg-gradient-to-br from-orange-400/10 via-orange-400/5 to-transparent border-orange-300 dark:border-orange-800'
+                className={`p-6 rounded-sheet border relative overflow-hidden flex flex-col justify-between ${
+                  idx === 0
+                    ? 'bg-gradient-to-br from-accent/15 via-accent/5 to-transparent border-accent/40'
+                    : idx === 1
+                      ? 'bg-gradient-to-br from-border-strong/50 via-border-strong/15 to-transparent border-border-strong'
+                      : 'bg-gradient-to-br from-wood/15 via-wood/5 to-transparent border-wood/40'
                 }`}
               >
                 <div className="flex items-center justify-between">
-                  <span className={`w-8 h-8 rounded-xl flex items-center justify-center font-black text-xs ${
-                    idx === 0 ? 'bg-amber-500 text-white' : idx === 1 ? 'bg-slate-400 text-white' : 'bg-orange-600 text-white'
+                  {/* The rank chip carries the medal colour; the ink on it is the readable member of
+                      the pair in both themes, which white on amber and white on silver never were. */}
+                  <span className={`w-8 h-8 rounded-control flex items-center justify-center font-black text-caption font-numbers ${
+                    idx === 0 ? 'bg-accent text-slate-950' : idx === 1 ? 'bg-border-strong text-ink-strong' : 'bg-wood text-white'
                   }`}>
                     #{idx + 1}
                   </span>
-                  <Award className={`w-6 h-6 ${
-                    idx === 0 ? 'text-amber-500' : idx === 1 ? 'text-slate-400' : 'text-orange-500'
-                  }`} />
+                  <Award className="w-6 h-6 text-ink-muted" aria-hidden />
                 </div>
 
                 <div className="mt-4">
-                  <h2 className="text-base font-black text-slate-900 dark:text-white">{u.name}</h2>
-                  <p className="text-xs text-slate-500">
+                  <h2 className="text-lead font-extrabold text-ink-strong tracking-tight">{u.name}</h2>
+                  <p className="text-caption text-ink-muted mt-1">
                     {u.role.replace('_', ' ')}
-                    {u.department ? ` • ${u.department}` : ' • department not recorded'}
+                    {u.department ? ` · ${u.department}` : ' · department not recorded'}
                   </p>
                 </div>
 
-                <div className="mt-4 pt-3 border-t border-slate-200/60 dark:border-slate-700/60 flex items-center justify-between text-xs">
-                  <span className="text-slate-500">{u.approvedTasksCount} approved tasks</span>
-                  <span className="font-extrabold text-base text-[#F59A16]">{u.totalPoints} pts</span>
+                <div className="mt-4 pt-3 border-t border-border flex items-center justify-between gap-3 text-caption">
+                  <span className="text-ink-muted">{u.approvedTasksCount} approved tasks</span>
+                  <span className="font-extrabold text-lead text-ink-accent font-numbers">{u.totalPoints} pts</span>
                 </div>
               </div>
             ))}
@@ -203,7 +203,7 @@ export const PointsAndLeaderboard: React.FC = () => {
                     onChange={(e) => setSearchTerm(e.target.value)}
                     placeholder="Search by name"
                     aria-label="Search the ranking by member name"
-                    className="pl-8 pr-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs outline-none focus:ring-2 focus:ring-[#123B60]"
+                    className="pl-8 pr-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs outline-none focus:ring-2 focus:ring-brand"
                   />
                 </div>
                 {visibleUsers.some((u) => u.committeeId) && (
@@ -252,7 +252,7 @@ export const PointsAndLeaderboard: React.FC = () => {
                     </td>
                     <td className="py-3 px-4 capitalize text-slate-600 dark:text-slate-300">{u.role.replace('_', ' ')}</td>
                     <td className="py-3 px-4 text-center font-semibold text-slate-700 dark:text-slate-300">{u.approvedTasksCount}</td>
-                    <td className="py-3 px-4 text-right font-black text-[#F59A16] text-sm">{u.totalPoints} pts</td>
+                    <td className="py-3 px-4 text-right font-black text-accent text-sm">{u.totalPoints} pts</td>
                   </tr>
                 ))}
               </tbody>
@@ -366,7 +366,7 @@ export const PointsAndLeaderboard: React.FC = () => {
                   value={pointsChange}
                   onChange={(e) => setPointsChange(Number(e.target.value))}
                   placeholder="e.g. 50 or -20"
-                  className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 font-bold text-[#F59A16] outline-none"
+                  className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 font-bold text-accent outline-none"
                 />
               </div>
 
@@ -392,7 +392,7 @@ export const PointsAndLeaderboard: React.FC = () => {
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 bg-[#123B60] text-white font-bold rounded-xl"
+                  className="px-5 py-2 bg-brand text-white font-bold rounded-xl"
                 >
                   Commit Adjustment
                 </button>

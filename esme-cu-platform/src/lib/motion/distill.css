@@ -5,10 +5,10 @@
  * resize; the belt itself is a transform-only loop, so nothing here reflows while it runs.
  */
 .distill {
-  --hot: #ff5a1f;
-  --hot-soft: #ffe1d3;
-  --code: #7a7f88;
-  --comment: #b3b8bf;
+  --hot: var(--esme-ember-1000);
+  --hot-soft: var(--esme-ember-500);
+  --code: var(--esme-stone-600);
+  --comment: var(--esme-stone-400);
   --cw: 46vw;
   --ch: 52vh;
   --gap: 4.75vw;
@@ -34,8 +34,8 @@
 .distill .codes {
   position: absolute;
   inset: 0;
-  -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 24vw);
-  mask-image: linear-gradient(90deg, transparent 0, #000 24vw);
+  -webkit-mask-image: linear-gradient(90deg, transparent 0, var(--esme-black) 24vw);
+  mask-image: linear-gradient(90deg, transparent 0, var(--esme-black) 24vw);
 }
 .distill .cards,
 .distill .codes {
@@ -65,7 +65,7 @@
   container-type: inline-size;
   border-radius: 1.6vw;
   overflow: hidden;
-  background: linear-gradient(150deg, #ffffff 0%, #f4f1ec 60%, #e9e4db 100%);
+  background: linear-gradient(150deg, var(--esme-white) 0%, var(--esme-paper-400) 60%, var(--esme-paper-700) 100%);
   border: 1px solid rgba(15, 23, 42, 0.08);
   box-shadow: 0 24px 50px -34px rgba(15, 23, 42, 0.5);
   padding: 2cqw 2.4cqw;
@@ -85,13 +85,13 @@
   line-height: 0.94;
   font-weight: 700;
   letter-spacing: -0.02em;
-  color: #16181d;
+  color: var(--esme-ink-200);
   font-family: 'Newsreader', Georgia, serif;
 }
 .distill .card p {
   font-size: 3.1cqw;
   line-height: 1.5;
-  color: #5b6068;
+  color: var(--esme-stone-700);
   max-width: 30ch;
 }
 .distill .card .rail {
@@ -142,7 +142,7 @@
   bottom: 0;
   width: 4px;
   border-radius: 4px;
-  background: linear-gradient(#ff7a3c, #ff5a1f 12%, #ff5a1f 88%, #ff7a3c);
+  background: linear-gradient(var(--esme-ember-800), var(--esme-ember-1000) 12%, var(--esme-ember-1000) 88%, var(--esme-ember-800));
   box-shadow:
     0 0 10px 2px rgba(255, 90, 31, 0.85),
     0 0 34px 10px rgba(255, 90, 31, 0.38);
@@ -168,7 +168,7 @@
 }
 .distill .badge .label {
   font-size: 11.5px;
-  color: #8a8f98;
+  color: var(--esme-stone-500);
   letter-spacing: 0.06em;
 }
 .distill .badge .pill {
@@ -183,7 +183,7 @@
 }
 .distill .badge .num {
   background: var(--hot);
-  color: #fff;
+  color: var(--esme-white);
   padding: 0 11px 0 13px;
   min-width: 8.2ch;
   text-align: right;
@@ -193,7 +193,7 @@
 }
 .distill .badge .pct {
   background: var(--hot-soft);
-  color: #d9430f;
+  color: var(--esme-ember-1300);
   font-size: 11px;
   padding: 0 12px 0 10px;
   display: flex;
@@ -212,8 +212,8 @@
     --top: 54svh;
   }
   .distill .codes {
-    -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 30vw);
-    mask-image: linear-gradient(90deg, transparent 0, #000 30vw);
+    -webkit-mask-image: linear-gradient(90deg, transparent 0, var(--esme-black) 30vw);
+    mask-image: linear-gradient(90deg, transparent 0, var(--esme-black) 30vw);
   }
 }
 @media (prefers-reduced-motion: reduce) {

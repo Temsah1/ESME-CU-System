@@ -247,7 +247,7 @@ export const ModeratorTools: React.FC = () => {
 
         <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm space-y-2">
           <span className="flex items-center gap-1.5 text-xs font-bold text-slate-700 dark:text-slate-300">
-            <History className="w-4 h-4 text-[#F59A16]" /> Audit entries
+            <History className="w-4 h-4 text-accent" /> Audit entries
           </span>
           <div className="text-sm font-black text-slate-900 dark:text-white">{auditLogs.length}</div>
           <p className="text-[11px] text-slate-400">
@@ -259,7 +259,7 @@ export const ModeratorTools: React.FC = () => {
       {/* Seeded test accounts */}
       <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm space-y-4">
         <div className="flex items-start gap-2.5">
-          <div className="p-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-[#123B60] dark:text-[#F59A16]">
+          <div className="p-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-brand dark:text-accent">
             <UserRoundCog className="w-5 h-5" aria-hidden />
           </div>
           <div>
@@ -320,7 +320,7 @@ export const ModeratorTools: React.FC = () => {
               type="button"
               onClick={runSeedTesters}
               disabled={testAccountBusy}
-              className="px-4 py-2 bg-[#123B60] hover:bg-[#0A2239] disabled:opacity-50 text-white text-xs font-bold rounded-xl transition flex items-center gap-2"
+              className="px-4 py-2 bg-brand hover:bg-brand-ink disabled:opacity-50 text-white text-xs font-bold rounded-xl transition flex items-center gap-2"
             >
               <RotateCcw className="w-3.5 h-3.5" aria-hidden />
               Seed or reset test accounts
@@ -336,7 +336,7 @@ export const ModeratorTools: React.FC = () => {
               type="button"
               onClick={() => setConfirmDelete(true)}
               disabled={testAccountBusy}
-              className="px-4 py-2 bg-rose-600 hover:bg-rose-700 disabled:opacity-50 text-white text-xs font-bold rounded-xl transition flex items-center gap-2"
+              className="px-4 py-2 bg-danger-solid hover:bg-danger-solid-hover disabled:opacity-50 text-white text-xs font-bold rounded-xl transition flex items-center gap-2"
             >
               <Trash2 className="w-3.5 h-3.5" aria-hidden />
               Delete test accounts
@@ -345,7 +345,7 @@ export const ModeratorTools: React.FC = () => {
         </div>
 
         {testAccountError && (
-          <p className="text-xs text-rose-700 dark:text-rose-300 inline-flex items-start gap-1.5">
+          <p className="text-xs text-danger inline-flex items-start gap-1.5">
             <CircleX className="w-4 h-4 mt-0.5 shrink-0" aria-hidden />
             {testAccountError}
           </p>
@@ -354,7 +354,7 @@ export const ModeratorTools: React.FC = () => {
         {seedReport && (
           <div className="rounded-xl border border-slate-200 dark:border-slate-700 p-4 text-xs space-y-2">
             {seedReport.refusal ? (
-              <p className="font-mono text-[11px] text-amber-800 dark:text-amber-300 leading-relaxed whitespace-pre-wrap">
+              <p className="font-mono text-[11px] text-ink-accent leading-relaxed whitespace-pre-wrap">
                 {seedReport.refusal}
               </p>
             ) : (
@@ -373,12 +373,12 @@ export const ModeratorTools: React.FC = () => {
                     <li key={`d-${email}`}>deleted · {email}</li>
                   ))}
                   {seedReport.conflicts.map((c) => (
-                    <li key={`x-${c.fixtureKey}`} className="text-rose-700 dark:text-rose-300">
+                    <li key={`x-${c.fixtureKey}`} className="text-danger">
                       refused · {c.reason}
                     </li>
                   ))}
                   {seedReport.unresolvedCommittees.map((id) => (
-                    <li key={`u-${id}`} className="text-amber-700 dark:text-amber-300">
+                    <li key={`u-${id}`} className="text-ink-accent">
                       unseated · this workspace has no committee “{id}”, so the tester was created without one
                     </li>
                   ))}
@@ -417,13 +417,13 @@ export const ModeratorTools: React.FC = () => {
           <p className="text-[11px] text-slate-400">
             Resolves every foreign key between profiles, committees, tasks, submissions and the points ledger.
             {integrity.length > 0 && (
-              <span className="text-rose-600 font-bold"> {integrity.length} unresolved reference(s) right now.</span>
+              <span className="text-danger font-bold"> {integrity.length} unresolved reference(s) right now.</span>
             )}
           </p>
         </div>
         <button
           onClick={runVerification}
-          className="px-4 py-2 bg-[#123B60] hover:bg-[#0A2239] text-white text-xs font-bold rounded-xl transition flex items-center gap-2 self-start sm:self-auto"
+          className="px-4 py-2 bg-brand hover:bg-brand-ink text-white text-xs font-bold rounded-xl transition flex items-center gap-2 self-start sm:self-auto"
         >
           <CircleCheck className="w-3.5 h-3.5" />
           Run verification
@@ -448,7 +448,7 @@ export const ModeratorTools: React.FC = () => {
           ) : (
             <ul className="text-xs space-y-1.5">
               {report.findings.map((f, i) => (
-                <li key={`${f.table}-${f.id}-${i}`} className="flex items-start gap-2 text-rose-700 dark:text-rose-300">
+                <li key={`${f.table}-${f.id}-${i}`} className="flex items-start gap-2 text-danger">
                   <CircleX className="w-3.5 h-3.5 mt-0.5 shrink-0" aria-hidden />
                   <span>
                     <span className="font-mono text-[10px]">{f.table}</span> · {f.id} — {f.problem}
@@ -466,7 +466,7 @@ export const ModeratorTools: React.FC = () => {
         className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 max-w-md w-full shadow-2xl space-y-4"
       >
         <div className="flex items-center gap-2.5">
-          <div className="p-2 rounded-xl bg-rose-50 dark:bg-rose-950/30 text-rose-600">
+          <div className="p-2 rounded-control bg-danger/10 text-danger">
             <ShieldAlert className="w-5 h-5" aria-hidden />
           </div>
           <h2 className="text-base font-bold text-slate-900 dark:text-white">Delete the seeded test accounts?</h2>
@@ -487,7 +487,7 @@ export const ModeratorTools: React.FC = () => {
           <button
             type="button"
             onClick={runDeleteTesters}
-            className="px-5 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold transition"
+            className="px-5 py-2 bg-danger-solid hover:bg-danger-solid-hover text-white rounded-xl text-xs font-bold transition"
           >
             Delete the three testers
           </button>

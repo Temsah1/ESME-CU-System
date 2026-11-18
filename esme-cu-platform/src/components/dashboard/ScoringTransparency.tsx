@@ -35,7 +35,7 @@ import { useToast } from '../../motion';
  */
 
 const fieldClass =
-  'w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs outline-none focus:ring-2 focus:ring-[#123B60]';
+  'w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs outline-none focus:ring-2 focus:ring-brand';
 const labelClass = 'block text-[11px] font-bold text-slate-600 dark:text-slate-300 mb-1';
 
 const cardClass =
@@ -158,7 +158,7 @@ const AppealDecision: React.FC<{ appeal: ScoreAppeal; mayDecide: boolean }> = ({
         placeholder="Note for the member (at least 10 characters)"
         className={fieldClass}
       />
-      <button type="submit" className="px-3 py-1.5 rounded-xl bg-[#123B60] text-white text-[11px] font-bold">
+      <button type="submit" className="px-3 py-1.5 rounded-xl bg-brand text-white text-[11px] font-bold">
         Record decision
       </button>
     </form>
@@ -290,7 +290,7 @@ export const ScoringTransparency: React.FC<{ members: User[] }> = ({ members }) 
             </p>
           </div>
           <div className="text-right">
-            <div className="text-2xl font-black text-[#F59A16]">{score?.total === null ? '—' : `${score?.total}%`}</div>
+            <div className="text-2xl font-black text-accent">{score?.total === null ? '—' : `${score?.total}%`}</div>
             <div className="text-[10px] text-slate-400">weighted average of measurable criteria</div>
           </div>
         </div>
@@ -494,7 +494,7 @@ export const ScoringTransparency: React.FC<{ members: User[] }> = ({ members }) 
             />
           </div>
           <div className="flex justify-end">
-            <button type="submit" className="px-4 py-2 rounded-xl bg-[#F59A16] hover:bg-[#D47F0A] text-white text-xs font-bold flex items-center gap-1.5">
+            <button type="submit" className="px-4 py-2 rounded-xl bg-accent hover:bg-accent-strong text-white text-xs font-bold flex items-center gap-1.5">
               <Gavel className="w-3.5 h-3.5" aria-hidden />
               File review request
             </button>
