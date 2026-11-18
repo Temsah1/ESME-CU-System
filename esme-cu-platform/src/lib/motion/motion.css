@@ -317,13 +317,33 @@ button:hover .logo-mark {
   background: linear-gradient(90deg, var(--esme-navy), var(--esme-orange));
   transition: width 0.5s var(--ease);
 }
-/* A refusal says so twice: the line fades in, and the control that carries it shakes no further
-   than 6px for 300ms. Transform only — the fields under it never move. */
+/* A refusal says so twice (§2.8): the message unrolls from zero height so the fields under it are
+   eased apart rather than shoved, and the control that carries it shakes no further than 4px for
+   300ms. Transform and grid-rows only — nothing below jumps. */
+.reg-error-wrap {
+  display: grid;
+  grid-template-rows: 1fr;
+  animation: reg-unroll 0.2s var(--ease-out, var(--ease)) backwards;
+}
+.reg-error-wrap > * {
+  overflow: hidden;
+  min-height: 0;
+}
 .reg-error {
-  animation: reg-fade 0.3s var(--ease) backwards;
+  animation: reg-fade 0.2s var(--ease-out, var(--ease)) backwards;
 }
 .reg-field[data-refused='1'] {
   animation: reg-shake 0.3s cubic-bezier(0.36, 0.07, 0.19, 0.97);
+}
+@keyframes reg-unroll {
+  from {
+    grid-template-rows: 0fr;
+    opacity: 0;
+  }
+  to {
+    grid-template-rows: 1fr;
+    opacity: 1;
+  }
 }
 @keyframes reg-fade {
   from {
@@ -339,13 +359,13 @@ button:hover .logo-mark {
     transform: translateX(0);
   }
   15% {
-    transform: translateX(-6px);
+    transform: translateX(-4px);
   }
   30% {
-    transform: translateX(5px);
+    transform: translateX(4px);
   }
   45% {
-    transform: translateX(-4px);
+    transform: translateX(-3px);
   }
   60% {
     transform: translateX(3px);
@@ -424,8 +444,12 @@ button:hover .logo-mark {
     stroke-dashoffset: 0 !important;
   }
   .reg-error,
+  .reg-error-wrap,
   .reg-field[data-refused='1'] {
     animation: none !important;
+  }
+  .reg-error-wrap {
+    grid-template-rows: 1fr;
   }
   .media.kb {
     animation: none;

@@ -5,7 +5,7 @@ import { useApp, useActor } from '../../context/AppContext';
 import { scopeFor } from '../../domain/roles';
 import { NAV_BY_ID, NAV_SECTIONS, type NavItem } from './nav';
 import { CommandPalette } from './CommandPalette';
-import { DrawerShell, transitions, useHasNavRail, useHasRoomForNavLabels } from '../../motion';
+import { DrawerShell, transitions, routeShift, useHasNavRail, useHasRoomForNavLabels } from '../../motion';
 import { cn } from '../../lib/cn';
 
 export type DashboardView =
@@ -569,10 +569,10 @@ export const DashboardShell: React.FC<DashboardShellProps> = ({
             <AnimatePresence mode="wait">
               <motion.div
                 key={currentView}
-                initial={{ opacity: 0, y: 12 }}
+                initial={{ opacity: 0, y: routeShift.in }}
                 animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -8 }}
-                transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
+                exit={{ opacity: 0, y: -routeShift.out, transition: transitions.routeOut }}
+                transition={transitions.routeIn}
               >
                 {children}
               </motion.div>

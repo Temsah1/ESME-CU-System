@@ -1,4 +1,4 @@
-export { durations, easings, transitions, viewport, stagger, interaction } from './tokens';
+export { durations, easings, transitions, viewport, stagger, interaction, routeShift } from './tokens';
 export { fadeUp, fadeUpSoft, fadeIn, scaleIn, growX, staggerGroup, groupItem, groupItemScale, wordItem } from './variants';
 export {
   useIsTouch,

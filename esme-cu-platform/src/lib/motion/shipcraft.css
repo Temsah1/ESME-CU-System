@@ -229,7 +229,7 @@
 }
 @media (min-width: 900px) {
   .ship-foot {
-    grid-template-columns: 1.4fr repeat(3, 1fr) 1.2fr;
+    grid-template-columns: 1.4fr repeat(4, 1fr) 1.2fr;
     padding: calc(var(--u) * 72) calc(var(--u) * 64) calc(var(--u) * 40);
   }
 }
@@ -284,15 +284,47 @@
   border: 1px solid rgba(255, 255, 255, 0.12);
   color: rgba(246, 244, 241, 0.72);
   transition:
-    transform 0.5s var(--ease),
-    color 0.5s var(--ease),
-    border-color 0.5s var(--ease);
+    transform 0.15s var(--ease),
+    color 0.15s var(--ease),
+    border-color 0.15s var(--ease);
 }
 .ship-social a:hover,
 .ship-social a:focus-visible {
   transform: translateY(-3px);
   color: var(--esme-ember-1200);
-  border-color: rgba(245, 154, 22, 0.5);
+  border-color: color-mix(in srgb, var(--esme-ember-1200) 55%, transparent);
+}
+/* Each platform answers in its own hue, drawn from the palette the site already owns: Instagram's
+   pink, WhatsApp's green, LinkedIn and Facebook's blues, Drive's amber band, TikTok's white mark. */
+.ship-social a[data-platform='tiktok']:hover,
+.ship-social a[data-platform='tiktok']:focus-visible {
+  color: var(--esme-white);
+  border-color: color-mix(in srgb, var(--esme-white) 55%, transparent);
+}
+.ship-social a[data-platform='instagram']:hover,
+.ship-social a[data-platform='instagram']:focus-visible {
+  color: var(--esme-pink);
+  border-color: color-mix(in srgb, var(--esme-pink) 55%, transparent);
+}
+.ship-social a[data-platform='linkedin']:hover,
+.ship-social a[data-platform='linkedin']:focus-visible {
+  color: var(--esme-blue-pale);
+  border-color: color-mix(in srgb, var(--esme-blue-pale) 55%, transparent);
+}
+.ship-social a[data-platform='facebook']:hover,
+.ship-social a[data-platform='facebook']:focus-visible {
+  color: var(--esme-indigo);
+  border-color: color-mix(in srgb, var(--esme-indigo) 60%, transparent);
+}
+.ship-social a[data-platform='whatsapp']:hover,
+.ship-social a[data-platform='whatsapp']:focus-visible {
+  color: var(--esme-green);
+  border-color: color-mix(in srgb, var(--esme-green) 55%, transparent);
+}
+.ship-social a[data-platform='drive']:hover,
+.ship-social a[data-platform='drive']:focus-visible {
+  color: var(--esme-ember-1200);
+  border-color: color-mix(in srgb, var(--esme-ember-1200) 55%, transparent);
 }
 
 /* Newsletter: glass field, arrow that becomes a check for 1.5s. */

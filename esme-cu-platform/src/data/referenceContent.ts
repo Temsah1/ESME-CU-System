@@ -7,6 +7,7 @@ import type {
 } from '../types';
 import { DOCUMENT_VERSION, SECTION_KEYS } from '../domain/cms';
 import type { CommitteeMembershipAnswer } from '../domain/registration';
+import { OFFICIAL_SOCIALS } from '../config/externalLinks';
 
 /**
  * OFFICIAL CHAPTER REFERENCE CONTENT — not demo data.
@@ -481,8 +482,9 @@ export const REFERENCE_WEBSITE_CONTENT: WebsiteContentConfig = {
     copyright: '© 2026 ESME CU Chapter. All Rights Reserved.',
     links: []
   },
-  // The chapter's public handle is confirmed; the profile URL behind it is not, so none is invented.
-  socials: [{ id: 'social_primary', network: '', handle: '@ESME_Cairo', url: '', visible: true }],
+  // The chapter's four official profiles, with the addresses it published. The placeholder that
+  // carried a handle but no URL is gone; the footer and the contact band now open the real pages.
+  socials: OFFICIAL_SOCIALS,
   // No media asset is chosen, so each image slot draws the asset bundled with this build.
   images: {}
 };

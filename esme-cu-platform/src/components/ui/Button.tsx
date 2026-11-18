@@ -6,25 +6,28 @@ export type ButtonVariant = 'accent' | 'brand' | 'outline' | 'ghost' | 'danger';
 export type ButtonSize = 'sm' | 'md' | 'lg';
 
 const base =
-  'relative inline-flex items-center justify-center gap-2 rounded-control font-bold whitespace-nowrap ' +
-  'transition-[background-color,border-color,color,box-shadow,filter,transform] duration-micro ease-smooth ' +
-  'motion-safe:active:scale-[0.98] motion-reduce:active:scale-100 ' +
+  'group relative inline-flex items-center justify-center gap-2 rounded-control font-bold whitespace-nowrap ' +
+  'transition-[background-color,border-color,color,box-shadow,filter,transform] duration-micro ease-smooth active:duration-[80ms] ' +
+  'motion-safe:active:scale-[0.98] motion-safe:active:translate-y-0 motion-reduce:active:scale-100 ' +
   'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg ' +
   'disabled:opacity-50 disabled:pointer-events-none';
+
+// A primary action lifts 1px and deepens its shadow on hover (§2.4); secondary variants stay put.
+const lift = 'motion-safe:hover:-translate-y-px hover:shadow-raised';
 
 const variants: Record<ButtonVariant, string> = {
   // Orange is the chapter's action colour: it is what a screen points at when it wants a decision.
   // The label on it is near-black, not white — brand orange against white lands around 2:1, which
   // fails AA even for the bold 12px these buttons ship, while against slate-950 it reaches 7:1.
   // Same palette, one step darker for the ink, and the button stays unmistakably ESME.
-  accent: 'bg-accent text-slate-950 hover:bg-accent-hover shadow-sm',
-  brand: 'bg-brand text-white hover:bg-brand-hover shadow-sm',
+  accent: `bg-accent text-slate-950 hover:bg-accent-hover shadow-sm ${lift}`,
+  brand: `bg-brand text-white hover:bg-brand-hover shadow-sm ${lift}`,
   outline: 'bg-surface text-ink border border-border-strong hover:border-accent',
   ghost: 'text-ink-muted hover:bg-surface-muted hover:text-ink',
   // `danger` is an ink token that pales on slate, so a destructive *fill* uses the solid role:
   // white on `--esme-red` clears 8:1 in light and dark alike, and the hover lightens rather than
   // reaching for a red the palette does not have.
-  danger: 'bg-danger-solid text-white hover:bg-danger-solid-hover shadow-sm',
+  danger: `bg-danger-solid text-white hover:bg-danger-solid-hover shadow-sm ${lift}`,
 };
 
 const sizes: Record<ButtonSize, string> = {

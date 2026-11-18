@@ -23,6 +23,8 @@ import { leaderAccounts, POSITION_LABELS } from '../domain/committees';
 import { hiddenSections, resolveImage, visibleFooterLinks, visibleNavigation } from '../domain/cms';
 import { seasonCovering, seasonsInOrder } from '../domain/seasons';
 import { HISTORICAL_MILESTONES, APPRECIATION_PROFILES, HISTORICAL_SOCIAL_INSIGHTS } from '../data/historyData';
+import { EXTERNAL_LINKS, RESOURCE_LINK_LABELS, platformFromNetwork } from '../config/externalLinks';
+import { PlatformIcon } from './PlatformIcons';
 import {
   AnimatedNumber,
   MagneticButton,
@@ -114,6 +116,14 @@ const ALWAYS_PRESENT = new Set(['journey', 'how-it-works', 'process']);
 
 /** The book cloth on the FOLIO row's spines, cycled per committee. */
 const SPINE_ACCENTS = [PALETTE.navy, PALETTE.orange, PALETTE.navyLight, PALETTE.orangeDark, PALETTE.navyDark, PALETTE.greenMid];
+
+/** Per-platform hover hues for the light contact band, all drawn from the palette the site owns. */
+const SOCIAL_HOVER: Record<string, string> = {
+  tiktok: 'hover:text-ink-strong hover:border-ink-strong',
+  instagram: 'hover:text-pink hover:border-pink',
+  linkedin: 'hover:text-navy-light hover:border-navy-light',
+  facebook: 'hover:text-indigo hover:border-indigo',
+};
 
 const SectionIntro: React.FC<{
   eyebrow: string;
@@ -414,6 +424,13 @@ export const PublicWebsite: React.FC<PublicWebsiteProps> = ({
         { label: 'Appreciation', href: '#appreciation' },
       ],
     },
+    {
+      heading: 'Resources',
+      links: [
+        { label: RESOURCE_LINK_LABELS.drive, href: EXTERNAL_LINKS.drive, external: true },
+        { label: RESOURCE_LINK_LABELS.whatsapp, href: EXTERNAL_LINKS.whatsapp, external: true },
+      ],
+    },
   ]
     .map((column) => ({ ...column, links: column.links.filter((link) => reachable(link.href)) }))
     .filter((column) => column.links.length > 0);
@@ -421,8 +438,13 @@ export const PublicWebsite: React.FC<PublicWebsiteProps> = ({
   const shipSocials = useMemo(
     () =>
       (content.socials ?? [])
-        .filter((social) => social.visible && social.handle !== '')
-        .map((social) => ({ id: social.id, label: `${social.network}: ${social.handle}`, href: social.url || '#' })),
+        .filter((social) => social.visible && social.handle !== '' && social.url !== '')
+        .map((social) => ({
+          id: social.id,
+          label: social.network ? `${social.network}: ${social.handle}` : social.handle,
+          href: social.url,
+          network: social.network,
+        })),
     [content.socials]
   );
 
@@ -476,6 +498,16 @@ export const PublicWebsite: React.FC<PublicWebsiteProps> = ({
           </div>
           <div className="flex items-center gap-4 text-slate-300">
             <span className="font-semibold text-accent">"Be Positive Valuable"</span>
+            <a
+              href={EXTERNAL_LINKS.whatsapp}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="Contact ESME CU Chapter on WhatsApp (opens in a new tab)"
+              title="WhatsApp the chapter"
+              className="text-slate-300 hover:text-white transition-colors rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
+            >
+              <PlatformIcon platform="whatsapp" className="w-4 h-4" />
+            </a>
             <motion.button
               onClick={onNavigateToDashboard}
               className="text-xs bg-accent hover:bg-accent-strong text-slate-950 px-3 py-1 rounded font-bold shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
@@ -1204,20 +1236,27 @@ export const PublicWebsite: React.FC<PublicWebsiteProps> = ({
           </div>
 
           <StaggerGroup className="grid grid-cols-1 md:grid-cols-2 gap-8" step={0.12}>
-            {committees.map((comm) => (
+            {committees.map((comm, index) => {
+              const accent = SPINE_ACCENTS[index % SPINE_ACCENTS.length];
+              return (
               <StaggerItem key={comm.id} variants={groupItemScale}>
                 <motion.div
                   id={`committee-${comm.id}`}
-                  className="scroll-mt-28 bg-ivory border border-slate-200 rounded-2xl p-6 sm:p-8 hover:shadow-lg hover:border-brand/25 transition-shadow flex flex-col justify-between"
-                  whileHover={{ y: -4 }}
+                  className="scroll-mt-28 relative overflow-hidden bg-ivory border border-slate-200 rounded-2xl p-6 sm:p-8 hover:shadow-lg hover:border-brand/25 transition-shadow flex flex-col justify-between"
+                  whileHover={{ y: -3 }}
                   transition={transitions.standard}
                 >
+                  <span aria-hidden className="absolute inset-x-0 top-0 h-1.5" style={{ backgroundColor: accent }} />
                   <div>
                     <div className="flex items-center justify-between gap-3 mb-4">
-                      <span className="px-3 py-1 bg-brand text-white text-xs font-black rounded-lg">
+                      <span
+                        className="px-3 py-1 text-xs font-black rounded-lg text-slate-900"
+                        style={{ backgroundColor: `color-mix(in srgb, ${accent} 16%, white)` }}
+                      >
                         {comm.shortCode}
                       </span>
-                      <span className="text-xs font-bold text-accent uppercase tracking-wider">
+                      <span className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-600 uppercase tracking-wider">
+                        <span aria-hidden className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: accent }} />
                         {comm.status === 'active' ? 'Active committee' : 'Archived'}
                       </span>
                     </div>
@@ -1264,7 +1303,7 @@ export const PublicWebsite: React.FC<PublicWebsiteProps> = ({
                     <ul className="space-y-1 text-xs text-slate-600">
                       {comm.objectives.slice(0, 2).map((obj, i) => (
                         <li key={i} className="flex items-center gap-1.5">
-                          <CheckCircle2 className="w-3.5 h-3.5 text-accent shrink-0" />
+                          <CheckCircle2 className="w-3.5 h-3.5 shrink-0" style={{ color: accent }} />
                           <span className="truncate">{obj}</span>
                         </li>
                       ))}
@@ -1272,7 +1311,8 @@ export const PublicWebsite: React.FC<PublicWebsiteProps> = ({
                   </div>
                 </motion.div>
               </StaggerItem>
-            ))}
+              );
+            })}
           </StaggerGroup>
 
         </div>
@@ -1568,22 +1608,60 @@ export const PublicWebsite: React.FC<PublicWebsiteProps> = ({
                     </div>
                   </motion.div>
                 </StaggerItem>
+
+                <StaggerItem>
+                  <motion.div className="flex items-center gap-3 text-slate-700" whileHover={{ x: 4 }} transition={transitions.micro}>
+                    <div className="w-10 h-10 rounded-xl bg-success/15 flex items-center justify-center text-success-ink shrink-0">
+                      <PlatformIcon platform="whatsapp" className="w-5 h-5" />
+                    </div>
+                    <div className="min-w-0">
+                      <div className="text-xs text-slate-500 font-semibold">WhatsApp</div>
+                      <a
+                        href={EXTERNAL_LINKS.whatsapp}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        aria-label="Message ESME CU Chapter on WhatsApp (opens in a new tab)"
+                        className="text-sm font-bold text-brand hover:text-success-ink transition-colors break-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus rounded"
+                      >
+                        Message the chapter directly
+                      </a>
+                    </div>
+                  </motion.div>
+                </StaggerItem>
               </StaggerGroup>
 
               {(content.socials ?? []).filter((social) => social.visible && social.handle !== '').length > 0 && (
                 <Reveal delay={0.2}>
                   <div className="pt-4 flex flex-wrap items-center gap-3">
-                    <span className="text-xs font-bold text-slate-500 uppercase">Confirmed Social Handle:</span>
+                    <span className="text-xs font-bold text-slate-500 uppercase">Follow the chapter:</span>
                     {(content.socials ?? [])
                       .filter((social) => social.visible && social.handle !== '')
-                      .map((social) => (
-                        <span
-                          key={social.id}
-                          className="px-3 py-1 bg-slate-100 border border-slate-200 text-brand font-bold text-xs rounded-md hover:border-accent transition-colors"
-                        >
-                          {social.handle}
-                        </span>
-                      ))}
+                      .map((social) => {
+                        const platform = platformFromNetwork(social.network);
+                        const chip =
+                          'inline-flex items-center gap-1.5 px-3 py-1 bg-surface-muted border border-border text-brand font-bold text-xs rounded-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus';
+                        const hover = SOCIAL_HOVER[platform ?? ''] ?? 'hover:border-accent';
+                        const label = social.network ? `${social.network}: ${social.handle}` : social.handle;
+                        return social.url ? (
+                          <a
+                            key={social.id}
+                            href={social.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            aria-label={label}
+                            title={label}
+                            className={`${chip} ${hover}`}
+                          >
+                            {platform && <PlatformIcon platform={platform} className="w-3.5 h-3.5" />}
+                            {social.handle}
+                          </a>
+                        ) : (
+                          <span key={social.id} className={chip}>
+                            {platform && <PlatformIcon platform={platform} className="w-3.5 h-3.5" />}
+                            {social.handle}
+                          </span>
+                        );
+                      })}
                   </div>
                 </Reveal>
               )}

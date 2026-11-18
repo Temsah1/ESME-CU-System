@@ -9,7 +9,7 @@ import {
 } from 'lucide-react';
 import { useApp, useActor } from '../../context/AppContext';
 import { scopeFor, type Capability } from '../../domain/roles';
-import { ModalShell, durations, easings } from '../../motion';
+import { ModalShell, transitions } from '../../motion';
 import { NAV_ITEMS } from './nav';
 import type { DashboardView } from './DashboardShell';
 
@@ -229,10 +229,10 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({ open, onClose, o
                       aria-selected={isCurrentRow}
                       onMouseEnter={() => setActive(index)}
                       onClick={() => result.run()}
-                      initial={{ opacity: 0, y: 4 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ duration: durations.micro, ease: easings.smooth }}
-                      className={`w-full flex items-center gap-3 px-3 py-2 rounded-control text-left transition-colors ${
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      transition={transitions.paletteFilter}
+                      className={`w-full flex items-center gap-3 px-3 py-2 rounded-control text-left transition-colors duration-[100ms] ${
                         isCurrentRow
                           ? 'bg-brand text-white shadow-sm'
                           : 'text-ink hover:bg-surface-muted'

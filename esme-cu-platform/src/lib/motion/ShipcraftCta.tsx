@@ -4,6 +4,8 @@ import { onRevealed } from './reveal';
 import { killTweens, LogoDraw, useGsap, type ScrollTween } from './petalyx';
 import './shipcraft.css';
 import { PALETTE } from '../../theme/palette';
+import { PlatformIcon } from '../../components/PlatformIcons';
+import { platformFromNetwork } from '../../config/externalLinks';
 
 /**
  * SHIPCRAFT — the closing band and the footer that belongs to it.
@@ -14,7 +16,7 @@ import { PALETTE } from '../../theme/palette';
  * columns rhythm readable in the markup instead of scattered across timeouts.
  */
 
-export type ShipColumn = { heading: string; links: { label: string; href: string }[] };
+export type ShipColumn = { heading: string; links: { label: string; href: string; external?: boolean }[] };
 
 export type ShipcraftCtaProps = {
   eyebrow: string;
@@ -30,7 +32,7 @@ export type ShipcraftCtaProps = {
   copyright: string;
   legal?: string;
   footerLinks: { id: string; label: string; href: string }[];
-  socials?: { id: string; label: string; href: string }[];
+  socials?: { id: string; label: string; href: string; network?: string }[];
   newsletterLabel?: string;
   wordmark?: string;
 };
@@ -231,13 +233,28 @@ export const ShipcraftCta: React.FC<ShipcraftCtaProps> = ({
           )}
           {socials.length > 0 && (
             <div className="ship-social">
-              {socials.map((social) => (
-                <a key={social.id} href={social.href} aria-label={social.label} rel="noreferrer" target="_blank">
-                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
-                    <path d="M7 17 17 7M9 7h8v8" strokeLinecap="round" strokeLinejoin="round" />
-                  </svg>
-                </a>
-              ))}
+              {socials.map((social) => {
+                const platform = platformFromNetwork(social.network ?? '');
+                return (
+                  <a
+                    key={social.id}
+                    href={social.href}
+                    aria-label={social.label}
+                    title={social.label}
+                    rel="noopener noreferrer"
+                    target="_blank"
+                    data-platform={platform ?? undefined}
+                  >
+                    {platform ? (
+                      <PlatformIcon platform={platform} className="h-[15px] w-[15px]" />
+                    ) : (
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
+                        <path d="M7 17 17 7M9 7h8v8" strokeLinecap="round" strokeLinejoin="round" />
+                      </svg>
+                    )}
+                  </a>
+                );
+              })}
             </div>
           )}
         </div>
@@ -248,7 +265,12 @@ export const ShipcraftCta: React.FC<ShipcraftCtaProps> = ({
             <ul>
               {column.links.map((link) => (
                 <li key={link.label}>
-                  <a href={link.href}>{link.label}</a>
+                  <a
+                    href={link.href}
+                    {...(link.external ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
+                  >
+                    {link.label}
+                  </a>
                 </li>
               ))}
             </ul>

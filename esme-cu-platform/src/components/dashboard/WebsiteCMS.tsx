@@ -143,8 +143,8 @@ export const WebsiteCMS: React.FC<{ onNavigate?: (view: DashboardView) => void }
     <div className="space-y-6">
       <div className="flex flex-col xl:flex-row xl:items-end justify-between gap-4">
         <div>
-          <h1 className="text-xl font-black text-slate-900 dark:text-white">Public website content</h1>
-          <p className="text-xs text-slate-500">
+          <h1 className="text-title font-black text-ink-strong">Public website content</h1>
+          <p className="text-caption text-ink-muted">
             The words, blocks, links and pictures of the public page. Editing changes a draft; publishing puts it on
             the page.
           </p>
@@ -152,17 +152,22 @@ export const WebsiteCMS: React.FC<{ onNavigate?: (view: DashboardView) => void }
 
         <div className="flex flex-wrap items-end gap-2">
           {savedAt && (
-            <span className="text-[11px] font-bold text-emerald-700 dark:text-emerald-400 flex items-center gap-1">
+            <span className="text-micro font-bold text-success-ink flex items-center gap-1">
               <CircleCheck className="w-4 h-4" /> Draft saved {savedAt}
             </span>
           )}
+          {unsaved && (
+            <span className="inline-flex items-center gap-1.5 text-micro font-bold px-2.5 py-1 rounded-pill bg-accent/15 text-ink">
+              <span aria-hidden className="w-1.5 h-1.5 rounded-full bg-accent" />
+              Unsaved edits
+            </span>
+          )}
           <span
-            className={`text-[11px] font-bold px-2.5 py-1 rounded-lg ${
-              waiting === 0
-                ? 'bg-slate-100 dark:bg-slate-800 text-slate-500'
-                : 'bg-amber-100 dark:bg-amber-500/20 text-amber-800 dark:text-amber-300'
+            className={`inline-flex items-center gap-1.5 text-micro font-bold px-2.5 py-1 rounded-pill ${
+              waiting === 0 ? 'bg-success/15 text-ink' : 'bg-warning/20 text-ink'
             }`}
           >
+            <span aria-hidden className={`w-1.5 h-1.5 rounded-full ${waiting === 0 ? 'bg-success-ink' : 'bg-warning'}`} />
             {waiting === 0 ? 'Live page matches the draft' : `${waiting} field(s) waiting to publish`}
           </span>
 
@@ -173,28 +178,28 @@ export const WebsiteCMS: React.FC<{ onNavigate?: (view: DashboardView) => void }
               onChange={(event) => setPublishLabel(event.target.value)}
               placeholder="What changed (optional)"
               aria-label="Note for the publish history"
-              className="w-44 px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-[11px] outline-none"
+              className="w-44 px-3 py-2 rounded-control border border-border bg-surface text-micro text-ink placeholder:text-ink-faint outline-none transition-[border-color,box-shadow] duration-micro focus:ring-[3px] focus:ring-focus/30 focus:border-brand"
             />
           </label>
 
           <button
             onClick={handleSave}
             disabled={!mayEdit}
-            className="px-4 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 transition flex items-center gap-1.5 disabled:opacity-50"
+            className="px-4 py-2.5 rounded-control border border-border-strong text-caption font-bold text-ink-muted hover:bg-surface-muted hover:text-ink transition-colors duration-micro flex items-center gap-1.5 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
           >
             <Save className="w-4 h-4" /> Save draft
           </button>
           <button
             onClick={handlePublish}
             disabled={publishBlockedBecause !== null}
-            className="px-4 py-2.5 rounded-xl bg-brand text-white text-xs font-bold hover:bg-navy-deep transition flex items-center gap-1.5 disabled:opacity-50"
+            className="px-4 py-2.5 rounded-control bg-brand text-white text-caption font-bold hover:bg-brand-ink shadow-sm transition-[background-color,box-shadow,transform] duration-micro motion-safe:hover:-translate-y-px hover:shadow-raised flex items-center gap-1.5 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
           >
             <Send className="w-4 h-4" /> Publish live page
           </button>
           <button
             onClick={handleDiscard}
             disabled={!mayEdit || waiting === 0}
-            className="px-3 py-2.5 rounded-xl border border-rose-200 dark:border-rose-500/40 text-xs font-bold text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-500/10 transition flex items-center gap-1.5 disabled:opacity-50"
+            className="px-3 py-2.5 rounded-control border border-danger/30 text-caption font-bold text-danger hover:bg-danger/10 transition-colors duration-micro flex items-center gap-1.5 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
           >
             <Undo2 className="w-4 h-4" /> Discard draft
           </button>
@@ -202,16 +207,16 @@ export const WebsiteCMS: React.FC<{ onNavigate?: (view: DashboardView) => void }
       </div>
 
       {publishBlockedBecause && (
-        <p className="text-[11px] font-bold text-slate-500 dark:text-slate-400" role="status">
+        <p className="text-micro font-bold text-ink-muted" role="status">
           {publishBlockedBecause}
         </p>
       )}
 
       {!mayEdit && (
-        <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/60 p-4 flex items-start gap-3 text-xs text-slate-600 dark:text-slate-300">
-          <Lock className="w-4 h-4 shrink-0 mt-0.5 text-slate-400" aria-hidden />
+        <div className="rounded-card border border-border bg-surface-sunken p-4 flex items-start gap-3 text-caption text-ink-muted">
+          <Lock className="w-4 h-4 shrink-0 mt-0.5 text-ink-subtle" aria-hidden />
           <p>
-            Global site copy is written by the <span className="font-mono text-[10px]">cms.settings.global</span>{' '}
+            Global site copy is written by the <span className="font-mono text-micro">cms.settings.global</span>{' '}
             capability. Your role can read this configuration but not change it, and the provider — not this page — is
             what refuses a write attempt.
           </p>
@@ -219,12 +224,12 @@ export const WebsiteCMS: React.FC<{ onNavigate?: (view: DashboardView) => void }
       )}
 
       {check.notes.length > 0 && (
-        <div className="rounded-2xl border border-amber-200 dark:border-amber-500/30 bg-amber-50 dark:bg-amber-500/10 p-4 text-amber-900 dark:text-amber-200 space-y-1.5">
-          <p className="flex items-start gap-3 text-xs font-bold">
-            <TriangleAlert className="w-4 h-4 shrink-0 mt-0.5 text-amber-600" aria-hidden />
+        <div className="rounded-card border border-warning/40 bg-warning/15 p-4 text-ink space-y-1.5">
+          <p className="flex items-start gap-3 text-caption font-bold">
+            <TriangleAlert className="w-4 h-4 shrink-0 mt-0.5 text-warning" aria-hidden />
             Saving now would change what you typed, because the page will not accept it as written:
           </p>
-          <ul className="list-disc pl-9 space-y-0.5 text-[11px] leading-relaxed">
+          <ul className="list-disc pl-9 space-y-0.5 text-micro leading-relaxed">
             {check.notes.map((note, index) => (
               <li key={index}>{note}</li>
             ))}
@@ -233,8 +238,8 @@ export const WebsiteCMS: React.FC<{ onNavigate?: (view: DashboardView) => void }
       )}
 
       {mayEdit && check.notes.length === 0 && (
-        <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 flex items-start gap-3 text-[11px] leading-relaxed text-slate-600 dark:text-slate-300">
-          <TriangleAlert className="w-4 h-4 shrink-0 mt-0.5 text-slate-400" aria-hidden />
+        <div className="rounded-card border border-border bg-surface p-4 flex items-start gap-3 text-micro leading-relaxed text-ink-muted">
+          <TriangleAlert className="w-4 h-4 shrink-0 mt-0.5 text-ink-subtle" aria-hidden />
           <p>
             Save stores the draft in this browser; Publish moves it onto the page a visitor reads. Neither is a deploy —
             this build ships through no provider, so the internet still serves the last bundle pushed to it. A publish

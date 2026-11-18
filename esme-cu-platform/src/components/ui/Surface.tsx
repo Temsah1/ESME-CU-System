@@ -165,8 +165,8 @@ export const StatTile: React.FC<{
 }> = ({ label, value, trend, hint, icon: Icon, tone, onClick, className }) => {
   const base = cn(
     'rounded-card border border-border bg-surface shadow-card p-4 flex flex-col justify-between h-full',
-    'transition-[border-color,box-shadow] duration-standard ease-smooth motion-reduce:transition-none',
-    onClick && 'w-full text-left cursor-pointer hover:border-brand/40 hover:shadow-raised',
+    'transition-[border-color,box-shadow,transform] duration-standard ease-smooth motion-reduce:transition-none',
+    onClick && 'group w-full text-left cursor-pointer hover:border-brand/40 hover:shadow-raised motion-safe:hover:-translate-y-[3px]',
     className
   );
   const body = (
@@ -208,7 +208,7 @@ export const StatTile: React.FC<{
           ) : null}
           {hint ? <span className="text-micro text-ink-subtle leading-snug">{hint}</span> : null}
         </span>
-        {onClick ? <ChevronRight className="w-4 h-4 shrink-0 text-ink-faint" aria-hidden /> : null}
+        {onClick ? <ChevronRight className="w-4 h-4 shrink-0 text-ink-faint transition-transform duration-micro group-hover:translate-x-0.5 motion-reduce:transition-none motion-reduce:group-hover:translate-x-0" aria-hidden /> : null}
       </span>
     </>
   );
@@ -286,7 +286,7 @@ export const Skeleton: React.FC<{
       <div
         key={i}
         className={cn(
-          'bg-surface-muted rounded-control motion-safe:animate-pulse',
+          'skeleton-shimmer rounded-control',
           variant === 'circle' ? 'h-10 w-10 rounded-full' : variant === 'rect' ? 'h-24' : 'h-3'
         )}
       />

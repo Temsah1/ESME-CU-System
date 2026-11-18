@@ -220,7 +220,7 @@ export function DataTable<T>({
                   {shown.map((row) => (
                     <tr
                       key={rowKey(row)}
-                      className="hover:bg-surface-muted/50 transition-colors"
+                      className="hover:bg-tint-hover transition-colors duration-[100ms]"
                     >
                       {columns.map((column) => (
                         <td
@@ -247,7 +247,7 @@ export function DataTable<T>({
           ) : (
             <ul className="divide-y divide-border">
               {shown.map((row) => (
-                <li key={rowKey(row)} className="p-4 space-y-3 hover:bg-surface-muted/30 transition-colors">
+                <li key={rowKey(row)} className="p-4 space-y-3 hover:bg-tint-hover transition-colors duration-[100ms]">
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0 flex-1 font-semibold text-ink">{cardTitle ? cardTitle.render(row) : null}</div>
                     <div className="flex items-center gap-1.5 shrink-0">
@@ -327,7 +327,7 @@ export function DataTable<T>({
                 className={cn(
                   "px-4 py-2 rounded-control text-caption font-bold transition-colors shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus",
                   pendingConfirm.action.danger
-                    ? "bg-danger text-white hover:brightness-95"
+                    ? "bg-danger-solid text-white hover:bg-danger-solid-hover"
                     : "bg-accent text-slate-950 hover:bg-accent-hover"
                 )}
               >

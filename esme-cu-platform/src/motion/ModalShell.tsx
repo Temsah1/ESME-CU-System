@@ -1,7 +1,7 @@
 import React, { useRef } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { useDialogA11y } from '../lib/useDialogA11y';
-import { durations, easings } from './tokens';
+import { easings, modalPanelPose, transitions } from './tokens';
 
 interface ModalShellProps {
   open: boolean;
@@ -27,13 +27,13 @@ export const ModalShell: React.FC<ModalShellProps> = ({ open, onClose, className
           className="fixed inset-0 z-50 flex items-center justify-center p-4"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          transition={{ duration: durations.standard, ease: easings.smooth }}
+          exit={{ opacity: 0, transition: transitions.modalClose }}
+          transition={transitions.modalBackdrop}
           onMouseDown={(e) => {
             if (e.target === e.currentTarget) onClose();
           }}
         >
-          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" aria-hidden="true" />
+          <div className="absolute inset-0 bg-overlay backdrop-blur-sm" aria-hidden="true" />
           <motion.div
             ref={panelRef}
             role="dialog"
@@ -42,11 +42,11 @@ export const ModalShell: React.FC<ModalShellProps> = ({ open, onClose, className
             // Focusable so the trap has somewhere to put focus on open; the outline is suppressed
             // because the ring would be drawn around the whole dialog and point at nothing.
             tabIndex={-1}
-            className={`relative outline-none shadow-2xl ${className ?? ''}`}
-            initial={{ opacity: 0, scale: 0.95, y: 16 }}
+            className={`relative outline-none shadow-overlay ${className ?? ''}`}
+            initial={{ opacity: 0, scale: modalPanelPose.scaleFrom, y: modalPanelPose.yFrom }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.96, y: 10 }}
-            transition={{ duration: durations.standard + 0.08, ease: easings.out }}
+            exit={{ opacity: 0, scale: modalPanelPose.scaleFrom, y: modalPanelPose.yFrom, transition: transitions.modalClose }}
+            transition={transitions.modalPanel}
           >
             {children}
           </motion.div>
@@ -84,13 +84,13 @@ export const DrawerShell: React.FC<DrawerShellProps> = ({
           className={`fixed inset-0 z-50 flex ${side === 'left' ? 'justify-start' : 'justify-end'}`}
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          transition={{ duration: durations.standard, ease: easings.smooth }}
+          exit={{ opacity: 0, transition: transitions.modalClose }}
+          transition={transitions.modalBackdrop}
           onMouseDown={(e) => {
             if (e.target === e.currentTarget) onClose();
           }}
         >
-          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" aria-hidden="true" />
+          <div className="absolute inset-0 bg-scrim backdrop-blur-sm" aria-hidden="true" />
           <motion.aside
             ref={panelRef as React.RefObject<HTMLDivElement>}
             // A drawer used to be an `<aside>` with nothing to say about itself: no role, no name, no
@@ -102,7 +102,7 @@ export const DrawerShell: React.FC<DrawerShellProps> = ({
             initial={{ x: side === 'left' ? '-100%' : '100%' }}
             animate={{ x: 0 }}
             exit={{ x: side === 'left' ? '-100%' : '100%' }}
-            transition={{ type: 'spring', stiffness: 320, damping: 34 }}
+            transition={easings.spring}
             className={`relative outline-none h-full overflow-y-auto pt-safe pb-safe ${className ?? ''}`}
           >
             {children}

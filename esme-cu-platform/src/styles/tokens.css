@@ -272,6 +272,7 @@
 
   --color-focus: var(--app-focus);
   --color-overlay: var(--app-overlay);
+  --color-scrim: var(--app-scrim);
   --color-success: var(--app-success);
   /* The readable pair of `success`: #10b981 is a fill, and as text on paper it lands at 2.5:1.
      `success-ink` is the deep green in light mode and the mid green on slate, so it clears AA both
@@ -363,15 +364,27 @@
 
   /* Motion — mirrors src/motion/tokens.ts; tokens.test.ts fails if the two drift apart.
      `--transition-duration-*` rather than a shorter name because that is the namespace Tailwind's
-     `duration-*` utility reads; under any other name these four tokens compile to nothing. The
-     easing curves keep Tailwind's own `--ease-*` namespace, which `ease-smooth` does read. */
-  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+     `duration-*` utility reads; under any other name these tokens compile to nothing. The easing
+     curves keep Tailwind's own `--ease-*` namespace, which `ease-smooth` does read. */
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
   --ease-smooth: cubic-bezier(0.4, 0, 0.2, 1);
   --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
   --transition-duration-micro: 150ms;
   --transition-duration-standard: 280ms;
   --transition-duration-section: 600ms;
   --transition-duration-hero: 900ms;
+  --transition-duration-route-in: 220ms;
+  --transition-duration-route-out: 150ms;
+  --transition-duration-toast-enter: 220ms;
+  --transition-duration-toast-exit: 180ms;
+  --transition-duration-modal-backdrop: 200ms;
+  --transition-duration-modal-panel: 240ms;
+  --transition-duration-modal-close: 150ms;
+  --transition-duration-badge-crossfade: 250ms;
+  --transition-duration-palette-filter: 100ms;
+  --transition-duration-error-slide: 200ms;
+  --transition-duration-row-flash: 600ms;
+  --transition-duration-shake: 300ms;
 
   /* Layout — the fixed chrome the shell reads. The rail is sized so its 12px gutter, a 40px icon
      and a truncated label fit without a second line, and the collapsed rail is exactly one icon
@@ -502,6 +515,48 @@ body {
 }
 .pt-safe {
   padding-top: env(safe-area-inset-top, 0px);
+}
+
+/*
+ * Loading skeleton (§2.9). A highlight sweeps the muted block on a 1.4s linear loop — the eye reads
+ * "content is coming" without a spinner stealing the layout. Under reduced motion the sweep is gone:
+ * the gradient is removed and the global kill switch collapses the opacity rest to a static muted
+ * block, which is the "or nothing" the motion contract allows.
+ */
+.skeleton-shimmer {
+  background-color: var(--app-surface-muted);
+  background-image: linear-gradient(
+    90deg,
+    transparent,
+    color-mix(in srgb, var(--app-text) 7%, transparent),
+    transparent
+  );
+  background-size: 200% 100%;
+  background-repeat: no-repeat;
+  animation: skeleton-shimmer 1.4s linear infinite;
+}
+@keyframes skeleton-shimmer {
+  from {
+    background-position: 200% 0;
+  }
+  to {
+    background-position: -200% 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .skeleton-shimmer {
+    background-image: none;
+    animation: skeleton-rest 1.4s ease-in-out infinite;
+  }
+}
+@keyframes skeleton-rest {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.6;
+  }
 }
 
 /*
