@@ -23,7 +23,7 @@ import { leaderAccounts, POSITION_LABELS } from '../domain/committees';
 import { hiddenSections, resolveImage, visibleFooterLinks, visibleNavigation } from '../domain/cms';
 import { seasonCovering, seasonsInOrder } from '../domain/seasons';
 import { HISTORICAL_MILESTONES, APPRECIATION_PROFILES, HISTORICAL_SOCIAL_INSIGHTS } from '../data/historyData';
-import { EXTERNAL_LINKS, RESOURCE_LINK_LABELS, type SocialLinkItem } from '../config/externalLinks';
+import { EXTERNAL_LINKS, RESOURCE_LINK_LABELS, OFFICIAL_SOCIALS, type SocialLinkItem } from '../config/externalLinks';
 import { SocialLinks, SocialGlyph, SocialIconLink } from './SocialLinks';
 import {
   AnimatedNumber,
@@ -427,34 +427,44 @@ export const PublicWebsite: React.FC<PublicWebsiteProps> = ({
     .map((column) => ({ ...column, links: column.links.filter((link) => reachable(link.href)) }))
     .filter((column) => column.links.length > 0);
 
+  /**
+   * The socials the page actually shows. A published list whose visible entries carry no address is
+   * the legacy placeholder that predates the official links, so it falls back to the shipped
+   * defaults instead of rendering nothing. Real operator addresses always win; hiding every social
+   * still hides them.
+   */
+  const effectiveSocials = useMemo(() => {
+    const published = content.socials ?? [];
+    const usable = published.filter((social) => social.visible && social.url !== '');
+    if (usable.length > 0) return usable;
+    if (published.some((social) => social.visible)) return OFFICIAL_SOCIALS;
+    return [];
+  }, [content.socials]);
+
   const shipSocials = useMemo(
     () =>
-      (content.socials ?? [])
-        .filter((social) => social.visible && social.handle !== '' && social.url !== '')
-        .map((social) => ({
-          id: social.id,
-          label: social.network ? `${social.network}: ${social.handle}` : social.handle,
-          href: social.url,
-          network: social.network,
-        })),
-    [content.socials]
-  );
-
-  const followSocials = useMemo<SocialLinkItem[]>(() => {
-    const profiles = (content.socials ?? [])
-      .filter((social) => social.visible && social.handle !== '' && social.url !== '')
-      .map((social) => ({
+      effectiveSocials.map((social) => ({
         id: social.id,
         label: social.network ? `${social.network}: ${social.handle}` : social.handle,
         href: social.url,
         network: social.network,
-        text: social.handle,
-      }));
+      })),
+    [effectiveSocials]
+  );
+
+  const followSocials = useMemo<SocialLinkItem[]>(() => {
+    const profiles = effectiveSocials.map((social) => ({
+      id: social.id,
+      label: social.network ? `${social.network}: ${social.handle}` : social.handle,
+      href: social.url,
+      network: social.network,
+      text: social.handle,
+    }));
     const email = content.contact.email;
     return email
       ? [...profiles, { id: 'social_email', label: `Email: ${email}`, href: `mailto:${email}`, network: 'Email', text: email }]
       : profiles;
-  }, [content.socials, content.contact.email]);
+  }, [effectiveSocials, content.contact.email]);
 
   /** A book click lands on the same card the written list links to. */
   const openCommittee = (id: string) => {
